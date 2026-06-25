@@ -1,0 +1,57 @@
+import express from 'express'
+import pool from '../db/index.js'
+import { authMiddleware } from '../middleware/auth.js'
+
+const router = express.Router()
+router.use(authMiddleware)
+
+router.get('/', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM holdings WHERE user_id = $1 ORDER BY ticker',
+      [req.userId]
+    )
+    res.json(result.rows)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/', async (req, res) => {
+  const { ticker, name, shares, avg_cost, sector, currency } = req.body
+  try {
+    const result = await pool.query(
+      `INSERT INTO holdings (user_id, ticker, name, shares, avg_cost, sector, currency)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [req.userId, ticker, name, shares, avg_cost, sector, currency || 'USD']
+    )
+    res.json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.put('/:id', async (req, res) => {
+  const { ticker, name, shares, avg_cost, sector, currency } = req.body
+  try {
+    const result = await pool.query(
+      `UPDATE holdings SET ticker=$1, name=$2, shares=$3, avg_cost=$4, sector=$5, currency=$6, updated_at=NOW()
+       WHERE id=$7 AND user_id=$8 RETURNING *`,
+      [ticker, name, shares, avg_cost, sector, currency || 'USD', req.params.id, req.userId]
+    )
+    res.json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.delete('/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM holdings WHERE id=$1 AND user_id=$2', [req.params.id, req.userId])
+    res.json({ message: 'Deleted' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+export default router
