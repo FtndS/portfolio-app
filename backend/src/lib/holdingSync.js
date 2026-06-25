@@ -4,13 +4,14 @@ import { fetchCompanyProfile, needsSectorRefresh } from './profile.js'
 export async function syncHoldingFromTransactions(client, userId, portfolioId, ticker, profile = null) {
   const allTx = await client.query(
     `SELECT type, shares, price FROM transactions
-     WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3`,
+     WHERE user_id = $1 AND ticker = $3 AND (portfolio_id = $2 OR portfolio_id IS NULL)`,
     [userId, portfolioId, ticker]
   )
 
   if (allTx.rows.length === 0) {
     await client.query(
-      'DELETE FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3',
+      `DELETE FROM holdings WHERE user_id = $1 AND ticker = $3
+       AND (portfolio_id = $2 OR portfolio_id IS NULL)`,
       [userId, portfolioId, ticker]
     )
     return null
@@ -33,7 +34,8 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
 
   if (netShares <= 0.000001) {
     await client.query(
-      'DELETE FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3',
+      `DELETE FROM holdings WHERE user_id = $1 AND ticker = $3
+       AND (portfolio_id = $2 OR portfolio_id IS NULL)`,
       [userId, portfolioId, ticker]
     )
     return null
@@ -42,7 +44,8 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
   const avgCost = totalBuyShares > 0 ? totalBuyCost / totalBuyShares : 0
 
   const existing = await client.query(
-    'SELECT id, name, sector, currency, market FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3',
+    `SELECT id, name, sector, currency, market FROM holdings
+     WHERE user_id = $1 AND ticker = $3 AND (portfolio_id = $2 OR portfolio_id IS NULL)`,
     [userId, portfolioId, ticker]
   )
 
@@ -59,9 +62,10 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
 
   if (existing.rows.length > 0) {
     await client.query(
-      `UPDATE holdings SET shares = $1, avg_cost = $2, name = $3, sector = $4, updated_at = NOW()
-       WHERE user_id = $5 AND portfolio_id = $6 AND ticker = $7`,
-      [netShares, avgCost, name, sector, userId, portfolioId, ticker]
+      `UPDATE holdings SET shares = $1, avg_cost = $2, name = $3, sector = $4,
+        portfolio_id = COALESCE(portfolio_id, $8), updated_at = NOW()
+       WHERE user_id = $5 AND ticker = $7 AND (portfolio_id = $6 OR portfolio_id IS NULL)`,
+      [netShares, avgCost, name, sector, userId, portfolioId, ticker, portfolioId]
     )
   } else {
     await client.query(

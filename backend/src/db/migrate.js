@@ -84,6 +84,22 @@ const migrations = [
         END IF;
       END $$;
     `
+  },
+  {
+    name: '003_repair_null_portfolio_ids',
+    sql: `
+      UPDATE holdings h SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = h.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NULL AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = h.user_id);
+
+      UPDATE transactions t SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = t.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NULL AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = t.user_id);
+
+      UPDATE journal j SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = j.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NULL AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = j.user_id);
+    `
   }
 ]
 

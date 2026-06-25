@@ -2,7 +2,7 @@ import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { toYahooTicker } from '../lib/ticker.js'
-import { resolvePortfolioId } from '../lib/portfolio.js'
+import { resolvePortfolioId, isDefaultPortfolio, getDefaultPortfolioId } from '../lib/portfolio.js'
 import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
 
 const router = express.Router()
@@ -11,8 +11,14 @@ router.use(authMiddleware)
 router.get('/', async (req, res) => {
   try {
     const portfolioId = await resolvePortfolioId(req.userId, req.query.portfolio_id)
+    const includeOrphans = await isDefaultPortfolio(req.userId, portfolioId)
     const result = await pool.query(
-      'SELECT * FROM transactions WHERE user_id = $1 AND portfolio_id = $2 ORDER BY date DESC, created_at DESC',
+      includeOrphans
+        ? `SELECT * FROM transactions WHERE user_id = $1
+           AND (portfolio_id = $2 OR portfolio_id IS NULL)
+           ORDER BY date DESC, created_at DESC`
+        : `SELECT * FROM transactions WHERE user_id = $1 AND portfolio_id = $2
+           ORDER BY date DESC, created_at DESC`,
       [req.userId, portfolioId]
     )
     res.json(result.rows)
@@ -66,7 +72,8 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Not found' })
     }
 
-    const { ticker, portfolio_id: portfolioId } = tx.rows[0]
+    const { ticker, portfolio_id: rawPortfolioId } = tx.rows[0]
+    const portfolioId = rawPortfolioId || await getDefaultPortfolioId(req.userId)
     await client.query('DELETE FROM transactions WHERE id = $1 AND user_id = $2', [req.params.id, req.userId])
     await syncHoldingFromTransactions(client, req.userId, portfolioId, ticker)
 
