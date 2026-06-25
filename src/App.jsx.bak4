@@ -7,6 +7,18 @@ const btnGhost = {padding:'10px 20px',background:'transparent',border:'1px solid
 const wrap = {minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#0a0a0a'}
 const card = {background:'#141414',padding:'36px',borderRadius:'14px',width:'380px',border:'1px solid #2a2a2a'}
 
+// ระบบจำแนก Sector อัตโนมัติ ป้องกันการเลือกผิดและไม่ต้องให้แก้ไขเอง
+const getAutoSector = (ticker) => {
+  const t = (ticker || '').toUpperCase().trim();
+  if (['AAPL', 'NVDA', 'MSFT', 'GOOG', 'GOOGL', 'META', 'AMD', 'TSM', 'AVGO', 'NFLX', 'INTC'].includes(t)) return 'Technology';
+  if (['BRK-B', 'BRK.B', 'BRK-A', 'JPM', 'BAC', 'WFC', 'MS', 'GS', 'V', 'MA', 'SPCX'].includes(t)) return 'Finance';
+  if (['LLY', 'UNH', 'JNJ', 'NVO', 'MRK', 'ABBV', 'PFE', 'AZN'].includes(t)) return 'Healthcare';
+  if (['XOM', 'CVX', 'SHEL', 'BP', 'TTE'].includes(t)) return 'Energy';
+  if (['AMZN', 'WMT', 'COST', 'PG', 'KO', 'PEP', 'TSLA', 'NKE'].includes(t)) return 'Consumer';
+  if (['VOO', 'SPY', 'QQQ', 'IVV', 'DIA'].includes(t)) return 'Diversified';
+  return 'Other';
+}
+
 const sanitizeTicker = (ticker) => {
   if (!ticker) return ''
   return ticker.trim().toUpperCase().replace(/\s+/g, '-').replace(/\./g, '-')
@@ -15,40 +27,35 @@ const sanitizeTicker = (ticker) => {
 // ฟังก์ชันช่วยดึง RSS จากหน้าบ้านโดยใช้ Yahoo RSS และแปลง XML แบบง่าย
 async function clientFetchRSS(tickerSymbol = null) {
   try {
+    // หากต้องการข่าวหน้าแรกดึงจาก news/rssindex หากรายตัวให้ดึงตามสัญลักษณ์หุ้น
     const url = tickerSymbol 
       ? `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${tickerSymbol.replace('.', '-')}`
       : `https://finance.yahoo.com/news/rssindex`;
     
-    // ดึงข้อมูลผ่าน Proxy เพื่อเลี่ยง CORS
+    // ยิงผ่าน Proxy สาธารณะเพื่อแก้ปัญหา CORS บน Browser
     const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
     const data = await res.json();
-    const xmlText = data.contents;
+    const text = data.contents;
     
-    if (!xmlText) return [];
-
-    // ใช้ DOMParser ของบราว์เซอร์แกะ XML แทน Regex เพื่อความเร็วและป้องกันการค้าง
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-    const items = xmlDoc.getElementsByTagName("item");
-    const result = [];
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const title = item.getElementsByTagName("title")[0]?.textContent || "";
-      const link = item.getElementsByTagName("link")[0]?.textContent || "";
-      const pubDate = item.getElementsByTagName("pubDate")[0]?.textContent || "";
-      const source = item.getElementsByTagName("source")[0]?.textContent || "Yahoo Finance";
-
+    const items = [];
+    const matches = text.matchAll(/<item>([\s\S]*?)<\/item>/g);
+    for (const m of matches) {
+      const itemText = m[1];
+      const title = itemText.match(/<title>([\s\S]*?)<\/title>/)?.[1] || '';
+      const link = itemText.match(/<link>([\s\S]*?)<\/link>/)?.[1] || '';
+      const pubDate = itemText.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] || '';
+      const source = itemText.match(/<source[\s\S]*?>([\s\S]*?)<\/source>/)?.[1] || 'Yahoo Finance';
+      
       if (title && link) {
-        result.push({
-          title: title,
+        items.push({
+          title: title.replace(/<!\[CDATA\[(.*?)\]%3E/g, '$1').replace(/&amp;/g, '&'),
           url: link.trim(),
           publishedAt: pubDate,
           source: { name: source }
         });
       }
     }
-    return result;
+    return items;
   } catch (e) {
     console.error('Client RSS Error:', e);
     return [];
@@ -283,7 +290,11 @@ function HoldingModal({holding,onClose,onSave}){
     if(!f.ticker || !f.shares || !f.avg_cost) return
     setLoading(true)
     const cleanTicker = sanitizeTicker(f.ticker)
-    const b={ticker:cleanTicker,name:f.name,shares:parseFloat(f.shares),avg_cost:parseFloat(f.avg_cost),currency:f.currency}
+    
+    // บังคับกำหนดอัตโนมัติจากฝั่งหน้าบ้านตามเงื่อนไขที่ตกลงกันไว้
+    const autoSector = getAutoSector(cleanTicker)
+
+    const b={ticker:cleanTicker,name:f.name,shares:parseFloat(f.shares),avg_cost:parseFloat(f.avg_cost),sector:autoSector,currency:f.currency}
     const r=isEdit?await api.put(`/holdings/${holding.id}`,b):await api.post('/holdings',b)
     setLoading(false)
     if(r.id){onSave();onClose()}
@@ -301,6 +312,11 @@ function HoldingModal({holding,onClose,onSave}){
       <Field label="จำนวนหุ้น"><AmountInput suffix="shares" placeholder="100" value={f.shares} onChange={e=>setF({...f,shares:e.target.value})}/></Field>
       <Field label={`ราคาทุนเฉลี่ย (${f.currency})`}><AmountInput prefix={sym} placeholder="0.00" value={f.avg_cost} onChange={e=>setF({...f,avg_cost:e.target.value})}/></Field>
       
+      {/* 🌟 ซ่อนหรือล็อกเอาแถบเมนู Sector ออกถาวรตามคำขอเพื่อป้องกันข้อมูลป้อนผิด */}
+      <Field label="Sector (กำหนดอัตโนมัติ)">
+        <input style={{...inp(), background: '#111', color: '#555'}} value={getAutoSector(f.ticker)} disabled />
+      </Field>
+
       <div style={{display:'flex',gap:'10px',marginTop:'20px'}}>
         <button type="button" onClick={onClose} style={btnGhost}>ยกเลิก</button>
         <button type="button" onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':isEdit?'บันทึกการแก้ไข':'บันทึก'}</button>
@@ -453,12 +469,12 @@ function Dashboard({user,onLogout}){
     setLoadingP(false)
   },[])
 
-  // 🌟 โดดข้ามข้อจำกัดของ VPS โหลดข่าว RSS ผ่านเบราว์เซอร์ผู้ใช้โดยตรง
+  // 🌟 ปรับปรุงการโหลดข่าวสารหน้าแรกจากเว็บเบราว์เซอร์โดยตรง ปลอดภัยจากการค้างที่ VPS 100%
   const loadClientNews = useCallback(async (hl) => {
     const rawArticles = await clientFetchRSS(null);
     if (!rawArticles.length) return;
 
-    const mySectors = hl.map(h => (h.sector || 'Other').toLowerCase());
+    const mySectors = hl.map(h => (h.sector || getAutoSector(h.ticker)).toLowerCase());
     const myTickers = hl.map(h => h.ticker.toLowerCase());
 
     const inSec = [];
@@ -466,13 +482,10 @@ function Dashboard({user,onLogout}){
 
     rawArticles.forEach(a => {
       const text = a.title.toLowerCase();
-      
       const isMatch = myTickers.some(t => text.includes(t)) || mySectors.some(s => {
-        if (s === 'financial' || s === 'finance' || s === 'financial services') return text.includes('bank') || text.includes('fed') || text.includes('finance') || text.includes('market') || text.includes('rate') || text.includes('insurance');
-        if (s === 'technology') return text.includes('tech') || text.includes('ai') || text.includes('nvidia') || text.includes('chip') || text.includes('apple') || text.includes('google') || text.includes('software');
-        if (s === 'healthcare') return text.includes('health') || text.includes('drug') || text.includes('medical') || text.includes('lly') || text.includes('pharma') || text.includes('biotech');
-        if (s === 'energy') return text.includes('oil') || text.includes('energy') || text.includes('gas') || text.includes('crude');
-        if (s === 'consumer cyclical' || s === 'consumer defensive' || s === 'consumer') return text.includes('retail') || text.includes('consumer') || text.includes('spend') || text.includes('shop');
+        if (s === 'finance') return text.includes('bank') || text.includes('fed') || text.includes('finance') || text.includes('market') || text.includes('rate');
+        if (s === 'technology') return text.includes('tech') || text.includes('ai') || text.includes('nvidia') || text.includes('chip') || text.includes('apple') || text.includes('google');
+        if (s === 'healthcare') return text.includes('health') || text.includes('drug') || text.includes('medical') || text.includes('lly') || text.includes('pharma');
         return text.includes(s);
       });
 

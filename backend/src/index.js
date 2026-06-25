@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js'
 import holdingsRoutes from './routes/holdings.js'
 import transactionsRoutes from './routes/transactions.js'
 import journalRoutes from './routes/journal.js'
+import newsRoutes from './routes/news.js'
 
 dotenv.config()
 
@@ -24,14 +25,6 @@ app.get('/api/health', async (req, res) => {
   }
 })
 
-app.use('/api/auth', authRoutes)
-app.use('/api/holdings', holdingsRoutes)
-app.use('/api/transactions', transactionsRoutes)
-app.use('/api/journal', journalRoutes)
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
 app.get('/api/prices', async (req, res) => {
   const { tickers } = req.query
   if (!tickers) return res.json({})
@@ -53,4 +46,14 @@ app.get('/api/prices', async (req, res) => {
   } catch (e) {
     res.json({})
   }
+})
+
+app.use('/api/auth', authRoutes)
+app.use('/api/holdings', holdingsRoutes)
+app.use('/api/transactions', transactionsRoutes)
+app.use('/api/journal', journalRoutes)
+app.use('/api/news', newsRoutes)
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
 })

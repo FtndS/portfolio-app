@@ -7,64 +7,10 @@ const btnGhost = {padding:'10px 20px',background:'transparent',border:'1px solid
 const wrap = {minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#0a0a0a'}
 const card = {background:'#141414',padding:'36px',borderRadius:'14px',width:'380px',border:'1px solid #2a2a2a'}
 
+// Helper สำหรับแปลง Ticker ให้เป็นมาตรฐานสากล (เช่น BRK.B -> BRK-B)
 const sanitizeTicker = (ticker) => {
   if (!ticker) return ''
   return ticker.trim().toUpperCase().replace(/\s+/g, '-').replace(/\./g, '-')
-}
-
-// ฟังก์ชันช่วยดึง RSS จากหน้าบ้านโดยใช้ Yahoo RSS และแปลง XML แบบง่าย
-async function clientFetchRSS(tickerSymbol = null) {
-  try {
-    const url = tickerSymbol 
-      ? `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${tickerSymbol.replace('.', '-')}`
-      : `https://finance.yahoo.com/news/rssindex`;
-    
-    // ดึงข้อมูลผ่าน Proxy เพื่อเลี่ยง CORS
-    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-    const data = await res.json();
-    const xmlText = data.contents;
-    
-    if (!xmlText) return [];
-
-    // ใช้ DOMParser ของบราว์เซอร์แกะ XML แทน Regex เพื่อความเร็วและป้องกันการค้าง
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-    const items = xmlDoc.getElementsByTagName("item");
-    const result = [];
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const title = item.getElementsByTagName("title")[0]?.textContent || "";
-      const link = item.getElementsByTagName("link")[0]?.textContent || "";
-      const pubDate = item.getElementsByTagName("pubDate")[0]?.textContent || "";
-      const source = item.getElementsByTagName("source")[0]?.textContent || "Yahoo Finance";
-
-      if (title && link) {
-        result.push({
-          title: title,
-          url: link.trim(),
-          publishedAt: pubDate,
-          source: { name: source }
-        });
-      }
-    }
-    return result;
-  } catch (e) {
-    console.error('Client RSS Error:', e);
-    return [];
-  }
-}
-
-function NewsCard({ article }) {
-  return (
-    <a href={article.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', background: '#141414', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '12px', marginBottom: '10px', textDecoration: 'none', color: '#fff', transition: 'borderColor 0.2s' }}
-       onMouseEnter={e => e.currentTarget.style.borderColor = '#6c5ce7'} onMouseLeave={e => e.currentTarget.style.borderColor = '#2a2a2a'}>
-      <div>
-        <h4 style={{ fontSize: '13px', fontWeight: 500, margin: '0 0 6px 0', lineHeight: 1.4, color: '#fff' }}>{article.title}</h4>
-        <p style={{ fontSize: '11px', color: '#555', margin: 0 }}>{article.source?.name || 'Yahoo Finance'} · {article.publishedAt ? article.publishedAt.replace(' +0000', '') : ''}</p>
-      </div>
-    </a>
-  )
 }
 
 function Field({label,children}){
@@ -149,6 +95,8 @@ function DonutChart({holdings,prices,displayCurrency,fxRate}){
   const sorted=[...holdings].sort((a,b)=>getVal(b)-getVal(a))
   
   const CX=100,CY=100,R=80,ri=48
+
+  // แก้ไขปัญหาที่ 1: ตรวจสอบว่าถ้าพอร์ตมีหุ้นตัวเดียว หรือสัดส่วนรวมเป็น 100% ให้วาดวงกลมเต็มวงด้วย SVG Circle แทนการใช้ Path
   const isSingleHolding = sorted.length === 1;
 
   let angle=-Math.PI/2
@@ -171,6 +119,7 @@ function DonutChart({holdings,prices,displayCurrency,fxRate}){
     <div style={{display:'flex',gap:'24px',alignItems:'center',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'12px',padding:'20px',marginBottom:'16px'}}>
       <svg viewBox="0 0 200 200" style={{width:'160px',flexShrink:0}}>
         {isSingleHolding ? (
+          // ถ้ามี 1 หุ้น วาดเส้นขอบวงกลมหนาๆ แทนการใช้ Path (หมดปัญหากราฟหาย)
           <circle cx={CX} cy={CY} r={(R + ri) / 2} fill="none" stroke={colors[0]} strokeWidth={R - ri} />
         ) : (
           slices.map((s,i)=><path key={i} d={s.d} fill={s.color} stroke="#0a0a0a" strokeWidth="2"/>)
@@ -275,15 +224,18 @@ function Modal({title,onClose,children}){
   )
 }
 
+const sectors=['Technology','Finance','Healthcare','Energy','Consumer','Real Estate','Bonds & Gold','Diversified','Other']
+
 function HoldingModal({holding,onClose,onSave}){
-  const [f,setF]=useState({ticker:holding?.ticker||'',name:holding?.name||'',shares:holding?.shares||'',avg_cost:holding?.avg_cost||'',currency:holding?.currency||'USD'})
+  const [f,setF]=useState({ticker:holding?.ticker||'',name:holding?.name||'',shares:holding?.shares||'',avg_cost:holding?.avg_cost||'',sector:holding?.sector||'',currency:holding?.currency||'USD'})
   const [loading,setLoading]=useState(false)
   const isEdit=!!holding
   const save=async()=>{
-    if(!f.ticker || !f.shares || !f.avg_cost) return
+    if(!f.ticker||!f.shares||!f.avg_cost) return
     setLoading(true)
+    // แก้ไขปัญหาที่ 2: สั่ง Clean Ticker ให้เป็นแบบสากลก่อนส่งบันทึกผ่าน API เข้าหลังบ้าน
     const cleanTicker = sanitizeTicker(f.ticker)
-    const b={ticker:cleanTicker,name:f.name,shares:parseFloat(f.shares),avg_cost:parseFloat(f.avg_cost),currency:f.currency}
+    const b={ticker:cleanTicker,name:f.name,shares:parseFloat(f.shares),avg_cost:parseFloat(f.avg_cost),sector:f.sector,currency:f.currency}
     const r=isEdit?await api.put(`/holdings/${holding.id}`,b):await api.post('/holdings',b)
     setLoading(false)
     if(r.id){onSave();onClose()}
@@ -291,19 +243,24 @@ function HoldingModal({holding,onClose,onSave}){
   const sym=f.currency==='THB'?'฿':'$'
   return(
     <Modal title={isEdit?'แก้ไข Holding':'เพิ่ม Holding'} onClose={onClose}>
-      <Field label="Ticker"><input style={inp()} placeholder="เช่น AAPL, BRK.B, PTT" value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})} disabled={isEdit}/></Field>
+      <Field label="Ticker"><input style={inp()} placeholder="เช่น AAPL, BRK.B, PTT" value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})}/></Field>
       <Field label="ชื่อเต็ม (optional)"><input style={inp()} placeholder="เช่น Apple Inc." value={f.name} onChange={e=>setF({...f,name:e.target.value})}/></Field>
       <Field label="สกุลเงิน">
         <div style={{display:'flex',gap:'8px'}}>
-          {['USD','THB'].map(c=><button key={c} type="button" onClick={()=>setF({...f,currency:c})} style={{flex:1,padding:'9px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
+          {['USD','THB'].map(c=><button key={c} onClick={()=>setF({...f,currency:c})} style={{flex:1,padding:'9px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
         </div>
       </Field>
       <Field label="จำนวนหุ้น"><AmountInput suffix="shares" placeholder="100" value={f.shares} onChange={e=>setF({...f,shares:e.target.value})}/></Field>
       <Field label={`ราคาทุนเฉลี่ย (${f.currency})`}><AmountInput prefix={sym} placeholder="0.00" value={f.avg_cost} onChange={e=>setF({...f,avg_cost:e.target.value})}/></Field>
-      
+      <Field label="Sector">
+        <select style={inp({marginBottom:0})} value={f.sector} onChange={e=>setF({...f,sector:e.target.value})}>
+          <option value="">-- เลือก Sector --</option>
+          {sectors.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+      </Field>
       <div style={{display:'flex',gap:'10px',marginTop:'20px'}}>
-        <button type="button" onClick={onClose} style={btnGhost}>ยกเลิก</button>
-        <button type="button" onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':isEdit?'บันทึกการแก้ไข':'บันทึก'}</button>
+        <button onClick={onClose} style={btnGhost}>ยกเลิก</button>
+        <button onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':isEdit?'บันทึกการแก้ไข':'บันทึก'}</button>
       </div>
     </Modal>
   )
@@ -365,6 +322,7 @@ function TransactionModal({holdings,onClose,onSave}){
   const save=async()=>{
     if(!f.ticker||!f.shares||!f.price||!f.date) return
     setLoading(true)
+    // แก้ไขปัญหาที่ 2: ดักล้างข้อมูล Ticker ใน Transaction ด้วยเช่นกัน
     const cleanTicker = sanitizeTicker(f.ticker)
     const r=await api.post('/transactions',{ticker:cleanTicker,type:f.type,shares:parseFloat(f.shares),price:parseFloat(f.price),note:f.note,date:f.date,holding_id:f.holding_id||null})
     setLoading(false)
@@ -383,19 +341,20 @@ function TransactionModal({holdings,onClose,onSave}){
       <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
         <div style={{flex:1}}>
           <Field label="Ticker">
-            <input style={inp({marginBottom:0})} placeholder="เช่น VOO" value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})}/></Field>
+            <input style={inp({marginBottom:0})} placeholder="เช่น VOO" value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})}/>
+          </Field>
         </div>
         <div style={{flex:'none',width:'120px'}}>
           <Field label="ประเภท">
             <div style={{display:'flex',background:'#1e1e1e',border:'1px solid #3a3a3a',borderRadius:'8px',overflow:'hidden',height:'40px'}}>
-              {['BUY','SELL'].map(t=><button key={t} type="button" onClick={()=>setF({...f,type:t})} style={{flex:1,border:'none',background:f.type===t?(t==='BUY'?'#1a3a2a':'#3a1a1a'):'transparent',color:f.type===t?(t==='BUY'?'#55efc4':'#ff7675'):'#555',cursor:'pointer',fontSize:'12px',fontWeight:600}}>{t==='BUY'?'🟢 BUY':'🔴 SELL'}</button>)}
+              {['BUY','SELL'].map(t=><button key={t} onClick={()=>setF({...f,type:t})} style={{flex:1,border:'none',background:f.type===t?(t==='BUY'?'#1a3a2a':'#3a1a1a'):'transparent',color:f.type===t?(t==='BUY'?'#55efc4':'#ff7675'):'#555',cursor:'pointer',fontSize:'12px',fontWeight:600}}>{t==='BUY'?'🟢 BUY':'🔴 SELL'}</button>)}
             </div>
           </Field>
         </div>
       </div>
       <Field label="สกุลเงิน">
         <div style={{display:'flex',gap:'8px'}}>
-          {['USD','THB'].map(c=><button key={c} type="button" onClick={()=>setF({...f,currency:c})} style={{flex:1,padding:'8px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
+          {['USD','THB'].map(c=><button key={c} onClick={()=>setF({...f,currency:c})} style={{flex:1,padding:'8px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
         </div>
       </Field>
       <div style={{display:'flex',gap:'8px'}}>
@@ -409,8 +368,8 @@ function TransactionModal({holdings,onClose,onSave}){
       <Field label="วันที่"><input type="date" style={inp()} value={f.date} onChange={e=>setF({...f,date:e.target.value})}/></Field>
       <Field label="หมายเหตุ (optional)"><input style={inp({marginBottom:0})} placeholder="เช่น DCA รายเดือน" value={f.note} onChange={e=>setF({...f,note:e.target.value})}/></Field>
       <div style={{display:'flex',gap:'10px',marginTop:'20px'}}>
-        <button type="button" onClick={onClose} style={btnGhost}>ยกเลิก</button>
-        <button type="button" onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึก'}</button>
+        <button onClick={onClose} style={btnGhost}>ยกเลิก</button>
+        <button onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึก'}</button>
       </div>
     </Modal>
   )
@@ -428,14 +387,9 @@ function Dashboard({user,onLogout}){
   const [loadingP,setLoadingP]=useState(false)
   const [displayCurrency,setDisplayCurrency]=useState('USD')
   const [journalFilter,setJournalFilter]=useState('')
+  
+  // State เพิ่มเติมเพื่อรองรับการค้นหา (Search) รายการในหน้าต่าง Holdings และ Transactions
   const [searchQuery, setSearchQuery] = useState('')
-
-  // State เก็บข้อมูลข่าวทางฝั่ง Client
-  const [inSectorNews, setInSectorNews] = useState([])
-  const [outSectorNews, setOutSectorNews] = useState([])
-  const [tickerNews, setTickerNews] = useState([])
-  const [selectedTicker, setSelectedTicker] = useState(null)
-  const [loadingNews, setLoadingNews] = useState(false)
 
   const fxRate=prices['USDTHB=X']||35
 
@@ -453,52 +407,7 @@ function Dashboard({user,onLogout}){
     setLoadingP(false)
   },[])
 
-  // 🌟 โดดข้ามข้อจำกัดของ VPS โหลดข่าว RSS ผ่านเบราว์เซอร์ผู้ใช้โดยตรง
-  const loadClientNews = useCallback(async (hl) => {
-    const rawArticles = await clientFetchRSS(null);
-    if (!rawArticles.length) return;
-
-    const mySectors = hl.map(h => (h.sector || 'Other').toLowerCase());
-    const myTickers = hl.map(h => h.ticker.toLowerCase());
-
-    const inSec = [];
-    const outSec = [];
-
-    rawArticles.forEach(a => {
-      const text = a.title.toLowerCase();
-      
-      const isMatch = myTickers.some(t => text.includes(t)) || mySectors.some(s => {
-        if (s === 'financial' || s === 'finance' || s === 'financial services') return text.includes('bank') || text.includes('fed') || text.includes('finance') || text.includes('market') || text.includes('rate') || text.includes('insurance');
-        if (s === 'technology') return text.includes('tech') || text.includes('ai') || text.includes('nvidia') || text.includes('chip') || text.includes('apple') || text.includes('google') || text.includes('software');
-        if (s === 'healthcare') return text.includes('health') || text.includes('drug') || text.includes('medical') || text.includes('lly') || text.includes('pharma') || text.includes('biotech');
-        if (s === 'energy') return text.includes('oil') || text.includes('energy') || text.includes('gas') || text.includes('crude');
-        if (s === 'consumer cyclical' || s === 'consumer defensive' || s === 'consumer') return text.includes('retail') || text.includes('consumer') || text.includes('spend') || text.includes('shop');
-        return text.includes(s);
-      });
-
-      if (isMatch) inSec.push(a);
-      else outSec.push(a);
-    });
-
-    setInSectorNews(inSec.length ? inSec.slice(0, 15) : outSec.slice(0, 6));
-    setOutSectorNews(outSec.slice(0, 15));
-  }, []);
-
-  const handleOpenTickerNews = async (ticker) => {
-    setSelectedTicker(ticker)
-    setLoadingNews(true)
-    setTickerNews([])
-    const articles = await clientFetchRSS(ticker);
-    setTickerNews(articles);
-    setLoadingNews(false)
-  }
-
-  useEffect(()=>{
-    fetchAll().then((hl) => {
-      fetchPrices(hl);
-      loadClientNews(hl);
-    })
-  },[])
+  useEffect(()=>{fetchAll().then(fetchPrices)},[])
 
   const delH=async id=>{if(!confirm('ลบ holding นี้?'))return;await api.delete(`/holdings/${id}`);fetchAll().then(fetchPrices)}
   const delJ=async id=>{if(!confirm('ลบ journal entry?'))return;await api.delete(`/journal/${id}`);fetchAll()}
@@ -525,6 +434,7 @@ function Dashboard({user,onLogout}){
 
   const filteredJournal=journalFilter?journal.filter(j=>j.tag===journalFilter):journal
 
+  // ฟังก์ชันกรองการค้นหาของฝั่ง Holdings และ Transactions
   const filteredHoldings = holdings.filter(h => 
     h.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (h.name && h.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -533,25 +443,6 @@ function Dashboard({user,onLogout}){
   const filteredTransactions = transactions.filter(t =>
     t.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (t.note && t.note.toLowerCase().includes(searchQuery.toLowerCase()))
-  )
-
-  const renderNewsGrid = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '24px' }}>
-      <div>
-        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#a29bfe', marginBottom: '14px', borderBottom: '1px solid #2a2a2a', paddingBottom: '6px' }}>
-          🔥 Real-Time News (เฉพาะกลุ่ม Sector ที่ถือ)
-        </h3>
-        {!inSectorNews.length ? <p style={{ color: '#444', fontSize: '13px' }}>กำลังอัปเดตข่าวสารจากระบบ...</p>
-        : inSectorNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
-      </div>
-      <div>
-        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#666', marginBottom: '14px', borderBottom: '1px solid #2a2a2a', paddingBottom: '6px' }}>
-          🌐 Market Insights (ข่าวน่าสนใจเกี่ยวกับหุ้นอื่นๆ)
-        </h3>
-        {!outSectorNews.length ? <p style={{ color: '#444', fontSize: '13px' }}>ไม่มีข้อมูลข่าวสารธุรกิจในขณะนี้</p>
-        : outSectorNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
-      </div>
-    </div>
   )
 
   return(
@@ -574,13 +465,7 @@ function Dashboard({user,onLogout}){
 
         {/* Tabs */}
         <div style={{display:'flex',gap:'6px',marginBottom:'24px',flexWrap:'wrap'}}>
-          {[
-            ['overview','Overview'],
-            ['holdings','Holdings'],
-            ['transactions','Transactions'],
-            ['journal','Journal'],
-            ['news','News']
-          ].map(([k,l])=>(
+          {[['overview','Overview'],['holdings','Holdings'],['transactions','Transactions'],['journal','Journal']].map(([k,l])=>(
             <button key={k} onClick={() => { setTab(k); setSearchQuery(''); }} style={{padding:'7px 18px',borderRadius:'8px',border:'1px solid #2a2a2a',background:tab===k?'#6c5ce7':'transparent',color:tab===k?'#fff':'#555',cursor:'pointer',fontSize:'13px',fontWeight:tab===k?500:400}}>{l}</button>
           ))}
         </div>
@@ -603,7 +488,6 @@ function Dashboard({user,onLogout}){
           {holdings.length>0&&<>
             <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             <Treemap holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
-            {renderNewsGrid()}
           </>}
           {holdings.length===0&&<div style={{textAlign:'center',padding:'60px',color:'#444'}}>
             <p style={{fontSize:'36px',marginBottom:'12px'}}>📊</p>
@@ -617,6 +501,7 @@ function Dashboard({user,onLogout}){
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',gap:'16px',flexWrap:'wrap'}}>
             <div style={{display:'flex',gap:'12px',alignItems:'center',flex:1}}>
               <p style={{color:'#444',fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} holdings</p>
+              {/* ช่องค้นหาหุ้นสำหรับหน้า Holdings */}
               <input type="text" placeholder="🔍 ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} style={{maxHeight:'34px',padding:'6px 12px',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'6px',color:'#fff',fontSize:'13px',width:'260px'}} />
             </div>
             <button onClick={()=>setModal('h')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เพิ่ม Holding ตรงๆ</button>
@@ -635,7 +520,7 @@ function Dashboard({user,onLogout}){
                   const val=getVal(h),cost=getCost(h),pnl=val-cost,pct=cost>0?(pnl/cost)*100:0
                   const os=h.currency==='THB'?'฿':'$'
                   return(<tr key={h.id} style={{borderBottom:'1px solid #1a1a1a'}}>
-                    <td style={{padding:'11px 13px',fontWeight:600, color: '#6c5ce7', cursor: 'pointer', textDecoration: 'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
+                    <td style={{padding:'11px 13px',fontWeight:600}}>{h.ticker}</td>
                     <td style={{padding:'11px 13px',color:'#666'}}>{h.name||'—'}</td>
                     <td style={{padding:'11px 13px'}}>{Number(h.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'999px',background:h.currency==='USD'?'#1a2a4a':'#1a3a2a',color:h.currency==='USD'?'#74b9ff':'#55efc4'}}>{h.currency}</span></td>
@@ -659,6 +544,7 @@ function Dashboard({user,onLogout}){
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',gap:'16px',flexWrap:'wrap'}}>
             <div style={{display:'flex',gap:'12px',alignItems:'center',flex:1}}>
               <p style={{color:'#444',fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>
+              {/* ช่องค้นหาหุ้นสำหรับหน้า Transactions */}
               <input type="text" placeholder="🔍 ค้นหาด้วยชื่อย่อ Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} style={{maxHeight:'34px',padding:'6px 12px',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'6px',color:'#fff',fontSize:'13px',width:'260px'}} />
             </div>
             <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึก Transaction</button>
@@ -722,10 +608,6 @@ function Dashboard({user,onLogout}){
             </div>
           ))}
         </>}
-
-        {/* News Tab Section */}
-        {tab==='news' && renderNewsGrid()}
-
       </div>
 
       {modal==='h'&&<HoldingModal onClose={()=>setModal(null)} onSave={()=>fetchAll().then(fetchPrices)}/>}
@@ -733,15 +615,6 @@ function Dashboard({user,onLogout}){
       {modal==='j'&&<JournalModal onClose={()=>setModal(null)} onSave={fetchAll}/>}
       {modal==='ej'&&editJ&&<JournalModal entry={editJ} onClose={()=>{setModal(null);setEditJ(null)}} onSave={fetchAll}/>}
       {modal==='tx'&&<TransactionModal holdings={holdings} onClose={()=>setModal(null)} onSave={()=>fetchAll().then(fetchPrices)}/>}
-
-      {/* Modal ดูข่าวสารรายหุ้นเจาะจง */}
-      {selectedTicker && (
-        <Modal title={`ข่าวสารล่าสุดของหุ้น ${selectedTicker}`} onClose={() => setSelectedTicker(null)}>
-          {loadingNews ? <p style={{ color: '#888', fontSize: '13px' }}>กำลังดึงข้อมูลข่าวสารแบบเรียลไทม์...</p>
-          : tickerNews.length === 0 ? <p style={{ color: '#444', fontSize: '13px' }}>ไม่พบข้อมูลข่าวสารของหุ้นตัวนี้ในปัจจุบัน</p>
-          : tickerNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
-        </Modal>
-      )}
     </div>
   )
 }
