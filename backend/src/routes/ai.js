@@ -1,11 +1,44 @@
 import express from 'express'
 import { authMiddleware } from '../middleware/auth.js'
-import pool from '../db/index.js'
 
 const router = express.Router()
 router.use(authMiddleware)
 
-async function callClaude(systemPrompt, userMessage) {
+function parseClaudeJson(text) {
+  let raw = text.replace(/^```(?:json)?\s*\n?|\n?```\s*$/gm, '').trim()
+  const start = raw.indexOf('{')
+  if (start === -1) throw new Error('No JSON found in AI response')
+  raw = raw.slice(start)
+  const end = raw.lastIndexOf('}')
+  if (end !== -1) raw = raw.slice(0, end + 1)
+
+  const fixCommas = (s) => s.replace(/,\s*([}\]])/g, '$1')
+
+  const tryParse = (s) => JSON.parse(fixCommas(s))
+
+  try {
+    return tryParse(raw)
+  } catch (firstErr) {
+    // Response was likely truncated mid-stream — strip incomplete tail and close brackets
+    let fixed = raw
+      .replace(/,\s*"[^"]*"?\s*:?\s*"[^"\\]*(?:\\.[^"\\]*)*$/, '')
+      .replace(/,\s*\{[^}]*$/, '')
+      .replace(/,\s*"[^"\\]*(?:\\.[^"\\]*)*$/, '')
+      .replace(/,\s*$/, '')
+
+    const openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length
+    const openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length
+    fixed += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces))
+
+    try {
+      return tryParse(fixed)
+    } catch {
+      throw firstErr
+    }
+  }
+}
+
+async function callClaude(systemPrompt, userMessage, maxTokens = 4096) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -15,13 +48,14 @@ async function callClaude(systemPrompt, userMessage) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }]
     })
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error.message)
+  if (!data.content?.[0]?.text) throw new Error('Empty response from AI')
   return data.content[0].text
 }
 
@@ -74,7 +108,8 @@ router.post('/analyze', async (req, res) => {
     const systemPrompt = `คุณคือที่ปรึกษาการลงทุนผู้เชี่ยวชาญที่วิเคราะห์พอร์ตการลงทุนแบบ Value Investing
 ตอบเป็นภาษาไทย กระชับ ตรงประเด็น ใช้ข้อมูลที่ให้มาเท่านั้น
 ห้ามแนะนำให้ซื้อหรือขายหุ้นที่ไม่ได้อยู่ในพอร์ต
-จัดรูปแบบด้วย JSON ตามที่กำหนดเท่านั้น ห้ามมีข้อความนอก JSON`
+ตอบด้วย valid JSON เท่านั้น ห้ามมี markdown หรือข้อความนอก JSON
+แต่ละ string ไม่เกิน 120 ตัวอักษร recommendations ไม่เกิน 5 รายการ`
 
     const userMessage = `วิเคราะห์พอร์ตนี้และตอบด้วย JSON ตามรูปแบบที่กำหนด:
 
@@ -105,8 +140,7 @@ ${JSON.stringify(sectorAlloc, null, 2)}
 }`
 
     const text = await callClaude(systemPrompt, userMessage)
-    const clean = text.replace(/```json|```/g, '').trim()
-    const analysis = JSON.parse(clean)
+    const analysis = parseClaudeJson(text)
     res.json(analysis)
   } catch (err) {
     console.error('AI analyze error:', err)
@@ -142,9 +176,8 @@ ${newsText}
   "watchOut": "สิ่งที่ควรระวัง 1 ประโยค"
 }`
 
-    const text = await callClaude(systemPrompt, userMessage)
-    const clean = text.replace(/```json|```/g, '').trim()
-    const result = JSON.parse(clean)
+    const text = await callClaude(systemPrompt, userMessage, 2048)
+    const result = parseClaudeJson(text)
     res.json(result)
   } catch (err) {
     console.error('News summary error:', err)

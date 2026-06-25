@@ -1,15 +1,17 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { resolvePortfolioId } from '../lib/portfolio.js'
 
 const router = express.Router()
 router.use(authMiddleware)
 
 router.get('/', async (req, res) => {
   try {
+    const portfolioId = await resolvePortfolioId(req.userId, req.query.portfolio_id)
     const result = await pool.query(
-      'SELECT * FROM journal WHERE user_id = $1 ORDER BY date DESC',
-      [req.userId]
+      'SELECT * FROM journal WHERE user_id = $1 AND portfolio_id = $2 ORDER BY date DESC',
+      [req.userId, portfolioId]
     )
     res.json(result.rows)
   } catch (err) {
@@ -18,12 +20,13 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { title, content, tickers, tag, date } = req.body
+  const { title, content, tickers, tag, date, portfolio_id } = req.body
   try {
+    const portfolioId = await resolvePortfolioId(req.userId, portfolio_id)
     const result = await pool.query(
-      `INSERT INTO journal (user_id, title, content, tickers, tag, date)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [req.userId, title, content, tickers, tag, date]
+      `INSERT INTO journal (user_id, portfolio_id, title, content, tickers, tag, date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [req.userId, portfolioId, title, content, tickers, tag, date]
     )
     res.json(result.rows[0])
   } catch (err) {

@@ -12,6 +12,19 @@ const sanitizeTicker = (ticker) => {
   return ticker.trim().toUpperCase().replace(/\s+/g, '-').replace(/\./g, '-')
 }
 
+const MARKETS = [
+  { id: 'US', label: 'US / Global', currencies: ['USD'] },
+  { id: 'SET', label: 'Thailand (SET)', currencies: ['THB'] },
+  { id: 'HK', label: 'Hong Kong', currencies: ['HKD'] },
+  { id: 'CN', label: 'China (Shanghai)', currencies: ['CNY'] },
+  { id: 'SZ', label: 'China (Shenzhen)', currencies: ['CNY'] },
+]
+
+const CURRENCY_SYMBOL = { USD: '$', THB: '฿', HKD: 'HK$', CNY: '¥' }
+const symFor = (c) => CURRENCY_SYMBOL[c] || '$'
+
+const SECTOR_COLORS = ['#6c5ce7','#00b894','#e17055','#0984e3','#fdcb6e','#e84393','#55efc4','#fd79a8','#a29bfe','#74b9ff']
+
 // ฟังก์ชันช่วยดึง RSS จากหน้าบ้านโดยใช้ Yahoo RSS และแปลง XML แบบง่าย
 async function clientFetchRSS(tickerSymbol = null) {
   try {
@@ -91,9 +104,12 @@ function Login({onLogin,onGoRegister}){
   const [form,setForm]=useState({email:'',password:''})
   const [error,setError]=useState('')
   const go=async()=>{
-    const r=await api.post('/auth/login',form)
-    if(r.token){localStorage.setItem('token',r.token);localStorage.setItem('user',JSON.stringify(r.user));onLogin(r.user)}
-    else setError('Email หรือ Password ไม่ถูกต้อง')
+    setError('')
+    try{
+      const r=await api.post('/auth/login',form)
+      if(r.token){localStorage.setItem('token',r.token);localStorage.setItem('user',JSON.stringify(r.user));onLogin(r.user)}
+      else setError(r.error||'Email หรือ Password ไม่ถูกต้อง')
+    }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้ — ลองใหม่หรือติดต่อ admin')}
   }
   return(
     <div style={wrap}><div style={card}>
@@ -118,8 +134,10 @@ function Register({onGoLogin}){
     if(!form.name||!form.email||!form.password) return setError('กรุณากรอกข้อมูลให้ครบ')
     if(form.password!==form.confirm) return setError('Password ไม่ตรงกัน')
     if(form.password.length<8) return setError('Password ต้องมีอย่างน้อย 8 ตัว')
-    const r=await api.post('/auth/register',{name:form.name,email:form.email,password:form.password})
-    if(r.user) setOk(true); else setError(r.error||'สมัครไม่สำเร็จ')
+    try{
+      const r=await api.post('/auth/register',{name:form.name,email:form.email,password:form.password})
+      if(r.user) setOk(true); else setError(r.error||'สมัครไม่สำเร็จ')
+    }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้ — ลองใหม่หรือติดต่อ admin')}
   }
   if(ok) return <div style={wrap}><div style={{...card,textAlign:'center'}}><div style={{fontSize:'48px',marginBottom:'16px'}}>🎉</div><h2 style={{color:'#fff',marginBottom:'8px'}}>สมัครสำเร็จ!</h2><button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button></div></div>
   return(
@@ -194,12 +212,21 @@ function DonutChart({holdings,prices,displayCurrency,fxRate}){
   )
 }
 
-function Treemap({holdings,prices,displayCurrency,fxRate}){
+function Treemap({holdings,prices,displayCurrency,fxRate,heatmapMode='today'}){
   const getVal=h=>{
     const p=prices[h.ticker]||Number(h.avg_cost)
     const v=Number(h.shares)*p
     if(displayCurrency==='THB') return h.currency==='THB'?v:v*fxRate
-    return h.currency==='THB'?v/fxRate:v
+    if(displayCurrency==='USD') return h.currency==='USD'?v:h.currency==='THB'?v/fxRate:v
+    return v
+  }
+  const getChg=h=>{
+    if(heatmapMode==='invested'){
+      const cur=prices[h.ticker]||Number(h.avg_cost)
+      const cost=Number(h.avg_cost)
+      return cost>0?((cur-cost)/cost)*100:0
+    }
+    return prices[`${h.ticker}_chg`]||0
   }
   const rawTotal=holdings.reduce((s,h)=>s+getVal(h),0)
   if(!holdings.length||rawTotal===0) return null
@@ -215,7 +242,7 @@ function Treemap({holdings,prices,displayCurrency,fxRate}){
   const boostTotal=needsBoost.reduce((s,b,i)=>b?s+(MIN_PCT-rawPcts[i]):s,0)
   const bigCount=needsBoost.filter(b=>!b).length
   const adjPcts=rawPcts.map((p,i)=>needsBoost[i]?MIN_PCT:p-boostTotal/bigCount)
-  const items=sorted.map((h,i)=>({...h,adjPct:adjPcts[i],chg:prices[`${h.ticker}_chg`]||0}))
+  const items=sorted.map((h,i)=>({...h,adjPct:adjPcts[i],chg:getChg(h)}))
 
   const rects=[]
   let remaining=[...items]
@@ -245,7 +272,9 @@ function Treemap({holdings,prices,displayCurrency,fxRate}){
   }
   return(
     <div style={{marginBottom:'16px'}}>
-      <p style={{color:'#444',fontSize:'12px',marginBottom:'8px'}}>ขนาด = มูลค่า · สี = % เปลี่ยนแปลงวันนี้</p>
+      <p style={{color:'#444',fontSize:'12px',marginBottom:'8px'}}>
+        ขนาด = มูลค่า · สี = {heatmapMode==='today'?'% เปลี่ยนแปลงวันนี้':'% จากราคาทุนเฉลี่ย'}
+      </p>
       <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',borderRadius:'10px',display:'block'}}>
         {rects.map((r,i)=>(
           <g key={i}>
@@ -257,6 +286,96 @@ function Treemap({holdings,prices,displayCurrency,fxRate}){
           </g>
         ))}
       </svg>
+    </div>
+  )
+}
+
+function SectorAreaChart({holdings,prices,displayCurrency,fxRate}){
+  const getVal=h=>{
+    const p=prices[h.ticker]||Number(h.avg_cost)
+    const v=Number(h.shares)*p
+    if(displayCurrency==='THB') return h.currency==='THB'?v:v*fxRate
+    return h.currency==='THB'?v/fxRate:v
+  }
+  const total=holdings.reduce((s,h)=>s+getVal(h),0)
+  if(!holdings.length||total===0) return null
+  const sectorMap={}
+  holdings.forEach(h=>{
+    const s=h.sector||'Other'
+    sectorMap[s]=(sectorMap[s]||0)+getVal(h)
+  })
+  const sectors=Object.entries(sectorMap).map(([name,value])=>({
+    name,value,pct:(value/total)*100
+  })).sort((a,b)=>b.value-a.value)
+  const W=660,H=120
+  let x=0
+  return(
+    <div style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'12px',padding:'20px',marginBottom:'16px'}}>
+      <h3 style={{fontSize:'14px',fontWeight:600,color:'#fff',marginBottom:'4px'}}>Sector Allocation</h3>
+      <p style={{color:'#444',fontSize:'12px',marginBottom:'14px'}}>สัดส่วน sector ในพอร์ตปัจจุบัน</p>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',display:'block',borderRadius:'8px'}}>
+        {sectors.map((s,i)=>{
+          const w=(s.pct/100)*W
+          const rect=<rect key={i} x={x} y={0} width={w} height={H} fill={SECTOR_COLORS[i%SECTOR_COLORS.length]}/>
+          x+=w
+          return rect
+        })}
+      </svg>
+      <div style={{display:'flex',flexWrap:'wrap',gap:'10px',marginTop:'12px'}}>
+        {sectors.map((s,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'12px'}}>
+            <div style={{width:10,height:10,borderRadius:3,background:SECTOR_COLORS[i%SECTOR_COLORS.length]}}/>
+            <span style={{color:'#aaa'}}>{s.name}</span>
+            <span style={{color:'#666'}}>{s.pct.toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PortfolioChart({history,displayCurrency}){
+  if(!history?.length||history.length<2) return(
+    <div style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'12px',padding:'20px',marginBottom:'16px',textAlign:'center',color:'#444',fontSize:'13px'}}>
+      📈 กราฟมูลค่าพอร์ตจะแสดงหลังมีข้อมูล ≥ 2 วัน (บันทึกอัตโนมัติทุกวัน)
+    </div>
+  )
+  const W=660,H=200,pad=30
+  const vals=history.map(d=>Number(d.total_value))
+  const min=Math.min(...vals)*0.98,max=Math.max(...vals)*1.02
+  const range=max-min||1
+  const pts=history.map((d,i)=>{
+    const x=pad+(i/(history.length-1))*(W-pad*2)
+    const y=H-pad-((Number(d.total_value)-min)/range)*(H-pad*2)
+    return `${x},${y}`
+  }).join(' ')
+  const sym=symFor(displayCurrency==='THB'?'THB':'USD')
+  const latest=vals[vals.length-1]
+  const first=vals[0]
+  const chg=first>0?((latest-first)/first)*100:0
+  return(
+    <div style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'12px',padding:'20px',marginBottom:'16px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'12px'}}>
+        <div>
+          <h3 style={{fontSize:'14px',fontWeight:600,color:'#fff',marginBottom:'2px'}}>Portfolio Value</h3>
+          <p style={{color:'#444',fontSize:'12px'}}>มูลค่าพอร์ตตามเวลา</p>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:'18px',fontWeight:600,color:'#fff'}}>{sym}{latest.toLocaleString('en-US',{minimumFractionDigits:2})}</div>
+          <div style={{fontSize:'12px',color:chg>=0?'#27ae60':'#e74c3c'}}>{chg>=0?'+':''}{chg.toFixed(2)}% ในช่วงที่แสดง</div>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',display:'block'}}>
+        <polyline points={pts} fill="none" stroke="#6c5ce7" strokeWidth="2.5" strokeLinejoin="round"/>
+        {history.map((d,i)=>{
+          if(i===0||i===history.length-1) return null
+          return null
+        })}
+      </svg>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',color:'#555',marginTop:'6px'}}>
+        <span>{history[0].date?.split('T')[0]||history[0].date}</span>
+        <span>{history[history.length-1].date?.split('T')[0]||history[history.length-1].date}</span>
+      </div>
     </div>
   )
 }
@@ -275,27 +394,40 @@ function Modal({title,onClose,children}){
   )
 }
 
-function HoldingModal({holding,onClose,onSave}){
-  const [f,setF]=useState({ticker:holding?.ticker||'',name:holding?.name||'',shares:holding?.shares||'',avg_cost:holding?.avg_cost||'',currency:holding?.currency||'USD'})
+function HoldingModal({holding,onClose,onSave,portfolioId}){
+  const [f,setF]=useState({
+    ticker:holding?.ticker||'',name:holding?.name||'',shares:holding?.shares||'',
+    avg_cost:holding?.avg_cost||'',currency:holding?.currency||'USD',market:holding?.market||'US'
+  })
   const [loading,setLoading]=useState(false)
   const isEdit=!!holding
+  const marketDef=MARKETS.find(m=>m.id===f.market)||MARKETS[0]
   const save=async()=>{
     if(!f.ticker || !f.shares || !f.avg_cost) return
     setLoading(true)
     const cleanTicker = sanitizeTicker(f.ticker)
-    const b={ticker:cleanTicker,name:f.name,shares:parseFloat(f.shares),avg_cost:parseFloat(f.avg_cost),currency:f.currency}
+    const b={ticker:cleanTicker,name:f.name,shares:parseFloat(f.shares),avg_cost:parseFloat(f.avg_cost),
+      currency:f.currency,market:f.market,portfolio_id:portfolioId}
     const r=isEdit?await api.put(`/holdings/${holding.id}`,b):await api.post('/holdings',b)
     setLoading(false)
     if(r.id){onSave();onClose()}
   }
-  const sym=f.currency==='THB'?'฿':'$'
+  const sym=symFor(f.currency)
   return(
     <Modal title={isEdit?'แก้ไข Holding':'เพิ่ม Holding'} onClose={onClose}>
-      <Field label="Ticker"><input style={inp()} placeholder="เช่น AAPL, BRK.B, PTT" value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})} disabled={isEdit}/></Field>
+      <Field label="ตลาด">
+        <select style={inp()} value={f.market} onChange={e=>{
+          const m=MARKETS.find(x=>x.id===e.target.value)
+          setF({...f,market:e.target.value,currency:m?.currencies[0]||'USD'})
+        }}>
+          {MARKETS.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
+      </Field>
+      <Field label="Ticker"><input style={inp()} placeholder={f.market==='SET'?'PTT':'AAPL, 0700'} value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})} disabled={isEdit}/></Field>
       <Field label="ชื่อเต็ม (optional)"><input style={inp()} placeholder="เช่น Apple Inc." value={f.name} onChange={e=>setF({...f,name:e.target.value})}/></Field>
       <Field label="สกุลเงิน">
-        <div style={{display:'flex',gap:'8px'}}>
-          {['USD','THB'].map(c=><button key={c} type="button" onClick={()=>setF({...f,currency:c})} style={{flex:1,padding:'9px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
+        <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+          {marketDef.currencies.map(c=><button key={c} type="button" onClick={()=>setF({...f,currency:c})} style={{flex:1,minWidth:'70px',padding:'9px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{symFor(c)} {c}</button>)}
         </div>
       </Field>
       <Field label="จำนวนหุ้น"><AmountInput suffix="shares" placeholder="100" value={f.shares} onChange={e=>setF({...f,shares:e.target.value})}/></Field>
@@ -311,7 +443,7 @@ function HoldingModal({holding,onClose,onSave}){
 
 const journalTags=['บันทึกความคิด','rebalance','ซื้อ','ขาย','วิเคราะห์','ข่าว','อื่นๆ']
 
-function JournalModal({entry,onClose,onSave}){
+function JournalModal({entry,onClose,onSave,portfolioId}){
   const today=new Date().toISOString().split('T')[0]
   const [f,setF]=useState({title:entry?.title||'',content:entry?.content||'',tickers:entry?.tickers||'',tag:entry?.tag||'',date:entry?.date?.split('T')[0]||today})
   const [loading,setLoading]=useState(false)
@@ -319,7 +451,7 @@ function JournalModal({entry,onClose,onSave}){
   const save=async()=>{
     if(!f.content) return
     setLoading(true)
-    const r=isEdit?await api.put(`/journal/${entry.id}`,f):await api.post('/journal',f)
+    const r=isEdit?await api.put(`/journal/${entry.id}`,f):await api.post('/journal',{...f,portfolio_id:portfolioId})
     setLoading(false)
     if(r.id){onSave();onClose()}
   }
@@ -353,7 +485,7 @@ function JournalModal({entry,onClose,onSave}){
   )
 }
 
-function TransactionModal({holdings,onClose,onSave}){
+function TransactionModal({holdings,onClose,onSave,portfolioId}){
   const today=new Date().toISOString().split('T')[0]
   const [f,setF]=useState({ticker:'',type:'BUY',shares:'',price:'',note:'',date:today,holding_id:'',currency:'USD'})
   const [loading,setLoading]=useState(false)
@@ -366,7 +498,7 @@ function TransactionModal({holdings,onClose,onSave}){
     if(!f.ticker||!f.shares||!f.price||!f.date) return
     setLoading(true)
     const cleanTicker = sanitizeTicker(f.ticker)
-    const r=await api.post('/transactions',{ticker:cleanTicker,type:f.type,shares:parseFloat(f.shares),price:parseFloat(f.price),note:f.note,date:f.date,holding_id:f.holding_id||null})
+    const r=await api.post('/transactions',{ticker:cleanTicker,type:f.type,shares:parseFloat(f.shares),price:parseFloat(f.price),note:f.note,date:f.date,holding_id:f.holding_id||null,portfolio_id:portfolioId})
     setLoading(false)
     if(r.id){onSave();onClose()} else alert(r.error||'บันทึกไม่สำเร็จ')
   }
@@ -621,6 +753,11 @@ function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
 }
 
 function Dashboard({user,onLogout}){
+  const [portfolios,setPortfolios]=useState([])
+  const [activePortfolioId,setActivePortfolioId]=useState(null)
+  const [portfolioHistory,setPortfolioHistory]=useState([])
+  const [heatmapMode,setHeatmapMode]=useState('today')
+  const [newPortName,setNewPortName]=useState('')
   const [holdings,setHoldings]=useState([])
   const [journal,setJournal]=useState([])
   const [transactions,setTransactions]=useState([])
@@ -634,7 +771,6 @@ function Dashboard({user,onLogout}){
   const [journalFilter,setJournalFilter]=useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
-  // State เก็บข้อมูลข่าวทางฝั่ง Client
   const [inSectorNews, setInSectorNews] = useState([])
   const [outSectorNews, setOutSectorNews] = useState([])
   const [tickerNews, setTickerNews] = useState([])
@@ -642,84 +778,147 @@ function Dashboard({user,onLogout}){
   const [loadingNews, setLoadingNews] = useState(false)
 
   const fxRate=prices['USDTHB=X']||35
+  const pid=activePortfolioId
 
-  const fetchAll=useCallback(async()=>{
-    const [h,j,t]=await Promise.all([api.get('/holdings'),api.get('/journal'),api.get('/transactions')])
+  const fetchPortfolios=useCallback(async()=>{
+    const p=await api.get('/portfolios')
+    const list=Array.isArray(p)?p:[]
+    setPortfolios(list)
+    if(list.length&&!activePortfolioId){
+      const def=list.find(x=>x.is_default)||list[0]
+      setActivePortfolioId(def.id)
+    }
+    return list
+  },[activePortfolioId])
+
+  const fetchAll=useCallback(async(portfolioId)=>{
+    const id=portfolioId||activePortfolioId
+    if(!id) return []
+    const params={portfolio_id:id}
+    const [h,j,t]=await Promise.all([
+      api.get('/holdings',params),api.get('/journal',params),api.get('/transactions',params)
+    ])
     const hl=Array.isArray(h)?h:[]
     setHoldings(hl);setJournal(Array.isArray(j)?j:[]);setTransactions(Array.isArray(t)?t:[])
     return hl
+  },[activePortfolioId])
+
+  const fetchHistory=useCallback(async(portfolioId)=>{
+    if(!portfolioId) return
+    const h=await api.get(`/portfolios/${portfolioId}/history`,{days:90})
+    setPortfolioHistory(Array.isArray(h)?h:[])
   },[])
 
-  const fetchPrices=useCallback(async(hl)=>{
+  const recordSnapshot=useCallback(async(portfolioId,hl,pricesMap)=>{
+    if(!portfolioId||!hl?.length) return
+    const getVal=h=>{
+      const p=pricesMap[h.ticker]||Number(h.avg_cost)
+      return Number(h.shares)*p
+    }
+    const getCost=h=>Number(h.shares)*Number(h.avg_cost)
+    const totalValue=hl.reduce((s,h)=>s+getVal(h),0)
+    const totalCost=hl.reduce((s,h)=>s+getCost(h),0)
+    const sectorMap={}
+    hl.forEach(h=>{
+      const s=h.sector||'Other'
+      sectorMap[s]=(sectorMap[s]||0)+getVal(h)
+    })
+    const sectorData=Object.entries(sectorMap).map(([sector,value])=>({
+      sector,pct:totalValue>0?(value/totalValue)*100:0
+    }))
+    await api.post(`/portfolios/${portfolioId}/snapshot`,{total_value:totalValue,total_cost:totalCost,sector_data:sectorData})
+    fetchHistory(portfolioId)
+  },[fetchHistory])
+
+  const fetchPrices=useCallback(async(hl,portfolioId)=>{
     if(!hl?.length) return
     setLoadingP(true)
-    try{const r=await fetch(`/api/prices?tickers=${hl.map(h=>h.ticker).join(',')}`);setPrices(await r.json())}catch(e){}
+    try{
+      const r=await fetch(`/api/prices?tickers=${hl.map(h=>h.ticker).join(',')}`)
+      const p=await r.json()
+      setPrices(p)
+      if(portfolioId) await recordSnapshot(portfolioId,hl,p)
+    }catch(e){}
     setLoadingP(false)
-  },[])
+  },[recordSnapshot])
 
-  // 🌟 โดดข้ามข้อจำกัดของ VPS โหลดข่าว RSS ผ่านเบราว์เซอร์ผู้ใช้โดยตรง
-const loadClientNews = useCallback(async (hl) => {
-  if (!hl?.length) return
-  try {
-    const sectors = hl.map(h => h.sector || '').filter(Boolean).join(',')
-    const tickers = hl.map(h => h.ticker).join(',')
-    const res = await api.fetch(`/news/dashboard?sectors=${encodeURIComponent(sectors)}&tickers=${encodeURIComponent(tickers)}`)
-    if (!res.ok) return
-    const data = await res.json()
-    setInSectorNews(data.inSectorNews || [])
-    setOutSectorNews(data.outSectorNews || [])
-  } catch (e) {
-    console.error('News fetch error:', e)
-  }
-}, [])
-
-const handleOpenTickerNews = async (ticker) => {
-  setSelectedTicker(ticker)
-  setLoadingNews(true)
-  setTickerNews([])
-  try {
-    const res = await api.fetch(`/news/ticker/${ticker}`)
-    if (res.ok) {
+  const loadClientNews = useCallback(async (hl) => {
+    if (!hl?.length) return
+    try {
+      const sectors = hl.map(h => h.sector || '').filter(Boolean).join(',')
+      const tickers = hl.map(h => h.ticker).join(',')
+      const res = await api.fetch(`/news/dashboard`,{sectors,tickers})
+      if (!res.ok) return
       const data = await res.json()
-      setTickerNews(Array.isArray(data) ? data : [])
+      setInSectorNews(data.inSectorNews || [])
+      setOutSectorNews(data.outSectorNews || [])
+    } catch (e) {
+      console.error('News fetch error:', e)
     }
-  } catch (e) {
-    console.error('Ticker news error:', e)
-  }
-  setLoadingNews(false)
-}
+  }, [])
 
-useEffect(() => {
-  fetchAll().then((hl) => {
-    fetchPrices(hl)
-    loadClientNews(hl)
-  })
-  // Auto refresh prices ทุก 5 นาที
-  const priceInterval = setInterval(() => {
-    if (holdings.length > 0) fetchPrices(holdings)
-  }, 5 * 60 * 1000)
-  // Auto refresh news ทุก 15 นาที
-  const newsInterval = setInterval(() => {
-    if (holdings.length > 0) loadClientNews(holdings)
-  }, 15 * 60 * 1000)
-  return () => {
-    clearInterval(priceInterval)
-    clearInterval(newsInterval)
+  const handleOpenTickerNews = async (ticker) => {
+    setSelectedTicker(ticker)
+    setLoadingNews(true)
+    setTickerNews([])
+    try {
+      const res = await api.fetch(`/news/ticker/${ticker}`)
+      if (res.ok) {
+        const data = await res.json()
+        setTickerNews(Array.isArray(data) ? data : [])
+      }
+    } catch (e) {
+      console.error('Ticker news error:', e)
+    }
+    setLoadingNews(false)
   }
-}, [])
 
-  const delH=async id=>{if(!confirm('ลบ holding นี้?'))return;await api.delete(`/holdings/${id}`);fetchAll().then(fetchPrices)}
-  const delJ=async id=>{if(!confirm('ลบ journal entry?'))return;await api.delete(`/journal/${id}`);fetchAll()}
-  const delT=async id=>{if(!confirm('ลบ transaction นี้?'))return;await api.delete(`/transactions/${id}`);fetchAll().then(fetchPrices)}
+  const createPortfolio=async()=>{
+    if(!newPortName.trim()) return
+    const r=await api.post('/portfolios',{name:newPortName.trim()})
+    if(r.id){
+      setNewPortName('')
+      setModal(null)
+      await fetchPortfolios()
+      setActivePortfolioId(r.id)
+    }
+  }
+
+  useEffect(()=>{ fetchPortfolios() },[])
+
+  useEffect(()=>{
+    if(!activePortfolioId) return
+    fetchAll(activePortfolioId).then(hl=>{
+      fetchPrices(hl,activePortfolioId)
+      loadClientNews(hl)
+      fetchHistory(activePortfolioId)
+    })
+    const priceInterval=setInterval(()=>{
+      if(holdings.length>0) fetchPrices(holdings,activePortfolioId)
+    },5*60*1000)
+    const newsInterval=setInterval(()=>{
+      if(holdings.length>0) loadClientNews(holdings)
+    },15*60*1000)
+    return()=>{clearInterval(priceInterval);clearInterval(newsInterval)}
+  },[activePortfolioId])
+
+  const delH=async id=>{if(!confirm('ลบ holding นี้?'))return;await api.delete(`/holdings/${id}`);fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}
+  const delJ=async id=>{if(!confirm('ลบ journal entry?'))return;await api.delete(`/journal/${id}`);fetchAll(activePortfolioId)}
+  const delT=async id=>{if(!confirm('ลบ transaction นี้?'))return;await api.delete(`/transactions/${id}`);fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}
+
+  const convertToDisplay=(amount,currency)=>{
+    if(displayCurrency==='THB') return currency==='THB'?amount:amount*fxRate
+    return currency==='THB'?amount/fxRate:amount
+  }
 
   const getVal=useCallback(h=>{
     const p=prices[h.ticker]||Number(h.avg_cost),v=Number(h.shares)*p
-    return displayCurrency==='THB'?(h.currency==='THB'?v:v*fxRate):(h.currency==='THB'?v/fxRate:v)
+    return convertToDisplay(v,h.currency||'USD')
   },[prices,displayCurrency,fxRate])
 
   const getCost=useCallback(h=>{
     const v=Number(h.shares)*Number(h.avg_cost)
-    return displayCurrency==='THB'?(h.currency==='THB'?v:v*fxRate):(h.currency==='THB'?v/fxRate:v)
+    return convertToDisplay(v,h.currency||'USD')
   },[displayCurrency,fxRate])
 
   const totVal=holdings.reduce((s,h)=>s+getVal(h),0)
@@ -727,7 +926,10 @@ useEffect(() => {
   const totPnL=totVal-totCost
   const totPct=totCost>0?(totPnL/totCost)*100:0
 
-  const sym=displayCurrency==='THB'?'฿':'$'
+  const allInvested=portfolios.reduce((s,p)=>s+convertToDisplay(Number(p.total_invested||0),p.currency||'USD'),0)
+  const activePort=portfolios.find(p=>p.id===activePortfolioId)
+
+  const sym=symFor(displayCurrency)
   const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
   const aBtn=(label,onClick,color)=><button onClick={onClick} style={{padding:'4px 10px',fontSize:'12px',border:`1px solid ${color}`,borderRadius:'6px',background:'transparent',color,cursor:'pointer',marginLeft:'6px'}}>{label}</button>
 
@@ -767,12 +969,19 @@ useEffect(() => {
       <div style={{maxWidth:'1060px',margin:'0 auto',padding:'24px'}}>
 
         {/* Header */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'28px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'28px',flexWrap:'wrap',gap:'12px'}}>
           <div>
             <h1 style={{fontSize:'17px',fontWeight:600,marginBottom:'2px'}}>📓 Port Diary</h1>
             <p style={{color:'#444',fontSize:'13px'}}>สวัสดี, {user.name}</p>
           </div>
-          <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+          <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
+            <div style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden',maxWidth:'320px'}}>
+              <select value={activePortfolioId||''} onChange={e=>setActivePortfolioId(Number(e.target.value))}
+                style={{padding:'7px 12px',background:'#141414',border:'none',color:'#fff',fontSize:'13px',cursor:'pointer',flex:1,minWidth:'140px'}}>
+                {portfolios.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <button onClick={()=>setModal('newPort')} style={{padding:'7px 12px',border:'none',borderLeft:'1px solid #2a2a2a',background:'#2d2a5e',color:'#a29bfe',cursor:'pointer',fontSize:'16px',lineHeight:1}} title="สร้างพอร์ตใหม่">+</button>
+            </div>
             <div style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden'}}>
               {['USD','THB'].map(c=><button key={c} onClick={()=>setDisplayCurrency(c)} style={{padding:'7px 16px',border:'none',cursor:'pointer',fontSize:'13px',fontWeight:500,background:displayCurrency===c?'#6c5ce7':'transparent',color:displayCurrency===c?'#fff':'#555'}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
             </div>
@@ -795,11 +1004,12 @@ useEffect(() => {
 
         {/* Overview */}
         {tab==='overview'&&<>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'12px',marginBottom:'20px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'12px',marginBottom:'20px'}}>
             {[
-              ['มูลค่าพอร์ตรวม',fmt(totVal),`${holdings.length} holdings`,null],
-              ['กำไร/ขาดทุน',fmt(totPnL),`${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`,totPnL>=0?'#27ae60':'#e74c3c'],
-              ['USD/THB',loadingP?'กำลังโหลด...':`$1 = ฿${fxRate.toFixed(2)}`,'Real-time','#a29bfe']
+              ['มูลค่าพอร์ตรวม',fmt(totVal),`${holdings.length} holdings · ${activePort?.name||''}`,null],
+              ['เงินลงทุนทั้งหมด (ทุกพอร์ต)',fmt(allInvested),`${portfolios.length} พอร์ต · ไม่รวม P&L`,'#a29bfe'],
+              ['กำไร/ขาดทุน (พอร์ตนี้)',fmt(totPnL),`${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`,totPnL>=0?'#27ae60':'#e74c3c'],
+              ['USD/THB',loadingP?'กำลังโหลด...':`$1 = ฿${fxRate.toFixed(2)}`,'Real-time','#74b9ff']
             ].map(([label,val,sub,color],i)=>(
               <div key={i} style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'10px',padding:'16px 18px'}}>
                 <div style={{color:'#555',fontSize:'12px',marginBottom:'6px'}}>{label}</div>
@@ -809,8 +1019,16 @@ useEffect(() => {
             ))}
           </div>
           {holdings.length>0&&<>
+            <PortfolioChart history={portfolioHistory} displayCurrency={displayCurrency}/>
+            <SectorAreaChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
-            <Treemap holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px',gap:'6px'}}>
+              <span style={{fontSize:'12px',color:'#555',alignSelf:'center'}}>Heatmap:</span>
+              {[['today','% วันนี้'],['invested','% จากทุน']].map(([k,l])=>(
+                <button key={k} onClick={()=>setHeatmapMode(k)} style={{padding:'5px 12px',fontSize:'12px',borderRadius:'6px',border:`1px solid ${heatmapMode===k?'#6c5ce7':'#2a2a2a'}`,background:heatmapMode===k?'#2d2a5e':'transparent',color:heatmapMode===k?'#a29bfe':'#555',cursor:'pointer'}}>{l}</button>
+              ))}
+            </div>
+            <Treemap holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} heatmapMode={heatmapMode}/>
             <AIPanel holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} inSectorNews={inSectorNews} />
             {renderNewsGrid()}
           </>}
@@ -842,7 +1060,7 @@ useEffect(() => {
                 :filteredHoldings.map(h=>{
                   const cur=prices[h.ticker]||Number(h.avg_cost)
                   const val=getVal(h),cost=getCost(h),pnl=val-cost,pct=cost>0?(pnl/cost)*100:0
-                  const os=h.currency==='THB'?'฿':'$'
+                  const os=symFor(h.currency||'USD')
                   return(<tr key={h.id} style={{borderBottom:'1px solid #1a1a1a'}}>
                     <td style={{padding:'11px 13px',fontWeight:600, color: '#6c5ce7', cursor: 'pointer', textDecoration: 'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
                     <td style={{padding:'11px 13px',color:'#666'}}>{h.name||'—'}</td>
@@ -937,11 +1155,17 @@ useEffect(() => {
 
       </div>
 
-      {modal==='h'&&<HoldingModal onClose={()=>setModal(null)} onSave={()=>fetchAll().then(fetchPrices)}/>}
-      {modal==='eh'&&editH&&<HoldingModal holding={editH} onClose={()=>{setModal(null);setEditH(null)}} onSave={()=>fetchAll().then(fetchPrices)}/>}
-      {modal==='j'&&<JournalModal onClose={()=>setModal(null)} onSave={fetchAll}/>}
-      {modal==='ej'&&editJ&&<JournalModal entry={editJ} onClose={()=>{setModal(null);setEditJ(null)}} onSave={fetchAll}/>}
-      {modal==='tx'&&<TransactionModal holdings={holdings} onClose={()=>setModal(null)} onSave={()=>fetchAll().then(fetchPrices)}/>}
+      {modal==='h'&&<HoldingModal portfolioId={activePortfolioId} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
+      {modal==='eh'&&editH&&<HoldingModal portfolioId={activePortfolioId} holding={editH} onClose={()=>{setModal(null);setEditH(null)}} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
+      {modal==='j'&&<JournalModal portfolioId={activePortfolioId} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId)}/>}
+      {modal==='ej'&&editJ&&<JournalModal portfolioId={activePortfolioId} entry={editJ} onClose={()=>{setModal(null);setEditJ(null)}} onSave={()=>fetchAll(activePortfolioId)}/>}
+      {modal==='tx'&&<TransactionModal portfolioId={activePortfolioId} holdings={holdings} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
+      {modal==='newPort'&&(
+        <Modal title="สร้างพอร์ตใหม่" onClose={()=>setModal(null)}>
+          <Field label="ชื่อพอร์ต"><input style={inp()} placeholder="เช่น US Growth, หุ้นไทย" value={newPortName} onChange={e=>setNewPortName(e.target.value)}/></Field>
+          <button onClick={createPortfolio} style={{...btnPrimary,marginTop:'8px'}}>สร้างพอร์ต</button>
+        </Modal>
+      )}
 
       {/* Modal ดูข่าวสารรายหุ้นเจาะจง */}
       {selectedTicker && (
