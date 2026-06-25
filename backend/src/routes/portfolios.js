@@ -1,6 +1,7 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { computePortfolioHistory } from '../lib/portfolioHistory.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -36,6 +37,33 @@ router.post('/', async (req, res) => {
     res.json(result.rows[0])
   } catch (err) {
     res.status(500).json({ error: err.message })
+  }
+})
+
+router.put('/:id/default', async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const owns = await client.query(
+      'SELECT id FROM portfolios WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    )
+    if (!owns.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: 'Not found' })
+    }
+    await client.query('UPDATE portfolios SET is_default = false WHERE user_id = $1', [req.userId])
+    const result = await client.query(
+      'UPDATE portfolios SET is_default = true WHERE id = $1 AND user_id = $2 RETURNING *',
+      [req.params.id, req.userId]
+    )
+    await client.query('COMMIT')
+    res.json(result.rows[0])
+  } catch (err) {
+    await client.query('ROLLBACK')
+    res.status(500).json({ error: err.message })
+  } finally {
+    client.release()
   }
 })
 
@@ -101,15 +129,10 @@ router.get('/:id/history', async (req, res) => {
     )
     if (!owns.rows.length) return res.status(404).json({ error: 'Not found' })
 
-    const result = await pool.query(
-      `SELECT snapshot_date AS date, total_value, total_cost, sector_data
-       FROM portfolio_snapshots
-       WHERE portfolio_id = $1 AND snapshot_date >= CURRENT_DATE - $2::int
-       ORDER BY snapshot_date ASC`,
-      [req.params.id, parseInt(days) || 90]
-    )
-    res.json(result.rows)
+    const history = await computePortfolioHistory(req.userId, Number(req.params.id), parseInt(days) || 90)
+    res.json(history)
   } catch (err) {
+    console.error('Portfolio history error:', err)
     res.status(500).json({ error: err.message })
   }
 })

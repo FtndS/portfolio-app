@@ -335,18 +335,21 @@ function SectorAreaChart({holdings,prices,displayCurrency,fxRate}){
 }
 
 function PortfolioChart({history,displayCurrency}){
-  if(!history?.length||history.length<2) return(
+  if(!history?.length) return(
     <div style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'12px',padding:'20px',marginBottom:'16px',textAlign:'center',color:'#444',fontSize:'13px'}}>
-      📈 กราฟมูลค่าพอร์ตจะแสดงหลังมีข้อมูล ≥ 2 วัน (บันทึกอัตโนมัติทุกวัน)
+      📈 บันทึก Transaction เพื่อดูกราฟมูลค่าพอร์ต
     </div>
   )
   const W=660,H=200,pad=30
   const vals=history.map(d=>Number(d.total_value))
-  const min=Math.min(...vals)*0.98,max=Math.max(...vals)*1.02
+  const costs=history.map(d=>Number(d.total_cost||0))
+  const allVals=[...vals,...costs].filter(v=>v>0)
+  const min=allVals.length?Math.min(...allVals)*0.98:0
+  const max=allVals.length?Math.max(...allVals)*1.02:1
   const range=max-min||1
-  const pts=history.map((d,i)=>{
-    const x=pad+(i/(history.length-1))*(W-pad*2)
-    const y=H-pad-((Number(d.total_value)-min)/range)*(H-pad*2)
+  const toPts=(arr)=>arr.map((v,i)=>{
+    const x=history.length<2?W/2:pad+(i/(history.length-1))*(W-pad*2)
+    const y=H-pad-((Number(v)-min)/range)*(H-pad*2)
     return `${x},${y}`
   }).join(' ')
   const sym=symFor(displayCurrency==='THB'?'THB':'USD')
@@ -358,7 +361,7 @@ function PortfolioChart({history,displayCurrency}){
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'12px'}}>
         <div>
           <h3 style={{fontSize:'14px',fontWeight:600,color:'#fff',marginBottom:'2px'}}>Portfolio Value</h3>
-          <p style={{color:'#444',fontSize:'12px'}}>มูลค่าพอร์ตตามเวลา</p>
+          <p style={{color:'#444',fontSize:'12px'}}>มูลค่าพอร์ตจาก transaction + ราคาย้อนหลัง</p>
         </div>
         <div style={{textAlign:'right'}}>
           <div style={{fontSize:'18px',fontWeight:600,color:'#fff'}}>{sym}{latest.toLocaleString('en-US',{minimumFractionDigits:2})}</div>
@@ -366,17 +369,61 @@ function PortfolioChart({history,displayCurrency}){
         </div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',display:'block'}}>
-        <polyline points={pts} fill="none" stroke="#6c5ce7" strokeWidth="2.5" strokeLinejoin="round"/>
-        {history.map((d,i)=>{
-          if(i===0||i===history.length-1) return null
-          return null
-        })}
+        <polyline points={toPts(costs)} fill="none" stroke="#555" strokeWidth="1.5" strokeDasharray="4,4" strokeLinejoin="round"/>
+        <polyline points={toPts(vals)} fill="none" stroke="#6c5ce7" strokeWidth="2.5" strokeLinejoin="round"/>
       </svg>
-      <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',color:'#555',marginTop:'6px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'11px',color:'#555',marginTop:'6px'}}>
         <span>{history[0].date?.split('T')[0]||history[0].date}</span>
+        <span style={{display:'flex',gap:'12px'}}>
+          <span><span style={{color:'#6c5ce7'}}>—</span> มูลค่า</span>
+          <span><span style={{color:'#555'}}>- -</span> ทุน</span>
+        </span>
         <span>{history[history.length-1].date?.split('T')[0]||history[history.length-1].date}</span>
       </div>
     </div>
+  )
+}
+
+function PortfolioManageModal({portfolio,portfolios,onClose,onUpdated,onDeleted}){
+  const [name,setName]=useState(portfolio?.name||'')
+  const [loading,setLoading]=useState(false)
+  const [error,setError]=useState('')
+  const canDelete=portfolios.length>1
+  const save=async()=>{
+    if(!name.trim()) return setError('กรุณาระบุชื่อพอร์ต')
+    setLoading(true);setError('')
+    const r=await api.put(`/portfolios/${portfolio.id}`,{name:name.trim()})
+    setLoading(false)
+    if(r.id){onUpdated();onClose()} else setError(r.error||'บันทึกไม่สำเร็จ')
+  }
+  const setDefault=async()=>{
+    setLoading(true)
+    const r=await api.put(`/portfolios/${portfolio.id}/default`,{})
+    setLoading(false)
+    if(r.id){onUpdated();onClose()} else setError(r.error||'ตั้งค่าไม่สำเร็จ')
+  }
+  const del=async()=>{
+    if(!confirm(`ลบพอร์ต "${portfolio.name}"?\nข้อมูล holdings, transactions, journal ในพอร์ตนี้จะถูกลบด้วย`)) return
+    setLoading(true)
+    const r=await api.delete(`/portfolios/${portfolio.id}`)
+    setLoading(false)
+    if(r.message){onDeleted(portfolio.id);onClose()} else setError(r.error||'ลบไม่สำเร็จ')
+  }
+  return(
+    <Modal title="จัดการพอร์ต" onClose={onClose}>
+      <div style={{background:'#0f0f0f',border:'1px solid #2a2a2a',borderRadius:'8px',padding:'12px',marginBottom:'16px',fontSize:'13px',color:'#888'}}>
+        <div>{portfolio.holding_count||0} holdings · ทุน {symFor(portfolio.currency||'USD')}{Number(portfolio.total_invested||0).toLocaleString('en-US',{minimumFractionDigits:2})}</div>
+        {portfolio.is_default&&<div style={{color:'#a29bfe',marginTop:'4px',fontSize:'12px'}}>★ พอร์ตหลัก (Default)</div>}
+      </div>
+      {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'12px'}}>{error}</p>}
+      <Field label="ชื่อพอร์ต"><input style={inp()} value={name} onChange={e=>setName(e.target.value)}/></Field>
+      <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'16px'}}>
+        <button onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึกชื่อ'}</button>
+        {!portfolio.is_default&&<button onClick={setDefault} style={{...btnGhost,borderColor:'#6c5ce7',color:'#a29bfe'}} disabled={loading}>ตั้งเป็นพอร์ตหลัก</button>}
+        {canDelete&&!portfolio.is_default&&<button onClick={del} style={{...btnGhost,borderColor:'#e74c3c',color:'#e74c3c'}} disabled={loading}>ลบพอร์ตนี้</button>}
+        {!canDelete&&<p style={{fontSize:'12px',color:'#555',textAlign:'center'}}>ต้องมีอย่างน้อย 1 พอร์ต</p>}
+      </div>
+    </Modal>
   )
 }
 
@@ -884,6 +931,14 @@ function Dashboard({user,onLogout}){
     }
   }
 
+  const handlePortfolioDeleted=async(deletedId)=>{
+    const list=await fetchPortfolios()
+    const def=list.find(x=>x.is_default)||list[0]
+    if(def) setActivePortfolioId(Number(def.id))
+    else if(list.length) setActivePortfolioId(Number(list[0].id))
+    if(def||list[0]) fetchAll(Number((def||list[0]).id))
+  }
+
   useEffect(()=>{ fetchPortfolios() },[])
 
   useEffect(()=>{
@@ -978,8 +1033,9 @@ function Dashboard({user,onLogout}){
             <div style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden',maxWidth:'320px'}}>
               <select value={activePortfolioId||''} onChange={e=>setActivePortfolioId(Number(e.target.value))}
                 style={{padding:'7px 12px',background:'#141414',border:'none',color:'#fff',fontSize:'13px',cursor:'pointer',flex:1,minWidth:'140px'}}>
-                {portfolios.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                {portfolios.map(p=><option key={p.id} value={p.id}>{p.name}{p.is_default?' ★':''}</option>)}
               </select>
+              <button onClick={()=>setModal('managePort')} style={{padding:'7px 12px',border:'none',borderLeft:'1px solid #2a2a2a',background:'transparent',color:'#888',cursor:'pointer',fontSize:'14px',lineHeight:1}} title="จัดการพอร์ต">⚙️</button>
               <button onClick={()=>setModal('newPort')} style={{padding:'7px 12px',border:'none',borderLeft:'1px solid #2a2a2a',background:'#2d2a5e',color:'#a29bfe',cursor:'pointer',fontSize:'16px',lineHeight:1}} title="สร้างพอร์ตใหม่">+</button>
             </div>
             <div style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden'}}>
@@ -1165,6 +1221,15 @@ function Dashboard({user,onLogout}){
           <Field label="ชื่อพอร์ต"><input style={inp()} placeholder="เช่น US Growth, หุ้นไทย" value={newPortName} onChange={e=>setNewPortName(e.target.value)}/></Field>
           <button onClick={createPortfolio} style={{...btnPrimary,marginTop:'8px'}}>สร้างพอร์ต</button>
         </Modal>
+      )}
+      {modal==='managePort'&&activePort&&(
+        <PortfolioManageModal
+          portfolio={activePort}
+          portfolios={portfolios}
+          onClose={()=>setModal(null)}
+          onUpdated={()=>{fetchPortfolios();fetchHistory(activePortfolioId)}}
+          onDeleted={handlePortfolioDeleted}
+        />
       )}
 
       {/* Modal ดูข่าวสารรายหุ้นเจาะจง */}
