@@ -55,9 +55,12 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
   }
 
   const name = profile?.name || existing.rows[0]?.name || ticker
-  const sector = (profile?.sector && profile.sector !== 'Other')
+  let sector = (profile?.sector && profile.sector !== 'Other')
     ? profile.sector
     : (existing.rows[0]?.sector || profile?.sector || 'Other')
+  if (needsSectorRefresh(sector) && profile?.sector && profile.sector !== 'Other') {
+    sector = profile.sector
+  }
   const currency = existing.rows[0]?.currency || defaultCurrency(market)
 
   if (existing.rows.length > 0) {

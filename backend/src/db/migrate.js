@@ -100,6 +100,21 @@ const migrations = [
         SELECT id FROM portfolios p WHERE p.user_id = j.user_id ORDER BY is_default DESC, id ASC LIMIT 1
       ) WHERE portfolio_id IS NULL AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = j.user_id);
     `
+  },
+  {
+    name: '004_seed_known_sectors',
+    sql: `
+      UPDATE holdings SET sector = 'Technology', name = 'NVIDIA Corporation'
+        WHERE ticker = 'NVDA' AND (sector IS NULL OR sector = 'Other');
+      UPDATE holdings SET sector = 'Financial Services', name = 'Berkshire Hathaway Inc.'
+        WHERE ticker = 'BRK-B' AND (sector IS NULL OR sector = 'Other');
+      UPDATE holdings SET sector = 'ETF — US Large Cap', name = 'Vanguard S&P 500 ETF'
+        WHERE ticker = 'VOO' AND (sector IS NULL OR sector = 'Other');
+      UPDATE holdings SET sector = 'ETF — US Growth', name = 'Invesco NASDAQ 100 ETF'
+        WHERE ticker = 'QQQM' AND (sector IS NULL OR sector = 'Other');
+      UPDATE holdings SET sector = 'ETF — Semiconductors', name = 'VanEck Semiconductor ETF'
+        WHERE ticker = 'SMH' AND (sector IS NULL OR sector = 'Other');
+    `
   }
 ]
 

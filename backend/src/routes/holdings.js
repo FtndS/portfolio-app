@@ -12,19 +12,20 @@ async function refreshStaleSectors(rows) {
   const stale = rows.filter(h => needsSectorRefresh(h.sector))
   if (!stale.length) return
 
-  await Promise.all(stale.map(async (h) => {
+  for (const h of stale) {
     const profile = await fetchCompanyProfile(h.ticker, h.market || 'US')
-    if (!needsSectorRefresh(profile.sector)) {
-      await pool.query(
-        `UPDATE holdings SET sector = $1,
-          name = CASE WHEN name IS NULL OR name = ticker THEN $2 ELSE name END
-         WHERE id = $3`,
-        [profile.sector, profile.name || h.ticker, h.id]
-      )
-      h.sector = profile.sector
-      if (profile.name) h.name = profile.name
-    }
-  }))
+    const sector = profile.sector
+    const name = profile.name
+    if (needsSectorRefresh(sector)) continue
+    await pool.query(
+      `UPDATE holdings SET sector = $1,
+        name = CASE WHEN name IS NULL OR name = ticker THEN $2 ELSE name END
+       WHERE id = $3`,
+      [sector, name || h.ticker, h.id]
+    )
+    h.sector = sector
+    if (name) h.name = name
+  }
 }
 
 router.get('/', async (req, res) => {
@@ -92,8 +93,12 @@ router.put('/:id', async (req, res) => {
 router.post('/refresh-sectors', async (req, res) => {
   try {
     const portfolioId = await resolvePortfolioId(req.userId, req.body.portfolio_id)
+    const isDefault = await isDefaultPortfolio(req.userId, portfolioId)
     const result = await pool.query(
-      'SELECT * FROM holdings WHERE user_id = $1 AND portfolio_id = $2',
+      isDefault
+        ? `SELECT * FROM holdings WHERE user_id = $1
+           AND (portfolio_id = $2 OR portfolio_id IS NULL)`
+        : `SELECT * FROM holdings WHERE user_id = $1 AND portfolio_id = $2`,
       [req.userId, portfolioId]
     )
     await refreshStaleSectors(result.rows)
