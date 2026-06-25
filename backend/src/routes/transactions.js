@@ -11,18 +11,24 @@ router.use(authMiddleware)
 router.get('/', async (req, res) => {
   try {
     const portfolioId = await resolvePortfolioId(req.userId, req.query.portfolio_id)
-    const includeOrphans = await isDefaultPortfolio(req.userId, portfolioId)
-    const result = await pool.query(
-      includeOrphans
-        ? `SELECT * FROM transactions WHERE user_id = $1
-           AND (portfolio_id = $2 OR portfolio_id IS NULL)
-           ORDER BY date DESC, created_at DESC`
-        : `SELECT * FROM transactions WHERE user_id = $1 AND portfolio_id = $2
+    const isDefault = await isDefaultPortfolio(req.userId, portfolioId)
+
+    // Main Portfolio = แสดง transaction ทั้งหมดของ user (รองรับข้อมูลเก่าที่ portfolio_id ไม่ตรง)
+    const result = isDefault
+      ? await pool.query(
+          `SELECT * FROM transactions WHERE user_id = $1
            ORDER BY date DESC, created_at DESC`,
-      [req.userId, portfolioId]
-    )
+          [req.userId]
+        )
+      : await pool.query(
+          `SELECT * FROM transactions WHERE user_id = $1 AND portfolio_id = $2
+           ORDER BY date DESC, created_at DESC`,
+          [req.userId, portfolioId]
+        )
+
     res.json(result.rows)
   } catch (err) {
+    console.error('GET transactions error:', err)
     res.status(500).json({ error: err.message })
   }
 })

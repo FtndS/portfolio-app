@@ -5,7 +5,7 @@ export async function getDefaultPortfolioId(userId) {
     'SELECT id FROM portfolios WHERE user_id = $1 ORDER BY is_default DESC, id ASC LIMIT 1',
     [userId]
   )
-  return r.rows[0]?.id
+  return r.rows[0]?.id ?? null
 }
 
 export async function ensureUserPortfolio(userId) {
@@ -18,7 +18,6 @@ export async function ensureUserPortfolio(userId) {
   return r.rows[0].id
 }
 
-/** Link legacy rows (portfolio_id IS NULL) to the user's default portfolio */
 export async function repairOrphanedRecords(userId, defaultPortfolioId) {
   if (!defaultPortfolioId) return
   await pool.query(
@@ -35,21 +34,40 @@ export async function repairOrphanedRecords(userId, defaultPortfolioId) {
   )
 }
 
-export async function resolvePortfolioId(userId, portfolioId) {
+/** Fix rows pointing to deleted/invalid portfolio ids */
+export async function repairInvalidPortfolioLinks(userId, defaultPortfolioId) {
+  if (!defaultPortfolioId) return
+  const fix = `
+    UPDATE %TABLE% SET portfolio_id = $1
+    WHERE user_id = $2 AND portfolio_id IS NOT NULL
+      AND portfolio_id NOT IN (SELECT id FROM portfolios WHERE user_id = $2)`
+  for (const table of ['holdings', 'transactions', 'journal']) {
+    await pool.query(fix.replace('%TABLE%', table), [defaultPortfolioId, userId])
+  }
+}
+
+export async function repairAllPortfolioLinks(userId) {
   const defaultId = await ensureUserPortfolio(userId)
   await repairOrphanedRecords(userId, defaultId)
+  await repairInvalidPortfolioLinks(userId, defaultId)
+  return defaultId
+}
 
-  if (portfolioId) {
+export async function resolvePortfolioId(userId, portfolioId) {
+  const defaultId = await repairAllPortfolioLinks(userId)
+
+  if (portfolioId != null && portfolioId !== '') {
+    const id = Number(portfolioId)
     const r = await pool.query(
       'SELECT id FROM portfolios WHERE id = $1 AND user_id = $2',
-      [portfolioId, userId]
+      [id, userId]
     )
-    if (r.rows.length) return Number(portfolioId)
+    if (r.rows.length) return id
   }
   return defaultId
 }
 
 export async function isDefaultPortfolio(userId, portfolioId) {
   const defaultId = await getDefaultPortfolioId(userId)
-  return defaultId === portfolioId
+  return Number(defaultId) === Number(portfolioId)
 }

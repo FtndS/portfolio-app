@@ -786,7 +786,7 @@ function Dashboard({user,onLogout}){
     setPortfolios(list)
     if(list.length&&!activePortfolioId){
       const def=list.find(x=>x.is_default)||list[0]
-      setActivePortfolioId(def.id)
+      setActivePortfolioId(Number(def.id))
     }
     return list
   },[activePortfolioId])
@@ -880,7 +880,7 @@ function Dashboard({user,onLogout}){
       setNewPortName('')
       setModal(null)
       await fetchPortfolios()
-      setActivePortfolioId(r.id)
+      setActivePortfolioId(Number(r.id))
     }
   }
 
