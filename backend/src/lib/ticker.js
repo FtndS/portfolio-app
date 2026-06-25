@@ -26,6 +26,8 @@ export function toYahooTicker(ticker, market = 'US') {
     return base + m.suffix
   }
   if (m.suffix) return base.replace(/-([A-Z]{2})$/, '.$1') || base + m.suffix
+  // Class shares: BRK-B → BRK.B, BF-A → BF.A
+  if (/^[A-Z0-9]+-[A-Z]$/.test(base)) return base.replace(/-([A-Z])$/, '.$1')
   return base.replace(/-([A-Z]{2})$/, '.$1')
 }
 

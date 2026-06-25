@@ -3,6 +3,7 @@ import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { toYahooTicker } from '../lib/ticker.js'
 import { resolvePortfolioId } from '../lib/portfolio.js'
+import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -39,43 +40,7 @@ router.post('/', async (req, res) => {
         parseFloat(shares), parseFloat(price), total, note || null, date]
     )
 
-    const allBuys = await client.query(
-      `SELECT shares, price FROM transactions
-       WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3 AND type = 'BUY'`,
-      [req.userId, portfolioId, sanitizedTicker]
-    )
-
-    if (allBuys.rows.length > 0) {
-      const totalShares = allBuys.rows.reduce((s, r) => s + parseFloat(r.shares), 0)
-      const totalCost = allBuys.rows.reduce((s, r) => s + parseFloat(r.shares) * parseFloat(r.price), 0)
-      const avgCost = totalCost / totalShares
-
-      const allTx = await client.query(
-        `SELECT type, shares FROM transactions WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3`,
-        [req.userId, portfolioId, sanitizedTicker]
-      )
-      const netShares = allTx.rows.reduce((s, r) => {
-        return r.type === 'BUY' ? s + parseFloat(r.shares) : s - parseFloat(r.shares)
-      }, 0)
-
-      const existing = await client.query(
-        'SELECT id, currency, market FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3',
-        [req.userId, portfolioId, sanitizedTicker]
-      )
-      if (existing.rows.length > 0) {
-        await client.query(
-          `UPDATE holdings SET shares = $1, avg_cost = $2, updated_at = NOW()
-           WHERE user_id = $3 AND portfolio_id = $4 AND ticker = $5`,
-          [netShares, avgCost, req.userId, portfolioId, sanitizedTicker]
-        )
-      } else {
-        await client.query(
-          `INSERT INTO holdings (user_id, portfolio_id, ticker, name, shares, avg_cost, currency, market)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [req.userId, portfolioId, sanitizedTicker, sanitizedTicker, netShares, avgCost, 'USD', 'US']
-        )
-      }
-    }
+    await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker)
 
     await client.query('COMMIT')
     res.json(txResult.rows[0])
@@ -88,11 +53,30 @@ router.post('/', async (req, res) => {
 })
 
 router.delete('/:id', async (req, res) => {
+  const client = await pool.connect()
   try {
-    await pool.query('DELETE FROM transactions WHERE id=$1 AND user_id=$2', [req.params.id, req.userId])
+    await client.query('BEGIN')
+
+    const tx = await client.query(
+      'SELECT ticker, portfolio_id FROM transactions WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    )
+    if (!tx.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: 'Not found' })
+    }
+
+    const { ticker, portfolio_id: portfolioId } = tx.rows[0]
+    await client.query('DELETE FROM transactions WHERE id = $1 AND user_id = $2', [req.params.id, req.userId])
+    await syncHoldingFromTransactions(client, req.userId, portfolioId, ticker)
+
+    await client.query('COMMIT')
     res.json({ message: 'Deleted' })
   } catch (err) {
+    await client.query('ROLLBACK')
     res.status(500).json({ error: err.message })
+  } finally {
+    client.release()
   }
 })
 

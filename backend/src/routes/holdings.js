@@ -3,30 +3,28 @@ import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { toYahooTicker, defaultCurrency, detectMarket } from '../lib/ticker.js'
 import { resolvePortfolioId } from '../lib/portfolio.js'
+import { fetchCompanyProfile, needsSectorRefresh } from '../lib/profile.js'
 
 const router = express.Router()
 router.use(authMiddleware)
 
-async function fetchCompanyProfileFromInternet(ticker, market = 'US') {
-  const defaultResult = { name: '', sector: 'Other' }
-  const yahooTicker = toYahooTicker(ticker, market)
-  try {
-    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${yahooTicker}?modules=assetProfile,price`
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-    })
-    if (!response.ok) return defaultResult
-    const data = await response.json()
-    const result = data.quoteSummary?.result?.[0]
-    if (!result) return defaultResult
-    return {
-      name: result.price?.longName || result.price?.shortName || '',
-      sector: result.assetProfile?.sector || 'Other'
+async function refreshStaleSectors(rows) {
+  const stale = rows.filter(h => needsSectorRefresh(h.sector))
+  if (!stale.length) return
+
+  await Promise.all(stale.map(async (h) => {
+    const profile = await fetchCompanyProfile(h.ticker, h.market || 'US')
+    if (!needsSectorRefresh(profile.sector)) {
+      await pool.query(
+        `UPDATE holdings SET sector = $1,
+          name = CASE WHEN name IS NULL OR name = ticker THEN $2 ELSE name END
+         WHERE id = $3`,
+        [profile.sector, profile.name || h.ticker, h.id]
+      )
+      h.sector = profile.sector
+      if (profile.name) h.name = profile.name
     }
-  } catch (e) {
-    console.error(`Failed to fetch live profile for ${yahooTicker}:`, e)
-    return defaultResult
-  }
+  }))
 }
 
 router.get('/', async (req, res) => {
@@ -36,6 +34,7 @@ router.get('/', async (req, res) => {
       'SELECT * FROM holdings WHERE user_id = $1 AND portfolio_id = $2 ORDER BY ticker',
       [req.userId, portfolioId]
     )
+    await refreshStaleSectors(result.rows)
     res.json(result.rows)
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -46,7 +45,7 @@ router.post('/', async (req, res) => {
   const { ticker, name, shares, avg_cost, currency, market, portfolio_id } = req.body
   const mkt = market || detectMarket(ticker)
   const sanitizedTicker = toYahooTicker(ticker, mkt).replace(/\./g, '-')
-  const profile = await fetchCompanyProfileFromInternet(ticker, mkt)
+  const profile = await fetchCompanyProfile(ticker, mkt)
   const finalName = name || profile.name || sanitizedTicker
   const finalSector = profile.sector || 'Other'
 
@@ -68,7 +67,7 @@ router.put('/:id', async (req, res) => {
   const { ticker, name, shares, avg_cost, currency, market } = req.body
   const mkt = market || detectMarket(ticker)
   const sanitizedTicker = toYahooTicker(ticker, mkt).replace(/\./g, '-')
-  const profile = await fetchCompanyProfileFromInternet(ticker, mkt)
+  const profile = await fetchCompanyProfile(ticker, mkt)
   const finalName = name || profile.name || sanitizedTicker
   const finalSector = profile.sector || 'Other'
 
@@ -81,6 +80,20 @@ router.put('/:id', async (req, res) => {
         currency || defaultCurrency(mkt), mkt, req.params.id, req.userId]
     )
     res.json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/refresh-sectors', async (req, res) => {
+  try {
+    const portfolioId = await resolvePortfolioId(req.userId, req.body.portfolio_id)
+    const result = await pool.query(
+      'SELECT * FROM holdings WHERE user_id = $1 AND portfolio_id = $2',
+      [req.userId, portfolioId]
+    )
+    await refreshStaleSectors(result.rows)
+    res.json({ updated: result.rows.length, holdings: result.rows })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

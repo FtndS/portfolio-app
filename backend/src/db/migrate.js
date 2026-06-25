@@ -43,29 +43,32 @@ const migrations = [
     sql: `
       DO $$
       DECLARE
-        u RECORD;
+        h_rec RECORD;
+        usr_rec RECORD;
         pid INTEGER;
       BEGIN
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'holdings') THEN
-          FOR u IN SELECT DISTINCT user_id FROM holdings WHERE portfolio_id IS NULL
+          FOR h_rec IN SELECT DISTINCT user_id FROM holdings WHERE portfolio_id IS NULL
           LOOP
             INSERT INTO portfolios (user_id, name, is_default)
-            VALUES (u.user_id, 'Main Portfolio', true)
+            VALUES (h_rec.user_id, 'Main Portfolio', true)
             RETURNING id INTO pid;
-            UPDATE holdings SET portfolio_id = pid WHERE user_id = u.user_id AND portfolio_id IS NULL;
+            UPDATE holdings SET portfolio_id = pid WHERE user_id = h_rec.user_id AND portfolio_id IS NULL;
             IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions') THEN
-              UPDATE transactions SET portfolio_id = pid WHERE user_id = u.user_id AND portfolio_id IS NULL;
+              UPDATE transactions SET portfolio_id = pid WHERE user_id = h_rec.user_id AND portfolio_id IS NULL;
             END IF;
             IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'journal') THEN
-              UPDATE journal SET portfolio_id = pid WHERE user_id = u.user_id AND portfolio_id IS NULL;
+              UPDATE journal SET portfolio_id = pid WHERE user_id = h_rec.user_id AND portfolio_id IS NULL;
             END IF;
           END LOOP;
         END IF;
 
-        FOR u IN SELECT id FROM users u
-          WHERE NOT EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = u.id)
+        FOR usr_rec IN
+          SELECT users.id AS user_id FROM users
+          WHERE NOT EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = users.id)
         LOOP
-          INSERT INTO portfolios (user_id, name, is_default) VALUES (u.id, 'Main Portfolio', true);
+          INSERT INTO portfolios (user_id, name, is_default)
+          VALUES (usr_rec.user_id, 'Main Portfolio', true);
         END LOOP;
 
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions') THEN
