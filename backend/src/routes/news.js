@@ -1,108 +1,90 @@
 import express from 'express'
-import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 
 const router = express.Router()
 router.use(authMiddleware)
 
-// ฟังก์ชันช่วยดึงข้อมูลแบบถึกทน ไม่พึ่งพาคีย์ภายนอก ป้องกัน IP VPS โดนบล็อก
-async function fetchRSSAsJson(url) {
+// Cache 15 นาที
+const cache = new Map()
+const CACHE_TTL = 15 * 60 * 1000
+
+async function fetchRSS(url) {
+  const cached = cache.get(url)
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data
+  }
   try {
-    const res = await fetch(url)
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PortDiary/1.0)' },
+      signal: AbortSignal.timeout(8000)
+    })
     const text = await res.text()
-    
-    // ดึงข้อมูลพาดหัวข่าวแบบง่ายๆ จากโครงสร้าง XML RSS ของ Yahoo Finance
-    const items = []
-    const matches = text.matchAll(/<item>([\s\S]*?)<\/item>/g)
-    
-    for (const m of matches) {
-      const itemText = m[1]
-      const title = itemText.match(/<title>([\s\S]*?)<\/title>/)?.[1] || ''
-      const link = itemText.match(/<link>([\s\S]*?)<\/link>/)?.[1] || ''
-      const pubDate = itemText.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] || ''
-      const source = itemText.match(/<source[\s\S]*?>([\s\S]*?)<\/source>/)?.[1] || 'Yahoo Finance'
-      
-      if (title && link) {
-        items.push({
-          title: title.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1'),
-          url: link.trim(),
-          publishedAt: pubDate,
-          source: { name: source }
-        })
-      }
+    const parser = { items: [] }
+    const itemMatches = text.matchAll(/<item>([\s\S]*?)<\/item>/g)
+    for (const m of itemMatches) {
+      const t = m[1]
+      const title = t.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1]?.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() || ''
+      const link = t.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() || ''
+      const pubDate = t.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1]?.trim() || ''
+      const source = t.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1]?.trim() || 'Yahoo Finance'
+      if (title && link) parser.items.push({ title, url: link, publishedAt: pubDate, source: { name: source } })
     }
-    return items
+    cache.set(url, { data: parser.items, ts: Date.now() })
+    return parser.items
   } catch (e) {
-    console.error('RSS Fetch Error:', e)
-    return []
+    console.error('RSS fetch error:', e.message)
+    return cache.get(url)?.data || []
   }
 }
 
-// 1. ดึงข้อมูลข่าวสารหน้าแรก แยก 2 ช่อง
 router.get('/dashboard', async (req, res) => {
   try {
-    // ดึง Sector ของผู้ใช้
-    const holdRes = await pool.query(
-      'SELECT DISTINCT sector, ticker FROM holdings WHERE user_id = $1 AND sector IS NOT NULL AND sector != \'\'', 
-      [req.userId]
-    )
-    const mySectors = holdRes.rows.map(r => r.sector)
-    const myTickers = holdRes.rows.map(r => r.ticker)
+    const { sectors = '', tickers = '' } = req.query
+    const mySectors = sectors.split(',').filter(Boolean).map(s => s.toLowerCase())
+    const myTickers = tickers.split(',').filter(Boolean).map(t => t.toLowerCase())
 
-    // ดึงข่าวเศรษฐกิจภาพรวมตลาดจาก Yahoo Finance RSS (ปลอดภัยจากการล็อก IP 100%)
-    const articles = await fetchRSSAsJson('https://finance.yahoo.com/news/rssindex')
+    const articles = await fetchRSS('https://finance.yahoo.com/news/rssindex')
 
-    let inSectorNews = []
-    let outSectorNews = []
+    const inSector = []
+    const outSector = []
 
-    if (articles.length > 0) {
-      articles.forEach(a => {
-        const text = `${a.title}`.toLowerCase()
-        
-        // ตรวจสอบว่าข่าวตรงกับสัญลักษณ์หุ้นที่เราถือ หรือคำสำคัญของ Sector หรือไม่
-        const matchesPortfolio = myTickers.some(t => text.includes(t.toLowerCase())) || 
-          mySectors.some(s => {
-            const lowerS = s.toLowerCase()
-            if (lowerS === 'finance') return text.includes('bank') || text.includes('fed') || text.includes('finance') || text.includes('market') || text.includes('rate') || text.includes('inflation')
-            if (lowerS === 'technology') return text.includes('tech') || text.includes('ai') || text.includes('chip') || text.includes('nvidia') || text.includes('apple') || text.includes('google') || text.includes('microsoft')
-            if (lowerS === 'healthcare') return text.includes('health') || text.includes('drug') || text.includes('medical') || text.includes('pharma') || text.includes('lly')
-            return text.includes(lowerS)
-          })
+    const SECTOR_KEYWORDS = {
+      technology: ['tech','ai','chip','semiconductor','nvidia','apple','google','microsoft','software','cloud','meta','amazon'],
+      finance: ['bank','fed','rate','inflation','finance','market','interest','bond','treasury','jpmorgan','goldman'],
+      healthcare: ['health','drug','medical','pharma','biotech','fda','vaccine','lilly','pfizer','merck'],
+      energy: ['oil','energy','gas','crude','opec','exxon','chevron','solar','wind','renewable'],
+      consumer: ['retail','consumer','spend','walmart','amazon','target','shop'],
+      'real estate': ['reit','real estate','property','housing','mortgage'],
+      'bonds & gold': ['gold','bond','treasury','yield','silver','commodity'],
+      diversified: ['etf','index','fund','vanguard','blackrock','sp500','nasdaq'],
+    }
 
-        if (matchesPortfolio) {
-          inSectorNews.push(a)
-        } else {
-          outSectorNews.push(a)
-        }
+    articles.forEach(a => {
+      const text = a.title.toLowerCase()
+      const matchTicker = myTickers.some(t => text.includes(t))
+      const matchSector = mySectors.some(s => {
+        const keywords = SECTOR_KEYWORDS[s] || [s]
+        return keywords.some(kw => text.includes(kw))
       })
-    }
-
-    // ป้องกันหน้าแรกว่างเปล่า หากฝั่งใดฝั่งหนึ่งไม่มีข่าว ให้แชร์ข้อมูลร่วมกัน
-    if (inSectorNews.length === 0 && outSectorNews.length > 0) {
-      inSectorNews = outSectorNews.slice(0, 6)
-    }
-
-    res.json({
-      mySectors,
-      inSectorNews: inSectorNews.slice(0, 15),
-      outSectorNews: outSectorNews.slice(0, 15)
+      if (matchTicker || matchSector) inSector.push(a)
+      else outSector.push(a)
     })
 
+    res.json({
+      inSectorNews: (inSector.length ? inSector : articles).slice(0, 12),
+      outSectorNews: outSector.slice(0, 12),
+      cachedAt: new Date().toISOString()
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
 })
 
-// 2. ข่าวสารเจาะลึกรายหุ้นรายตัวเมื่อกดคลิกที่ชื่อหุ้น (เช่น NVDA, BRK-B)
 router.get('/ticker/:symbol', async (req, res) => {
-  let { symbol } = req.params
-  // แปลงกลับเป็นฟอร์แมตขีดกลางเพื่อส่งไปหา Yahoo RSS
-  const searchSymbol = symbol.replace('.', '-')
-  
   try {
-    const url = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${searchSymbol}`
-    const articles = await fetchRSSAsJson(url)
-    res.json(articles)
+    const symbol = req.params.symbol.replace('.', '-').replace('/', '-')
+    const articles = await fetchRSS(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}`)
+    res.json(articles.slice(0, 15))
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

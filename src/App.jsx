@@ -416,6 +416,210 @@ function TransactionModal({holdings,onClose,onSave}){
   )
 }
 
+function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
+  const [analysis, setAnalysis] = useState(null)
+  const [newsSummary, setNewsSummary] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [loadingNews, setLoadingNews] = useState(false)
+  const [error, setError] = useState('')
+
+  const analyze = async () => {
+    if (!holdings.length) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await api.post('/ai/analyze', {
+        holdings, prices, displayCurrency, fxRate
+      })
+      if (res.error) setError(res.error)
+      else setAnalysis(res)
+    } catch (e) {
+      setError('เกิดข้อผิดพลาด กรุณาลองใหม่')
+    }
+    setLoading(false)
+  }
+
+  const summarizeNews = async () => {
+    if (!inSectorNews.length) return
+    setLoadingNews(true)
+    try {
+      const res = await api.post('/ai/news-summary', {
+        holdings, news: inSectorNews
+      })
+      setNewsSummary(res)
+    } catch (e) {}
+    setLoadingNews(false)
+  }
+
+  const scoreColor = (s) => s >= 8 ? '#27ae60' : s >= 6 ? '#f39c12' : '#e74c3c'
+  const impactColor = (i) => i === 'positive' ? '#27ae60' : i === 'negative' ? '#e74c3c' : '#f39c12'
+  const impactLabel = (i) => i === 'positive' ? '📈 บวก' : i === 'negative' ? '📉 ลบ' : '➡️ กลางๆ'
+
+  return (
+    <div style={{ marginTop: '8px' }}>
+      {/* AI Portfolio Analysis */}
+      <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '2px' }}>
+              🤖 AI วิเคราะห์พอร์ต
+            </h3>
+            <p style={{ fontSize: '12px', color: '#555' }}>Claude วิเคราะห์ risk, concentration และแนะนำ rebalancing</p>
+          </div>
+          <button onClick={analyze} disabled={loading || !holdings.length} style={{
+            padding: '8px 18px', background: loading ? '#2a2a2a' : '#6c5ce7',
+            border: 'none', borderRadius: '8px', color: loading ? '#555' : '#fff',
+            fontSize: '13px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 500,
+            whiteSpace: 'nowrap'
+          }}>
+            {loading ? '⏳ กำลังวิเคราะห์...' : '✨ วิเคราะห์พอร์ต'}
+          </button>
+        </div>
+
+        {error && <p style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
+
+        {!analysis && !loading && (
+          <div style={{ textAlign: 'center', padding: '24px', color: '#444' }}>
+            <p style={{ fontSize: '32px', marginBottom: '8px' }}>🧠</p>
+            <p style={{ fontSize: '13px' }}>กด "วิเคราะห์พอร์ต" เพื่อให้ Claude ช่วยวิเคราะห์</p>
+          </div>
+        )}
+
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '24px', color: '#666' }}>
+            <p style={{ fontSize: '24px', marginBottom: '8px' }}>⏳</p>
+            <p style={{ fontSize: '13px' }}>Claude กำลังวิเคราะห์พอร์ตของคุณ...</p>
+          </div>
+        )}
+
+        {analysis && (
+          <div>
+            {/* Score */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <div style={{ background: '#0f0f0f', border: `1px solid ${scoreColor(analysis.score)}`, borderRadius: '10px', padding: '14px 18px', flex: '0 0 auto' }}>
+                <div style={{ fontSize: '11px', color: '#555', marginBottom: '4px' }}>คะแนนพอร์ต</div>
+                <div style={{ fontSize: '28px', fontWeight: 700, color: scoreColor(analysis.score) }}>{analysis.score}<span style={{ fontSize: '14px', color: '#555' }}>/10</span></div>
+                <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>{analysis.scoreReason}</div>
+              </div>
+              <div style={{ background: '#0f0f0f', border: '1px solid #2a2a2a', borderRadius: '10px', padding: '14px 18px', flex: 1 }}>
+                <div style={{ fontSize: '11px', color: '#555', marginBottom: '6px' }}>สรุปภาพรวม</div>
+                <p style={{ fontSize: '13px', color: '#ccc', lineHeight: 1.7 }}>{analysis.summary}</p>
+              </div>
+            </div>
+
+            {/* Strengths & Risks */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: '#0f1f0f', border: '1px solid #1a3a1a', borderRadius: '10px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#27ae60', marginBottom: '10px' }}>✅ จุดแข็ง</div>
+                {analysis.strengths?.map((s, i) => (
+                  <div key={i} style={{ fontSize: '13px', color: '#aaa', marginBottom: '6px', paddingLeft: '8px', borderLeft: '2px solid #27ae60' }}>{s}</div>
+                ))}
+              </div>
+              <div style={{ background: '#1f0f0f', border: '1px solid #3a1a1a', borderRadius: '10px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#e74c3c', marginBottom: '10px' }}>⚠️ ความเสี่ยง</div>
+                {analysis.risks?.map((r, i) => (
+                  <div key={i} style={{ fontSize: '13px', color: '#aaa', marginBottom: '6px', paddingLeft: '8px', borderLeft: '2px solid #e74c3c' }}>{r}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Recommendations */}
+            {analysis.recommendations?.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#a29bfe', marginBottom: '10px' }}>💡 คำแนะนำรายหุ้น</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {analysis.recommendations.map((r, i) => {
+                    const typeColor = r.type === 'hold' ? '#27ae60' : r.type === 'reduce' ? '#e74c3c' : '#f39c12'
+                    const typeLabel = r.type === 'hold' ? '✋ Hold' : r.type === 'reduce' ? '📉 Reduce' : '⚖️ Rebalance'
+                    return (
+                      <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: '#0f0f0f', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ flexShrink: 0 }}>
+                          <span style={{ fontWeight: 700, fontSize: '13px' }}>{r.ticker}</span>
+                          <span style={{ display: 'block', fontSize: '11px', color: typeColor, marginTop: '2px' }}>{typeLabel}</span>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: '13px', color: '#fff', marginBottom: '3px' }}>{r.action}</p>
+                          <p style={{ fontSize: '12px', color: '#666' }}>{r.reason}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Rebalance suggestion */}
+            {analysis.rebalanceSuggestion && (
+              <div style={{ background: '#1a1a2e', border: '1px solid #2d2d5e', borderRadius: '10px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#a29bfe', marginBottom: '8px' }}>🔄 แนะนำ Rebalance</div>
+                <p style={{ fontSize: '13px', color: '#bbb', lineHeight: 1.7 }}>{analysis.rebalanceSuggestion}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* AI News Summary */}
+      <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '2px' }}>
+              📰 AI สรุปข่าวกระทบพอร์ต
+            </h3>
+            <p style={{ fontSize: '12px', color: '#555' }}>Claude วิเคราะห์ข่าวล่าสุดและผลกระทบต่อ holdings</p>
+          </div>
+          <button onClick={summarizeNews} disabled={loadingNews || !inSectorNews.length} style={{
+            padding: '8px 18px', background: loadingNews ? '#2a2a2a' : '#00b894',
+            border: 'none', borderRadius: '8px', color: loadingNews ? '#555' : '#fff',
+            fontSize: '13px', cursor: loadingNews ? 'not-allowed' : 'pointer', fontWeight: 500,
+            whiteSpace: 'nowrap'
+          }}>
+            {loadingNews ? '⏳ กำลังสรุป...' : '📋 สรุปข่าว'}
+          </button>
+        </div>
+
+        {!newsSummary && !loadingNews && (
+          <div style={{ textAlign: 'center', padding: '24px', color: '#444' }}>
+            <p style={{ fontSize: '32px', marginBottom: '8px' }}>📰</p>
+            <p style={{ fontSize: '13px' }}>กด "สรุปข่าว" เพื่อให้ Claude วิเคราะห์ข่าวที่กระทบพอร์ต</p>
+          </div>
+        )}
+
+        {loadingNews && (
+          <div style={{ textAlign: 'center', padding: '24px', color: '#666' }}>
+            <p style={{ fontSize: '13px' }}>Claude กำลังอ่านข่าวและวิเคราะห์ผลกระทบ...</p>
+          </div>
+        )}
+
+        {newsSummary && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: impactColor(newsSummary.impact) }}>
+                {impactLabel(newsSummary.impact)}
+              </span>
+              <span style={{ fontSize: '12px', color: '#555' }}>ผลกระทบต่อพอร์ต</span>
+            </div>
+            <p style={{ fontSize: '13px', color: '#ccc', lineHeight: 1.7, marginBottom: '14px' }}>{newsSummary.summary}</p>
+            {newsSummary.highlights?.length > 0 && (
+              <div style={{ marginBottom: '12px' }}>
+                {newsSummary.highlights.map((h, i) => (
+                  <div key={i} style={{ fontSize: '13px', color: '#aaa', padding: '6px 0 6px 12px', borderLeft: '2px solid #a29bfe', marginBottom: '6px' }}>{h}</div>
+                ))}
+              </div>
+            )}
+            {newsSummary.watchOut && (
+              <div style={{ background: '#1f1a0f', border: '1px solid #3a2a0a', borderRadius: '8px', padding: '12px' }}>
+                <span style={{ fontSize: '12px', color: '#f39c12', fontWeight: 600 }}>⚠️ ควรระวัง: </span>
+                <span style={{ fontSize: '13px', color: '#bbb' }}>{newsSummary.watchOut}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Dashboard({user,onLogout}){
   const [holdings,setHoldings]=useState([])
   const [journal,setJournal]=useState([])
@@ -454,51 +658,55 @@ function Dashboard({user,onLogout}){
   },[])
 
   // 🌟 โดดข้ามข้อจำกัดของ VPS โหลดข่าว RSS ผ่านเบราว์เซอร์ผู้ใช้โดยตรง
-  const loadClientNews = useCallback(async (hl) => {
-    const rawArticles = await clientFetchRSS(null);
-    if (!rawArticles.length) return;
-
-    const mySectors = hl.map(h => (h.sector || 'Other').toLowerCase());
-    const myTickers = hl.map(h => h.ticker.toLowerCase());
-
-    const inSec = [];
-    const outSec = [];
-
-    rawArticles.forEach(a => {
-      const text = a.title.toLowerCase();
-      
-      const isMatch = myTickers.some(t => text.includes(t)) || mySectors.some(s => {
-        if (s === 'financial' || s === 'finance' || s === 'financial services') return text.includes('bank') || text.includes('fed') || text.includes('finance') || text.includes('market') || text.includes('rate') || text.includes('insurance');
-        if (s === 'technology') return text.includes('tech') || text.includes('ai') || text.includes('nvidia') || text.includes('chip') || text.includes('apple') || text.includes('google') || text.includes('software');
-        if (s === 'healthcare') return text.includes('health') || text.includes('drug') || text.includes('medical') || text.includes('lly') || text.includes('pharma') || text.includes('biotech');
-        if (s === 'energy') return text.includes('oil') || text.includes('energy') || text.includes('gas') || text.includes('crude');
-        if (s === 'consumer cyclical' || s === 'consumer defensive' || s === 'consumer') return text.includes('retail') || text.includes('consumer') || text.includes('spend') || text.includes('shop');
-        return text.includes(s);
-      });
-
-      if (isMatch) inSec.push(a);
-      else outSec.push(a);
-    });
-
-    setInSectorNews(inSec.length ? inSec.slice(0, 15) : outSec.slice(0, 6));
-    setOutSectorNews(outSec.slice(0, 15));
-  }, []);
-
-  const handleOpenTickerNews = async (ticker) => {
-    setSelectedTicker(ticker)
-    setLoadingNews(true)
-    setTickerNews([])
-    const articles = await clientFetchRSS(ticker);
-    setTickerNews(articles);
-    setLoadingNews(false)
+const loadClientNews = useCallback(async (hl) => {
+  if (!hl?.length) return
+  try {
+    const sectors = hl.map(h => h.sector || '').filter(Boolean).join(',')
+    const tickers = hl.map(h => h.ticker).join(',')
+    const res = await api.fetch(`/news/dashboard?sectors=${encodeURIComponent(sectors)}&tickers=${encodeURIComponent(tickers)}`)
+    if (!res.ok) return
+    const data = await res.json()
+    setInSectorNews(data.inSectorNews || [])
+    setOutSectorNews(data.outSectorNews || [])
+  } catch (e) {
+    console.error('News fetch error:', e)
   }
+}, [])
 
-  useEffect(()=>{
-    fetchAll().then((hl) => {
-      fetchPrices(hl);
-      loadClientNews(hl);
-    })
-  },[])
+const handleOpenTickerNews = async (ticker) => {
+  setSelectedTicker(ticker)
+  setLoadingNews(true)
+  setTickerNews([])
+  try {
+    const res = await api.fetch(`/news/ticker/${ticker}`)
+    if (res.ok) {
+      const data = await res.json()
+      setTickerNews(Array.isArray(data) ? data : [])
+    }
+  } catch (e) {
+    console.error('Ticker news error:', e)
+  }
+  setLoadingNews(false)
+}
+
+useEffect(() => {
+  fetchAll().then((hl) => {
+    fetchPrices(hl)
+    loadClientNews(hl)
+  })
+  // Auto refresh prices ทุก 5 นาที
+  const priceInterval = setInterval(() => {
+    if (holdings.length > 0) fetchPrices(holdings)
+  }, 5 * 60 * 1000)
+  // Auto refresh news ทุก 15 นาที
+  const newsInterval = setInterval(() => {
+    if (holdings.length > 0) loadClientNews(holdings)
+  }, 15 * 60 * 1000)
+  return () => {
+    clearInterval(priceInterval)
+    clearInterval(newsInterval)
+  }
+}, [])
 
   const delH=async id=>{if(!confirm('ลบ holding นี้?'))return;await api.delete(`/holdings/${id}`);fetchAll().then(fetchPrices)}
   const delJ=async id=>{if(!confirm('ลบ journal entry?'))return;await api.delete(`/journal/${id}`);fetchAll()}
@@ -603,6 +811,7 @@ function Dashboard({user,onLogout}){
           {holdings.length>0&&<>
             <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             <Treemap holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
+            <AIPanel holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} inSectorNews={inSectorNews} />
             {renderNewsGrid()}
           </>}
           {holdings.length===0&&<div style={{textAlign:'center',padding:'60px',color:'#444'}}>

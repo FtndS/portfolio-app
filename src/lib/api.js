@@ -16,4 +16,6 @@ export const api = {
     fetch(`${BASE}${path}`, { method: 'PUT', headers: headers(), body: JSON.stringify(body) }).then(r => r.json()),
   delete: (path) =>
     fetch(`${BASE}${path}`, { method: 'DELETE', headers: headers() }).then(r => r.json()),
+  fetch: (path) =>
+    fetch(`${BASE}${path}`, { headers: headers() }),
 }
