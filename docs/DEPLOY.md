@@ -114,7 +114,7 @@ chmod +x scripts/deploy-vps.sh   # once, if Permission denied
 | `BEGIN.*PRIVATE KEY` validation failed | Paste full private key, not `.pub` |
 | `unable to authenticate` | Public key not in VPS `authorized_keys`, or key pair mismatch |
 | `Connection timed out` / port unreachable | Intermittent GitHub runner → VPS routing; workflow retries 4× with 45s TCP timeout (`scripts/github-ssh-retry.sh`). If still failing, deploy manually or use a self-hosted runner on the VPS |
-| `~/portfolio-app not found` | Clone repo on VPS: `git clone https://github.com/FtndS/portfolio-app.git ~/portfolio-app` |
+| `No such container: *_portfolio-backend` | Stale Docker Compose state — run `docker compose rm -sf backend; docker rm -f portfolio-backend; ./scripts/deploy-vps.sh` |
 | `.env not found` | Create `~/portfolio-app/.env` from `.env.example` |
 
 ## Reset database (wipe all users/data)
