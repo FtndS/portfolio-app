@@ -1,9 +1,18 @@
 import { useState } from 'react'
-import { WORKFLOW_STEPS, WORKFLOW_VIEWS } from '../../lib/workflow'
+import { WORKFLOW_STEPS, WORKFLOW_EXTRA, WORKFLOW_VIEWS } from '../../lib/workflow'
 
 const DISMISS_KEY = 'portdiary-workflow-guide-collapsed'
 
-export default function WorkflowGuide({ activeTab, compact = false }) {
+function viewHint(activeTab) {
+  return WORKFLOW_VIEWS.find((v) => v.key === activeTab)
+}
+
+export default function WorkflowGuide({
+  activeTab,
+  compact = false,
+  onGoTab,
+  onAddTransaction,
+}) {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(DISMISS_KEY) === '1',
   )
@@ -16,58 +25,109 @@ export default function WorkflowGuide({ activeTab, compact = false }) {
     })
   }
 
-  if (collapsed && compact) {
+  const here = viewHint(activeTab)
+  const onTransactions = activeTab === 'transactions'
+
+  if (collapsed) {
     return (
-      <button type="button" className="dash-workflow-toggle" onClick={toggleCollapsed}>
-        📋 ดูขั้นตอนการใช้งาน (ซื้อ/ขายไปที่ไหน?)
+      <button type="button" className="dash-workflow-bar" onClick={toggleCollapsed}>
+        <span className="dash-workflow-bar-lead">
+          <strong>ซื้อ/ขาย</strong>
+          <span className="dash-workflow-bar-arrow" aria-hidden>→</span>
+          <span className="dash-workflow-bar-tab">Transactions</span>
+        </span>
+        <span className="dash-workflow-bar-more">ดูขั้นตอนทั้งหมด</span>
       </button>
     )
   }
 
   return (
-    <div className={`dash-workflow${compact ? ' dash-workflow--compact' : ''}`}>
+    <div className={`dash-workflow${compact ? ' dash-workflow--compact' : ''}${onTransactions ? ' dash-workflow--here-tx' : ''}`}>
       <div className="dash-workflow-head">
         <div>
-          <p className="dash-workflow-eyebrow">ขั้นตอนแนะนำ</p>
+          <p className="dash-workflow-eyebrow">ใช้งานยังไง</p>
           <h3 className="dash-workflow-title">
-            {activeTab === 'transactions'
-              ? 'ซื้อ / ขายหุ้น → เริ่มที่แท็บนี้'
-              : 'ไม่แน่ใจว่าต้องทำที่ไหน?'}
+            {onTransactions
+              ? 'บันทึกซื้อ/ขายที่แท็บนี้'
+              : 'ซื้อ/ขายหุ้น → เริ่มที่ Transactions'}
           </h3>
         </div>
         <button type="button" className="dash-workflow-collapse" onClick={toggleCollapsed}>
-          {collapsed ? 'แสดง' : 'ย่อ'}
+          ย่อ
         </button>
       </div>
 
-      {!collapsed && (
-        <>
-          <div className="dash-workflow-steps">
-            {WORKFLOW_STEPS.map((step, i) => {
-              const isActive = step.key === activeTab
-              return (
-                <div
-                  key={step.key}
-                  className={`dash-workflow-step${step.primary ? ' dash-workflow-step--primary' : ''}${isActive ? ' dash-workflow-step--active' : ''}`}
-                >
-                  <div className="dash-workflow-step-num">{i + 1}</div>
-                  <div>
-                    <p className="dash-workflow-step-title">
-                      <span aria-hidden>{step.icon}</span> {step.title}
-                      {step.primary && <span className="dash-workflow-badge">หลัก</span>}
-                      {isActive && <span className="dash-workflow-badge dash-workflow-badge--here">คุณอยู่ที่นี่</span>}
-                    </p>
-                    <p className="dash-workflow-step-desc">{step.desc}</p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          <p className="dash-workflow-foot">
-            {WORKFLOW_VIEWS[0].icon} <strong>{WORKFLOW_VIEWS[0].title}</strong> — {WORKFLOW_VIEWS[0].desc}
+      <div className="dash-workflow-flow" role="list">
+        {WORKFLOW_STEPS.map((step, i) => {
+          const isActive = step.key === activeTab
+          const isPrimary = step.primary
+          return (
+            <div key={step.key} className="dash-workflow-flow-item" role="listitem">
+              {i > 0 && <span className="dash-workflow-connector" aria-hidden>→</span>}
+              <button
+                type="button"
+                className={`dash-workflow-card${isPrimary ? ' dash-workflow-card--primary' : ''}${isActive ? ' dash-workflow-card--active' : ''}${step.optional ? ' dash-workflow-card--optional' : ''}`}
+                onClick={() => onGoTab?.(step.key)}
+              >
+                <span className="dash-workflow-card-top">
+                  <span className="dash-workflow-card-num">{i + 1}</span>
+                  {isActive && <span className="dash-workflow-pill">อยู่ที่นี่</span>}
+                  {step.optional && !isActive && (
+                    <span className="dash-workflow-pill dash-workflow-pill--muted">ทางเลือก</span>
+                  )}
+                  {isPrimary && !isActive && (
+                    <span className="dash-workflow-pill dash-workflow-pill--main">เริ่มที่นี่</span>
+                  )}
+                </span>
+                <span className="dash-workflow-card-icon" aria-hidden>{step.icon}</span>
+                <span className="dash-workflow-card-tab">{step.tabLabel}</span>
+                <span className="dash-workflow-card-action">{step.action}</span>
+                <span className="dash-workflow-card-desc">{step.desc}</span>
+                {isPrimary && onAddTransaction && (
+                  <span
+                    className="dash-workflow-card-cta"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onAddTransaction()
+                    }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    role="presentation"
+                  >
+                    + บันทึก Transaction
+                  </span>
+                )}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="dash-workflow-meta">
+        <button
+          type="button"
+          className="dash-workflow-extra"
+          onClick={() => onGoTab?.(WORKFLOW_EXTRA.key)}
+        >
+          <span aria-hidden>{WORKFLOW_EXTRA.icon}</span>
+          <span>
+            <strong>{WORKFLOW_EXTRA.tabLabel}</strong>
+            <span className="dash-workflow-extra-desc"> — {WORKFLOW_EXTRA.desc}</span>
+          </span>
+        </button>
+        {here && (
+          <p className="dash-workflow-view">
+            <span aria-hidden>{here.icon}</span>
+            <strong>{here.title}</strong> — {here.desc}
+            <span className="dash-workflow-pill dash-workflow-pill--here">คุณอยู่ที่นี่</span>
           </p>
-        </>
-      )}
+        )}
+        {!here && compact && (
+          <p className="dash-workflow-view dash-workflow-view--muted">
+            <span aria-hidden>📊</span>
+            <strong>Overview / Report</strong> — ดูภาพรวมและสรุปพอร์ต
+          </p>
+        )}
+      </div>
     </div>
   )
 }

@@ -432,7 +432,12 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
         {/* Overview */}
         {tab==='overview'&&<>
-          <WorkflowGuide activeTab={tab} compact />
+          <WorkflowGuide
+            activeTab={tab}
+            compact
+            onGoTab={setTab}
+            onAddTransaction={() => { setTab('transactions'); setModal('tx') }}
+          />
           <div className="dash-kpi-grid">
             {[
               ['มูลค่าพอร์ตนี้', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
@@ -553,7 +558,11 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
         {/* Transactions */}
         {tab==='transactions'&&<>
-          <WorkflowGuide activeTab={tab} />
+          <WorkflowGuide
+            activeTab={tab}
+            onGoTab={setTab}
+            onAddTransaction={() => setModal('tx')}
+          />
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
               <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>

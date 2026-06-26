@@ -15,41 +15,46 @@ export function journalDraftFromTransaction(tx) {
   }
 }
 
+/** Main user journey — tab names match the nav bar exactly. */
 export const WORKFLOW_STEPS = [
   {
     key: 'transactions',
     icon: '✏️',
-    title: 'ซื้อ / ขายหุ้น',
-    tab: 'Transactions',
+    tabLabel: 'Transactions',
+    action: 'ซื้อ / ขายหุ้น',
     primary: true,
-    desc: 'จุดเริ่มหลัก — บันทึก BUY/SELL หรือ Import CSV แล้วพอร์ตจะอัปเดตเอง',
+    optional: false,
+    desc: 'บันทึก BUY/SELL หรือ Import CSV',
   },
   {
     key: 'journal',
     icon: '📓',
-    title: 'Journal',
-    tab: 'Journal',
+    tabLabel: 'Journal',
+    action: 'บันทึกเหตุผล',
     primary: false,
-    desc: 'หลังเทรด — บันทึกเหตุผลว่าทำไมซื้อ/ขาย (แนะนำ ไม่บังคับ)',
+    optional: true,
+    desc: 'ทำไมถึงซื้อ/ขาย — แนะนำหลังเทรด',
   },
   {
     key: 'dividends',
     icon: '💰',
-    title: 'ปันผล',
-    tab: 'ปันผล',
+    tabLabel: 'ปันผล',
+    action: 'รับเงินปันผล',
     primary: false,
-    desc: 'เมื่อได้รับเงินปันผลเข้าบัญชี — ไม่ใช่การซื้อขายหุ้น',
-  },
-  {
-    key: 'holdings',
-    icon: '⚙️',
-    title: 'Holdings',
-    tab: 'Holdings',
-    primary: false,
-    desc: 'แก้ไขยอดตรงๆ — ใช้เฉพาะกรณีพิเศษ (ส่วนใหญ่ไม่ต้อง)',
+    optional: false,
+    desc: 'เมื่อเงินปันผลเข้าบัญชี',
   },
 ]
 
+export const WORKFLOW_EXTRA = {
+  key: 'holdings',
+  icon: '⚙️',
+  tabLabel: 'Holdings',
+  action: 'แก้ยอดตรงๆ',
+  desc: 'ใช้เฉพาะกรณีพิเศษ — ส่วนใหญ่ไม่ต้อง',
+}
+
 export const WORKFLOW_VIEWS = [
-  { key: 'overview', icon: '📊', title: 'Overview / Report', desc: 'ดูภาพรวม กราฟ และสรุปพอร์ต' },
+  { key: 'overview', icon: '📊', title: 'Overview', desc: 'ดูกราฟและภาพรวมพอร์ต' },
+  { key: 'report', icon: '📄', title: 'Report', desc: 'สรุปพอร์ต / พิมพ์ PDF' },
 ]

@@ -722,8 +722,13 @@ body,
 }
 
 .dash-workflow--compact {
-  padding: 12px 14px;
+  padding: 14px 16px;
   margin-bottom: 12px;
+}
+
+.dash-workflow--here-tx {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
 }
 
 .dash-workflow-head {
@@ -731,6 +736,7 @@ body,
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 14px;
 }
 
 .dash-workflow-eyebrow {
@@ -747,111 +753,272 @@ body,
   font-weight: 700;
   margin: 0;
   color: var(--text);
+  line-height: 1.35;
 }
 
 .dash-workflow-collapse,
-.dash-workflow-toggle {
+.dash-workflow-bar {
   flex-shrink: 0;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: var(--font);
 }
 
-.dash-workflow-toggle {
-  display: block;
+.dash-workflow-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
   margin-bottom: 12px;
   text-align: left;
+  padding: 10px 14px;
+  background: var(--surface);
 }
 
-.dash-workflow-steps {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.dash-workflow-step {
+.dash-workflow-bar-lead {
   display: flex;
-  gap: 12px;
-  padding: 10px 12px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.dash-workflow-bar-tab {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.dash-workflow-bar-arrow {
+  color: var(--text-faint);
+}
+
+.dash-workflow-bar-more {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.dash-workflow-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 6px 4px;
+}
+
+.dash-workflow-flow-item {
+  display: flex;
+  align-items: center;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.dash-workflow-connector {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 14px;
+  padding: 0 2px;
+  user-select: none;
+}
+
+.dash-workflow-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+  padding: 12px 12px 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
 }
 
-.dash-workflow-step--primary {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+.dash-workflow-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 6%, transparent);
 }
 
-.dash-workflow-step--active {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+.dash-workflow-card--primary {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
 }
 
-.dash-workflow-step-num {
-  width: 24px;
-  height: 24px;
+.dash-workflow-card--active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.dash-workflow-card--optional {
+  opacity: 0.92;
+}
+
+.dash-workflow-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.dash-workflow-card-num {
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--surface);
   border: 1px solid var(--border);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
-  flex-shrink: 0;
 }
 
-.dash-workflow-step--primary .dash-workflow-step-num {
+.dash-workflow-card--primary .dash-workflow-card-num {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
 }
 
-.dash-workflow-step-title {
-  font-size: 13px;
+.dash-workflow-card-icon {
+  font-size: 18px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.dash-workflow-card-tab {
+  font-size: 14px;
   font-weight: 700;
-  margin: 0 0 2px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  color: var(--text);
+  line-height: 1.25;
 }
 
-.dash-workflow-step-desc {
+.dash-workflow-card-action {
   font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-  line-height: 1.45;
+  font-weight: 600;
+  color: var(--accent);
 }
 
-.dash-workflow-badge {
-  font-size: 10px;
+.dash-workflow-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.dash-workflow-card-cta {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.dash-workflow-card--primary:hover .dash-workflow-card-cta {
+  filter: brightness(1.05);
+}
+
+.dash-workflow-pill {
+  font-size: 9px;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
   background: var(--accent);
   color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-.dash-workflow-badge--here {
+.dash-workflow-pill--muted {
+  background: var(--border);
+  color: var(--text-muted);
+}
+
+.dash-workflow-pill--main {
+  background: color-mix(in srgb, var(--accent) 85%, #000);
+}
+
+.dash-workflow-pill--here {
   background: var(--gain-soft);
   color: var(--gain);
+  margin-left: 4px;
 }
 
-.dash-workflow-foot {
+.dash-workflow-meta {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dash-workflow-extra {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font);
   font-size: 12px;
   color: var(--text-muted);
-  margin: 12px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  text-align: left;
+}
+
+.dash-workflow-extra:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--text);
+}
+
+.dash-workflow-extra-desc {
+  font-weight: 400;
+}
+
+.dash-workflow-view {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.dash-workflow-view--muted {
+  opacity: 0.9;
+}
+
+@media (max-width: 640px) {
+  .dash-workflow-connector {
+    display: none;
+  }
+
+  .dash-workflow-flow-item {
+    flex: 1 1 100%;
+  }
+
+  .dash-workflow-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .dash-workflow-journal-hint {
