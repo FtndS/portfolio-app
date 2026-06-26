@@ -185,17 +185,6 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   const points = []
 
   for (const dateStr of sampleDates) {
-    if (snapshotMap[dateStr]) {
-      const s = snapshotMap[dateStr]
-      points.push({
-        date: dateStr,
-        total_value: Number(s.total_value),
-        total_cost: Number(s.total_cost),
-        source: 'snapshot',
-      })
-      continue
-    }
-
     const { positions, avgCosts } = positionsAtDate(transactions, dateStr)
     let totalValue = 0
     let totalCost = 0
@@ -207,11 +196,12 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
     }
 
     if (totalCost > 0 || totalValue > 0) {
+      const snap = snapshotMap[dateStr]
       points.push({
         date: dateStr,
-        total_value: Math.round(totalValue * 100) / 100,
-        total_cost: Math.round(totalCost * 100) / 100,
-        source: 'computed',
+        total_value: snap ? Number(snap.total_value) : Math.round(totalValue * 100) / 100,
+        total_cost: snap ? Number(snap.total_cost) : Math.round(totalCost * 100) / 100,
+        source: snap ? 'snapshot' : 'computed',
       })
     }
   }

@@ -74,11 +74,12 @@ export default function PortfolioChart({
   const compareMode = hasBenchmark
 
   const ySeries = compareMode
-    ? [portIndexed, ...bmVals.filter((v) => v != null)]
+    ? [...portIndexed, ...bmVals.filter((v) => v != null)]
     : [...vals, ...costs].filter((v) => v > 0)
 
-  const min = ySeries.length ? Math.min(...ySeries) * (compareMode ? 0.98 : 0.98) : 0
-  const max = ySeries.length ? Math.max(...ySeries) * (compareMode ? 1.02 : 1.02) : 1
+  const finite = ySeries.filter((v) => Number.isFinite(v))
+  const min = finite.length ? Math.min(...finite) * 0.98 : 0
+  const max = finite.length ? Math.max(...finite) * 1.02 : 1
   const range = max - min || 1
 
   const toPts = (arr) =>
@@ -87,6 +88,7 @@ export default function PortfolioChart({
         if (v == null || (compareMode ? false : v <= 0 && i > 0)) return null
         const x = history.length < 2 ? W / 2 : pad + (i / (history.length - 1)) * (W - pad * 2)
         const y = H - pad - ((Number(v) - min) / range) * (H - pad * 2)
+        if (!Number.isFinite(y)) return null
         return `${x},${y}`
       })
       .filter(Boolean)
@@ -164,7 +166,7 @@ export default function PortfolioChart({
 
       {loading && <p className="dash-chart-loading">กำลังโหลดกราฟ...</p>}
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="dash-chart-svg">
+      <svg viewBox={`0 0 ${W} ${H}`} className="dash-chart-svg" preserveAspectRatio="xMidYMid meet">
         {!compareMode && costPts && (
           <polyline points={costPts} fill="none" stroke="#555" strokeWidth="1.5" strokeDasharray="4,4" strokeLinejoin="round" />
         )}
