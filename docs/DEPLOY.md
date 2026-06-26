@@ -32,7 +32,9 @@ ssh -i ~/.ssh/portfolio-app-deploy root@YOUR_VPS_IP 'echo OK'
 
 ### 3. Add GitHub Secrets
 
-Repository → **Settings** → **Secrets and variables** → **Actions**
+Open: **https://github.com/FtndS/portfolio-app/settings/secrets/actions**
+
+Click **New repository secret** (not "Variables", not Environment-only unless linked to repo).
 
 | Secret | Value |
 |--------|--------|
@@ -41,7 +43,15 @@ Repository → **Settings** → **Secrets and variables** → **Actions**
 | `VPS_PORT` | `22` (optional) |
 | `VPS_SSH_KEY` | Full private key including `-----BEGIN` / `-----END` lines |
 
-**Important:** Use the **private** key that matches the **public** key in `authorized_keys`. Do not paste the server's host key or a public key into `VPS_SSH_KEY`.
+**Windows:** run `powershell -File scripts/setup-github-deploy-key.ps1`
+
+**Common mistakes (why it "didn't work" before):**
+- Secret added under **Variables** instead of **Secrets**
+- Secret added to **Environment** but workflow doesn't use that environment
+- Wrong repo or fork
+- Pasted `.pub` (public) key instead of private key
+- Private key missing `BEGIN`/`END` lines (broken copy-paste)
+- Public key never added to VPS `~/.ssh/authorized_keys`
 
 ### 4. Verify SSH
 

@@ -48,21 +48,29 @@ jobs:
         run: |
           missing=0
           if [ -z "$VPS_HOST" ]; then
-            echo "::error::Missing GitHub secret VPS_HOST (VPS IP or domain)"
+            echo "::error title=Missing VPS_HOST::Add Repository secret VPS_HOST at Settings → Secrets → Actions (NOT Variables, NOT Environment-only)"
             missing=1
           fi
           if [ -z "$VPS_USER" ]; then
-            echo "::error::Missing GitHub secret VPS_USER (e.g. root)"
+            echo "::error title=Missing VPS_USER::Add Repository secret VPS_USER (e.g. root)"
             missing=1
           fi
           if [ -z "$VPS_SSH_KEY" ]; then
-            echo "::error::Missing GitHub secret VPS_SSH_KEY — see docs/DEPLOY.md"
+            echo "::error title=Missing VPS_SSH_KEY::Add Repository secret VPS_SSH_KEY — run scripts/setup-github-deploy-key.ps1 on Windows"
             missing=1
           elif ! printf '%s' "$VPS_SSH_KEY" | grep -q 'BEGIN.*PRIVATE KEY'; then
-            echo "::error::VPS_SSH_KEY must be the full private key including BEGIN/END lines"
+            echo "::error title=Invalid VPS_SSH_KEY format::Must paste the FULL private key including -----BEGIN OPENSSH PRIVATE KEY----- lines. You may have pasted the .pub file by mistake."
+            missing=1
+          elif printf '%s' "$VPS_SSH_KEY" | grep -q 'BEGIN OPENSSH PUBLIC KEY'; then
+            echo "::error title=Wrong key type::VPS_SSH_KEY looks like a PUBLIC key. Use the private key file (no .pub extension)."
             missing=1
           fi
-          if [ "$missing" -ne 0 ]; then exit 1; fi
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "Secrets checklist: https://github.com/FtndS/portfolio-app/settings/secrets/actions"
+            echo "Docs: docs/DEPLOY.md"
+            exit 1
+          fi
           echo "Secrets OK — will deploy to ${VPS_USER}@${VPS_HOST} port ${VPS_PORT:-22}"
 
       - name: Setup SSH agent
