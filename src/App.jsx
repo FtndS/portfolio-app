@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from './lib/api'
 import Landing from './components/Landing'
+import './dashboard.css'
 
 const inp = (extra={}) => ({width:'100%',padding:'10px 12px',marginBottom:'12px',background:'#1e1e1e',border:'1px solid #3a3a3a',borderRadius:'8px',color:'#fff',fontSize:'14px',boxSizing:'border-box',...extra})
 const btnPrimary = {padding:'10px 20px',background:'#6c5ce7',border:'none',borderRadius:'8px',color:'#fff',fontSize:'14px',cursor:'pointer',width:'100%'}
@@ -114,7 +115,7 @@ function Login({onLogin,onGoRegister,onGoForgot,onGoHome}){
   }
   const onKeyDown=e=>{ if(e.key==='Enter') go() }
   return(
-    <div style={wrap}><div style={card}>
+    <div className="auth-wrap"><div className="auth-card">
       <div style={{marginBottom:'28px'}}>
         <h1 style={{color:'#fff',fontSize:'22px',fontWeight:600,marginBottom:'6px'}}>📓 Port Diary</h1>
         <p style={{color:'#555',fontSize:'13px'}}>บันทึกพอร์ตการลงทุน</p>
@@ -146,9 +147,9 @@ function Register({onGoLogin,onGoHome}){
     }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้ — ลองใหม่หรือติดต่อ admin')}
   }
   const onKeyDown=e=>{ if(e.key==='Enter') go() }
-  if(ok) return <div style={wrap}><div style={{...card,textAlign:'center'}}><div style={{fontSize:'48px',marginBottom:'16px'}}>🎉</div><h2 style={{color:'#fff',marginBottom:'8px'}}>สมัครสำเร็จ!</h2><button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button></div></div>
+  if(ok) return <div className="auth-wrap"><div className="auth-card" style={{textAlign:'center'}}><div style={{fontSize:'48px',marginBottom:'16px'}}>🎉</div><h2 style={{color:'#fff',marginBottom:'8px'}}>สมัครสำเร็จ!</h2><button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button></div></div>
   return(
-    <div style={wrap}><div style={card}>
+    <div className="auth-wrap"><div className="auth-card">
       <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'24px'}}>สมัครสมาชิก</h1>
       {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
       <Field label="ชื่อ"><input type="text" style={inp()} placeholder="ชื่อของคุณ" onChange={e=>setForm({...form,name:e.target.value})} onKeyDown={onKeyDown}/></Field>
@@ -182,7 +183,7 @@ function ForgotPassword({onGoLogin,onGoHome}){
     setLoading(false)
   }
   return(
-    <div style={wrap}><div style={card}>
+    <div className="auth-wrap"><div className="auth-card">
       <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'8px'}}>ลืมรหัสผ่าน</h1>
       <p style={{color:'#555',fontSize:'13px',marginBottom:'20px'}}>ใส่อีเมลที่ใช้สมัคร เราจะส่งลิงก์ตั้งรหัสผ่านใหม่</p>
       {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
@@ -215,14 +216,14 @@ function ResetPassword({token,onGoLogin,onGoHome}){
     setLoading(false)
   }
   if(message) return (
-    <div style={wrap}><div style={{...card,textAlign:'center'}}>
+    <div className="auth-wrap"><div className="auth-card" style={{textAlign:'center'}}>
       <div style={{fontSize:'48px',marginBottom:'16px'}}>✅</div>
       <p style={{color:'#55efc4',marginBottom:'20px'}}>{message}</p>
       <button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button>
     </div></div>
   )
   return(
-    <div style={wrap}><div style={card}>
+    <div className="auth-wrap"><div className="auth-card">
       <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'8px'}}>ตั้งรหัสผ่านใหม่</h1>
       {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
       <Field label="รหัสผ่านใหม่"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" value={password} onChange={e=>setPassword(e.target.value)}/></Field>
@@ -266,7 +267,7 @@ function DonutChart({holdings,prices,displayCurrency,fxRate}){
   })
 
   return(
-    <div style={{display:'flex',gap:'24px',alignItems:'center',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'12px',padding:'20px',marginBottom:'16px'}}>
+    <div className="dash-donut">
       <svg viewBox="0 0 200 200" style={{width:'160px',flexShrink:0}}>
         {isSingleHolding ? (
           <circle cx={CX} cy={CY} r={(R + ri) / 2} fill="none" stroke={colors[0]} strokeWidth={R - ri} />
@@ -509,8 +510,8 @@ function PortfolioManageModal({portfolio,portfolios,onClose,onUpdated,onDeleted}
 
 function Modal({title,onClose,children}){
   return(
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
-      <div style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'14px',padding:'28px',width:'440px',maxHeight:'92vh',overflowY:'auto'}}>
+    <div className="modal-overlay">
+      <div className="modal-panel">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
           <h2 style={{color:'#fff',fontSize:'16px',fontWeight:600}}>{title}</h2>
           <button onClick={onClose} style={{background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:'22px',lineHeight:1}}>×</button>
@@ -560,7 +561,7 @@ function HoldingModal({holding,onClose,onSave,portfolioId}){
       <Field label="จำนวนหุ้น"><AmountInput suffix="shares" placeholder="100" value={f.shares} onChange={e=>setF({...f,shares:e.target.value})}/></Field>
       <Field label={`ราคาทุนเฉลี่ย (${f.currency})`}><AmountInput prefix={sym} placeholder="0.00" value={f.avg_cost} onChange={e=>setF({...f,avg_cost:e.target.value})}/></Field>
       
-      <div style={{display:'flex',gap:'10px',marginTop:'20px'}}>
+      <div style={{display:'flex',gap:'10px',marginTop:'20px'}} className="dash-modal-actions">
         <button type="button" onClick={onClose} style={btnGhost}>ยกเลิก</button>
         <button type="button" onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':isEdit?'บันทึกการแก้ไข':'บันทึก'}</button>
       </div>
@@ -589,7 +590,7 @@ function JournalModal({entry,onClose,onSave,portfolioId}){
         <textarea placeholder="ความคิด การวิเคราะห์ หรือเหตุการณ์..." style={{...inp(),height:'110px',resize:'vertical',fontFamily:'sans-serif',marginBottom:0}} value={f.content} onChange={e=>setF({...f,content:e.target.value})}/>
       </Field>
       <Field label="Tickers ที่เกี่ยวข้อง"><input style={inp()} placeholder="เช่น VOO, AAPL, PTT" value={f.tickers} onChange={e=>setF({...f,tickers:e.target.value})}/></Field>
-      <div style={{display:'flex',gap:'8px'}}>
+      <div style={{display:'flex',gap:'8px'}} className="dash-modal-row">
         <div style={{flex:1}}>
           <Field label="Tag">
             <select style={inp({marginBottom:0})} value={f.tag} onChange={e=>setF({...f,tag:e.target.value})}>
@@ -604,7 +605,7 @@ function JournalModal({entry,onClose,onSave,portfolioId}){
           </Field>
         </div>
       </div>
-      <div style={{display:'flex',gap:'10px',marginTop:'20px'}}>
+      <div style={{display:'flex',gap:'10px',marginTop:'20px'}} className="dash-modal-actions">
         <button onClick={onClose} style={btnGhost}>ยกเลิก</button>
         <button onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึก'}</button>
       </div>
@@ -655,12 +656,12 @@ function TransactionModal({holdings,transaction,onClose,onSave,portfolioId}){
           {holdings.map(h=><option key={h.id} value={h.id}>{h.ticker} — {h.name||h.ticker}</option>)}
         </select>
       </Field>
-      <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
+      <div style={{display:'flex',gap:'8px',marginBottom:'12px'}} className="dash-modal-row">
         <div style={{flex:1}}>
           <Field label="Ticker">
             <input style={inp({marginBottom:0})} placeholder="เช่น VOO" value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})} disabled={isEdit}/></Field>
         </div>
-        <div style={{flex:'none',width:'120px'}}>
+        <div style={{flex:'none',width:'120px'}} className="dash-modal-type">
           <Field label="ประเภท">
             <div style={{display:'flex',background:'#1e1e1e',border:'1px solid #3a3a3a',borderRadius:'8px',overflow:'hidden',height:'40px'}}>
               {['BUY','SELL'].map(t=><button key={t} type="button" onClick={()=>setF({...f,type:t})} style={{flex:1,border:'none',background:f.type===t?(t==='BUY'?'#1a3a2a':'#3a1a1a'):'transparent',color:f.type===t?(t==='BUY'?'#55efc4':'#ff7675'):'#555',cursor:'pointer',fontSize:'12px',fontWeight:600}}>{t==='BUY'?'🟢 BUY':'🔴 SELL'}</button>)}
@@ -673,7 +674,7 @@ function TransactionModal({holdings,transaction,onClose,onSave,portfolioId}){
           {['USD','THB'].map(c=><button key={c} type="button" onClick={()=>setF({...f,currency:c})} style={{flex:1,padding:'8px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
         </div>
       </Field>
-      <div style={{display:'flex',gap:'8px'}}>
+      <div style={{display:'flex',gap:'8px'}} className="dash-modal-row">
         <div style={{flex:1}}><Field label="จำนวนหุ้น"><AmountInput suffix="shares" placeholder="100" value={f.shares} onChange={e=>setF({...f,shares:e.target.value})}/></Field></div>
         <div style={{flex:1}}><Field label={`ราคา/หุ้น (${f.currency})`}><AmountInput prefix={sym} placeholder="0.00" value={f.price} onChange={e=>setF({...f,price:e.target.value})}/></Field></div>
       </div>
@@ -683,7 +684,7 @@ function TransactionModal({holdings,transaction,onClose,onSave,portfolioId}){
       </div>}
       <Field label="วันที่"><input type="date" style={inp()} value={f.date} onChange={e=>setF({...f,date:e.target.value})}/></Field>
       <Field label="หมายเหตุ (optional)"><input style={inp({marginBottom:0})} placeholder="เช่น DCA รายเดือน" value={f.note} onChange={e=>setF({...f,note:e.target.value})}/></Field>
-      <div style={{display:'flex',gap:'10px',marginTop:'20px'}}>
+      <div style={{display:'flex',gap:'10px',marginTop:'20px'}} className="dash-modal-actions">
         <button type="button" onClick={onClose} style={btnGhost}>ยกเลิก</button>
         <button type="button" onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':isEdit?'บันทึกการแก้ไข':'บันทึก'}</button>
       </div>
@@ -734,7 +735,7 @@ function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
     <div style={{ marginTop: '8px' }}>
       {/* AI Portfolio Analysis */}
       <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }} className="dash-ai-header">
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '2px' }}>
               🤖 AI วิเคราะห์พอร์ต
@@ -784,7 +785,7 @@ function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
             </div>
 
             {/* Strengths & Risks */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+            <div className="dash-ai-grid">
               <div style={{ background: '#0f1f0f', border: '1px solid #1a3a1a', borderRadius: '10px', padding: '14px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 600, color: '#27ae60', marginBottom: '10px' }}>✅ จุดแข็ง</div>
                 {analysis.strengths?.map((s, i) => (
@@ -837,7 +838,7 @@ function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
 
       {/* AI News Summary */}
       <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }} className="dash-ai-header">
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '2px' }}>
               📰 AI สรุปข่าวกระทบพอร์ต
@@ -1099,7 +1100,7 @@ function Dashboard({user,onLogout}){
   )
 
   const renderNewsGrid = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '24px' }}>
+    <div className="dash-news-grid">
       <div>
         <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#a29bfe', marginBottom: '14px', borderBottom: '1px solid #2a2a2a', paddingBottom: '6px' }}>
           🔥 Real-Time News (เฉพาะกลุ่ม Sector ที่ถือ)
@@ -1119,16 +1120,16 @@ function Dashboard({user,onLogout}){
 
   return(
     <div style={{minHeight:'100vh',background:'#0a0a0a',color:'#fff',fontFamily:'system-ui,sans-serif'}}>
-      <div style={{maxWidth:'1060px',margin:'0 auto',padding:'24px'}}>
+      <div className="dash-inner">
 
         {/* Header */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'28px',flexWrap:'wrap',gap:'12px'}}>
+        <div className="dash-header">
           <div>
             <h1 style={{fontSize:'17px',fontWeight:600,marginBottom:'2px'}}>📓 Port Diary</h1>
             <p style={{color:'#444',fontSize:'13px'}}>สวัสดี, {user.name}</p>
           </div>
-          <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
-            <div style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden',maxWidth:'320px'}}>
+          <div className="dash-header-actions">
+            <div className="dash-portfolio-select">
               <select value={activePortfolioId||''} onChange={e=>setActivePortfolioId(Number(e.target.value))}
                 style={{padding:'7px 12px',background:'#141414',border:'none',color:'#fff',fontSize:'13px',cursor:'pointer',flex:1,minWidth:'140px'}}>
                 {portfolios.map(p=><option key={p.id} value={p.id}>{p.name}{p.is_default?' ★':''}</option>)}
@@ -1136,7 +1137,7 @@ function Dashboard({user,onLogout}){
               <button onClick={()=>setModal('managePort')} style={{padding:'7px 12px',border:'none',borderLeft:'1px solid #2a2a2a',background:'transparent',color:'#888',cursor:'pointer',fontSize:'14px',lineHeight:1}} title="จัดการพอร์ต">⚙️</button>
               <button onClick={()=>setModal('newPort')} style={{padding:'7px 12px',border:'none',borderLeft:'1px solid #2a2a2a',background:'#2d2a5e',color:'#a29bfe',cursor:'pointer',fontSize:'16px',lineHeight:1}} title="สร้างพอร์ตใหม่">+</button>
             </div>
-            <div style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden'}}>
+            <div className="dash-currency-toggle" style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden'}}>
               {['USD','THB'].map(c=><button key={c} onClick={()=>setDisplayCurrency(c)} style={{padding:'7px 16px',border:'none',cursor:'pointer',fontSize:'13px',fontWeight:500,background:displayCurrency===c?'#6c5ce7':'transparent',color:displayCurrency===c?'#fff':'#555'}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
             </div>
             <button onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออก</button>
@@ -1144,7 +1145,7 @@ function Dashboard({user,onLogout}){
         </div>
 
         {/* Tabs */}
-        <div style={{display:'flex',gap:'6px',marginBottom:'24px',flexWrap:'wrap'}}>
+        <div className="dash-tabs">
           {[
             ['overview','Overview'],
             ['holdings','Holdings'],
@@ -1195,15 +1196,15 @@ function Dashboard({user,onLogout}){
 
         {/* Holdings */}
         {tab==='holdings'&&<>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',gap:'16px',flexWrap:'wrap'}}>
-            <div style={{display:'flex',gap:'12px',alignItems:'center',flex:1}}>
+          <div className="dash-toolbar">
+            <div className="dash-toolbar-left">
               <p style={{color:'#444',fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} holdings</p>
-              <input type="text" placeholder="🔍 ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} style={{maxHeight:'34px',padding:'6px 12px',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'6px',color:'#fff',fontSize:'13px',width:'260px'}} />
+              <input type="text" className="dash-search" placeholder="🔍 ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <button onClick={()=>setModal('h')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เพิ่ม Holding ตรงๆ</button>
           </div>
-          <div style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'10px',overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px',minWidth:'820px'}}>
+          <div className="dash-table-wrap">
+            <table className="dash-table dash-table--holdings">
               <thead><tr style={{borderBottom:'1px solid #2a2a2a'}}>
                 {['Ticker','ชื่อ','Shares','สกุลเงิน','Avg Cost','ราคาปัจจุบัน',`มูลค่า (${displayCurrency})`,`กำไร/ขาดทุน (${displayCurrency})`,''].map((h,i)=>(
                   <th key={i} style={{padding:'11px 13px',textAlign:'left',color:'#444',fontWeight:400,whiteSpace:'nowrap'}}>{h}</th>
@@ -1216,15 +1217,15 @@ function Dashboard({user,onLogout}){
                   const val=getVal(h),cost=getCost(h),pnl=val-cost,pct=cost>0?(pnl/cost)*100:0
                   const os=symFor(h.currency||'USD')
                   return(<tr key={h.id} style={{borderBottom:'1px solid #1a1a1a'}}>
-                    <td style={{padding:'11px 13px',fontWeight:600, color: '#6c5ce7', cursor: 'pointer', textDecoration: 'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
-                    <td style={{padding:'11px 13px',color:'#666'}}>{h.name||'—'}</td>
-                    <td style={{padding:'11px 13px'}}>{Number(h.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
-                    <td style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'999px',background:h.currency==='USD'?'#1a2a4a':'#1a3a2a',color:h.currency==='USD'?'#74b9ff':'#55efc4'}}>{h.currency}</span></td>
-                    <td style={{padding:'11px 13px',color:'#666'}}>{os}{Number(h.avg_cost).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td style={{padding:'11px 13px'}}>{os}{Number(cur).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td style={{padding:'11px 13px'}}>{fmt(val)}</td>
-                    <td style={{padding:'11px 13px',color:pnl>=0?'#27ae60':'#e74c3c'}}>{fmt(pnl)}<span style={{fontSize:'11px',marginLeft:'4px'}}>({pct>=0?'+':''}{pct.toFixed(2)}%)</span></td>
-                    <td style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
+                    <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600, color: '#6c5ce7', cursor: 'pointer', textDecoration: 'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
+                    <td data-label="ชื่อ" style={{padding:'11px 13px',color:'#666'}}>{h.name||'—'}</td>
+                    <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(h.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+                    <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'999px',background:h.currency==='USD'?'#1a2a4a':'#1a3a2a',color:h.currency==='USD'?'#74b9ff':'#55efc4'}}>{h.currency}</span></td>
+                    <td data-label="Avg Cost" style={{padding:'11px 13px',color:'#666'}}>{os}{Number(h.avg_cost).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                    <td data-label="ราคาปัจจุบัน" style={{padding:'11px 13px'}}>{os}{Number(cur).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                    <td data-label={`มูลค่า (${displayCurrency})`} style={{padding:'11px 13px'}}>{fmt(val)}</td>
+                    <td data-label={`กำไร/ขาดทุน (${displayCurrency})`} style={{padding:'11px 13px',color:pnl>=0?'#27ae60':'#e74c3c'}}>{fmt(pnl)}<span style={{fontSize:'11px',marginLeft:'4px'}}>({pct>=0?'+':''}{pct.toFixed(2)}%)</span></td>
+                    <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
                       {aBtn('แก้ไข',()=>{setEditH(h);setModal('eh')},'#a29bfe')}
                       {aBtn('ลบ',()=>delH(h.id),'#e74c3c')}
                     </td>
@@ -1237,15 +1238,15 @@ function Dashboard({user,onLogout}){
 
         {/* Transactions */}
         {tab==='transactions'&&<>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',gap:'16px',flexWrap:'wrap'}}>
-            <div style={{display:'flex',gap:'12px',alignItems:'center',flex:1}}>
+          <div className="dash-toolbar">
+            <div className="dash-toolbar-left">
               <p style={{color:'#444',fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>
-              <input type="text" placeholder="🔍 ค้นหาด้วยชื่อย่อ Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} style={{maxHeight:'34px',padding:'6px 12px',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'6px',color:'#fff',fontSize:'13px',width:'260px'}} />
+              <input type="text" className="dash-search" placeholder="🔍 ค้นหาด้วยชื่อย่อ Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึก Transaction</button>
           </div>
-          <div style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'10px',overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px',minWidth:'760px'}}>
+          <div className="dash-table-wrap">
+            <table className="dash-table dash-table--transactions">
               <thead><tr style={{borderBottom:'1px solid #2a2a2a'}}>
                 {['วันที่','Ticker','ประเภท','Shares','ราคา/หุ้น','มูลค่ารวม','หมายเหตุ',''].map((h,i)=>(
                   <th key={i} style={{padding:'11px 13px',textAlign:'left',color:'#444',fontWeight:400}}>{h}</th>
@@ -1255,14 +1256,14 @@ function Dashboard({user,onLogout}){
                 {filteredTransactions.length===0?<tr><td colSpan={8} style={{padding:'28px',textAlign:'center',color:'#333'}}>ไม่พบรายการ transactions</td></tr>
                 :filteredTransactions.map(t=>(
                   <tr key={t.id} style={{borderBottom:'1px solid #1a1a1a'}}>
-                    <td style={{padding:'11px 13px',color:'#555'}}>{t.date?.split('T')[0]||t.date}</td>
-                    <td style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
-                    <td style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
-                    <td style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
-                    <td style={{padding:'11px 13px'}}>{Number(t.price).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td style={{padding:'11px 13px',fontWeight:500}}>{Number(t.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td style={{padding:'11px 13px',color:'#555'}}>{t.note||'—'}</td>
-                    <td style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
+                    <td data-label="วันที่" style={{padding:'11px 13px',color:'#555'}}>{t.date?.split('T')[0]||t.date}</td>
+                    <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
+                    <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
+                    <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+                    <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{Number(t.price).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                    <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{Number(t.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                    <td data-label="หมายเหตุ" style={{padding:'11px 13px',color:'#555'}}>{t.note||'—'}</td>
+                    <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
                       {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')},'#a29bfe')}
                       {aBtn('ลบ',()=>delT(t.id),'#e74c3c')}
                     </td>
@@ -1275,8 +1276,8 @@ function Dashboard({user,onLogout}){
 
         {/* Journal */}
         {tab==='journal'&&<>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
-            <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
+          <div className="dash-toolbar">
+            <div className="dash-toolbar-left">
               <p style={{color:'#444',fontSize:'13px'}}>{filteredJournal.length} entries</p>
               <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
                 <button onClick={()=>setJournalFilter('')} style={{padding:'4px 10px',fontSize:'12px',borderRadius:'999px',border:'1px solid #2a2a2a',background:journalFilter===''?'#6c5ce7':'transparent',color:journalFilter===''?'#fff':'#555',cursor:'pointer'}}>ทั้งหมด</button>
@@ -1385,7 +1386,7 @@ export default function App(){
   },[])
 
   if(authChecking) return (
-    <div style={wrap}><div style={{...card,textAlign:'center',width:'320px'}}>
+    <div className="auth-wrap"><div className="auth-card" style={{textAlign:'center',width:'320px',maxWidth:'100%'}}>
       <p style={{color:'#888',fontSize:'14px'}}>กำลังตรวจสอบบัญชี...</p>
     </div></div>
   )
