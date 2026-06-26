@@ -23,8 +23,9 @@ fi
 echo "==> Build & restart containers"
 docker compose build --no-cache frontend
 docker compose build backend
-docker compose up -d --force-recreate
-docker compose restart nginx
+
+docker compose up -d postgres
+docker compose up -d --force-recreate backend
 
 health_ok() {
   docker compose exec -T backend node -e "
@@ -49,6 +50,8 @@ for i in $(seq 1 30); do
   fi
   sleep 2
 done
+
+docker compose up -d --force-recreate frontend nginx
 
 docker compose ps
 health_ok && docker compose exec -T backend node -e "fetch('http://127.0.0.1:3001/api/health').then(r=>r.text()).then(t=>console.log(t))"
