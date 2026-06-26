@@ -508,6 +508,93 @@ function PortfolioManageModal({portfolio,portfolios,onClose,onUpdated,onDeleted}
   )
 }
 
+function SettingsModal({ user, onClose, onUserUpdate }) {
+  const [name, setName] = useState(user.name || '')
+  const [profileMsg, setProfileMsg] = useState('')
+  const [profileErr, setProfileErr] = useState('')
+  const [loadingProfile, setLoadingProfile] = useState(false)
+
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwMsg, setPwMsg] = useState('')
+  const [pwErr, setPwErr] = useState('')
+  const [loadingPw, setLoadingPw] = useState(false)
+
+  const saveProfile = async () => {
+    setProfileErr('')
+    setProfileMsg('')
+    if (!name.trim()) return setProfileErr('กรุณาระบุชื่อ')
+    setLoadingProfile(true)
+    const r = await api.put('/auth/profile', { name: name.trim() })
+    setLoadingProfile(false)
+    if (r.user) {
+      onUserUpdate(r.user)
+      localStorage.setItem('user', JSON.stringify(r.user))
+      setProfileMsg(r.message || 'บันทึกชื่อสำเร็จ')
+    } else {
+      setProfileErr(r.error || 'บันทึกไม่สำเร็จ')
+    }
+  }
+
+  const savePassword = async () => {
+    setPwErr('')
+    setPwMsg('')
+    if (!currentPassword) return setPwErr('กรุณาระบุรหัสผ่านปัจจุบัน')
+    if (newPassword.length < 8) return setPwErr('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัว')
+    if (newPassword !== confirmPassword) return setPwErr('รหัสผ่านใหม่ไม่ตรงกัน')
+    setLoadingPw(true)
+    const r = await api.put('/auth/change-password', { currentPassword, newPassword })
+    setLoadingPw(false)
+    if (r.message) {
+      setPwMsg(r.message)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } else {
+      setPwErr(r.error || 'เปลี่ยนรหัสผ่านไม่สำเร็จ')
+    }
+  }
+
+  return (
+    <Modal title="ตั้งค่าบัญชี" onClose={onClose}>
+      <div style={{ marginBottom: '20px' }}>
+        <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#a29bfe', marginBottom: '12px' }}>ข้อมูลส่วนตัว</h3>
+        {profileErr && <p style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '12px' }}>{profileErr}</p>}
+        {profileMsg && <p style={{ color: '#55efc4', fontSize: '13px', marginBottom: '12px' }}>{profileMsg}</p>}
+        <Field label="ชื่อที่แสดง">
+          <input style={inp()} value={name} onChange={e => setName(e.target.value)} placeholder="ชื่อของคุณ" />
+        </Field>
+        <Field label="อีเมล">
+          <input style={inp({ marginBottom: 0, color: '#888', cursor: 'not-allowed' })} value={user.email || ''} readOnly />
+        </Field>
+        <p style={{ fontSize: '11px', color: '#555', marginTop: '6px', marginBottom: '12px' }}>เปลี่ยนอีเมลยังไม่รองรับ — ใช้อีเมลนี้เข้าสู่ระบบ</p>
+        <button onClick={saveProfile} style={btnPrimary} disabled={loadingProfile}>
+          {loadingProfile ? 'กำลังบันทึก...' : 'บันทึกชื่อ'}
+        </button>
+      </div>
+
+      <div style={{ borderTop: '1px solid #2a2a2a', paddingTop: '20px' }}>
+        <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#a29bfe', marginBottom: '12px' }}>เปลี่ยนรหัสผ่าน</h3>
+        {pwErr && <p style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '12px' }}>{pwErr}</p>}
+        {pwMsg && <p style={{ color: '#55efc4', fontSize: '13px', marginBottom: '12px' }}>{pwMsg}</p>}
+        <Field label="รหัสผ่านปัจจุบัน">
+          <input type="password" style={inp()} value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="••••••••" />
+        </Field>
+        <Field label="รหัสผ่านใหม่">
+          <input type="password" style={inp()} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="อย่างน้อย 8 ตัว" />
+        </Field>
+        <Field label="ยืนยันรหัสผ่านใหม่">
+          <input type="password" style={inp({ marginBottom: 0 })} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="พิมพ์อีกครั้ง" />
+        </Field>
+        <button onClick={savePassword} style={{ ...btnPrimary, marginTop: '12px' }} disabled={loadingPw}>
+          {loadingPw ? 'กำลังเปลี่ยน...' : 'เปลี่ยนรหัสผ่าน'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 function Modal({title,onClose,children}){
   return(
     <div className="modal-overlay">
@@ -897,7 +984,7 @@ function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
   )
 }
 
-function Dashboard({user,onLogout}){
+function Dashboard({user,onLogout,onUserUpdate}){
   const [portfolios,setPortfolios]=useState([])
   const [activePortfolioId,setActivePortfolioId]=useState(null)
   const [portfolioHistory,setPortfolioHistory]=useState([])
@@ -1140,6 +1227,7 @@ function Dashboard({user,onLogout}){
             <div className="dash-currency-toggle" style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden'}}>
               {['USD','THB'].map(c=><button key={c} onClick={()=>setDisplayCurrency(c)} style={{padding:'7px 16px',border:'none',cursor:'pointer',fontSize:'13px',fontWeight:500,background:displayCurrency===c?'#6c5ce7':'transparent',color:displayCurrency===c?'#fff':'#555'}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
             </div>
+            <button onClick={()=>setModal('settings')} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ตั้งค่า</button>
             <button onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออก</button>
           </div>
         </div>
@@ -1325,6 +1413,13 @@ function Dashboard({user,onLogout}){
           <button onClick={createPortfolio} style={{...btnPrimary,marginTop:'8px'}}>สร้างพอร์ต</button>
         </Modal>
       )}
+      {modal==='settings'&&(
+        <SettingsModal
+          user={user}
+          onClose={()=>setModal(null)}
+          onUserUpdate={onUserUpdate}
+        />
+      )}
       {modal==='managePort'&&activePort&&(
         <PortfolioManageModal
           portfolio={activePort}
@@ -1391,7 +1486,7 @@ export default function App(){
     </div></div>
   )
 
-  if(user) return <Dashboard user={user} onLogout={logout}/>
+  if(user) return <Dashboard user={user} onLogout={logout} onUserUpdate={u=>{setUser(u);localStorage.setItem('user',JSON.stringify(u))}}/>
   if(page==='register') return <Register onGoLogin={()=>setPage('login')} onGoHome={goHome}/>
   if(page==='login') return <Login onLogin={setUser} onGoRegister={()=>setPage('register')} onGoForgot={()=>setPage('forgot')} onGoHome={goHome}/>
   if(page==='forgot') return <ForgotPassword onGoLogin={()=>setPage('login')} onGoHome={goHome}/>

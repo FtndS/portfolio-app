@@ -174,4 +174,52 @@ router.post('/reset-password', authLimiter, async (req, res) => {
   }
 })
 
+router.put('/profile', authMiddleware, authLimiter, async (req, res) => {
+  const { name } = req.body
+  const nameErr = validateName(name)
+  if (nameErr) return res.status(400).json({ error: nameErr })
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET name = $1 WHERE id = $2 RETURNING id, email, name',
+      [name.trim(), req.userId]
+    )
+    if (!result.rows.length) return res.status(404).json({ error: 'ไม่พบบัญชี' })
+    res.json({ user: publicUser(result.rows[0]), message: 'บันทึกชื่อสำเร็จ' })
+  } catch (err) {
+    console.error('Update profile error:', err.message)
+    res.status(500).json({ error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' })
+  }
+})
+
+router.put('/change-password', authMiddleware, authLimiter, async (req, res) => {
+  const { currentPassword, newPassword } = req.body
+
+  if (!currentPassword) {
+    return res.status(400).json({ error: 'กรุณาระบุรหัสผ่านปัจจุบัน' })
+  }
+
+  const passwordErr = validatePassword(newPassword)
+  if (passwordErr) return res.status(400).json({ error: passwordErr })
+
+  try {
+    const result = await pool.query('SELECT password FROM users WHERE id = $1', [req.userId])
+    const user = result.rows[0]
+    if (!user) return res.status(404).json({ error: 'ไม่พบบัญชี' })
+
+    const valid = await bcrypt.compare(currentPassword, user.password)
+    if (!valid) {
+      return res.status(400).json({ error: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' })
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10)
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hash, req.userId])
+
+    res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ' })
+  } catch (err) {
+    console.error('Change password error:', err.message)
+    res.status(500).json({ error: 'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่' })
+  }
+})
+
 export default router
