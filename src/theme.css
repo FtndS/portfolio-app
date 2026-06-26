@@ -365,6 +365,30 @@ body,
   border-radius: 5px;
 }
 
+.dash-currency-chip {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dash-currency-chip--usd {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.dash-currency-chip--thb {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+
+.dash-currency-chip--other {
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}
+
 .dash-empty-state {
   text-align: center;
   padding: 60px 20px;

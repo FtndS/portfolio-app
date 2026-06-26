@@ -298,6 +298,11 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     const s=symFor(t.currency||'USD')
     return s+Number(n).toLocaleString('en-US',{minimumFractionDigits:2})
   }
+  const ccyChip=(ccy='USD')=>{
+    const c=ccy||'USD'
+    const tone=c==='USD'?'usd':c==='THB'?'thb':'other'
+    return <span className={`dash-currency-chip dash-currency-chip--${tone}`}>{symFor(c)} {c}</span>
+  }
 
   const aBtn = (label, onClick, variant = 'accent') => (
     <button
@@ -531,17 +536,18 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           <div className="dash-table-wrap">
             <table className="dash-table dash-table--transactions">
               <thead><tr style={{borderBottom:'1px solid var(--border)'}}>
-                {['วันที่','Ticker','ประเภท','Shares','ราคา/หุ้น','มูลค่ารวม','หมายเหตุ',''].map((h,i)=>(
+                {['วันที่','Ticker','ประเภท','สกุลเงิน','Shares','ราคา/หุ้น','มูลค่ารวม','หมายเหตุ',''].map((h,i)=>(
                   <th key={i} className="dash-text-muted" style={{padding:'11px 13px',textAlign:'left',fontWeight:400}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
-                {filteredTransactions.length===0?<tr><td colSpan={8} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
+                {filteredTransactions.length===0?<tr><td colSpan={9} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
                 :filteredTransactions.map(t=>(
                   <tr key={t.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{t.date?.split('T')[0]||t.date}</td>
                     <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
                     <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
+                    <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(t.currency)}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{fmtTx(t,t.price)}</td>
                     <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{fmtTx(t,t.total)}</td>

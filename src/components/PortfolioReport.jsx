@@ -4,6 +4,12 @@ import { usePrivacy } from '../lib/privacy'
 
 const SECTOR_COLORS = ['#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e', '#e84393', '#55efc4', '#a29bfe']
 
+function CcyChip({ ccy = 'USD' }) {
+  const c = ccy || 'USD'
+  const tone = c === 'USD' ? 'usd' : c === 'THB' ? 'thb' : 'other'
+  return <span className={`dash-currency-chip dash-currency-chip--${tone}`}>{symFor(c)} {c}</span>
+}
+
 function pnlTone(n) {
   return n >= 0 ? 'gain' : 'loss'
 }
@@ -307,7 +313,7 @@ export default function PortfolioReport({
               <table className="dash-report-table">
                 <thead>
                   <tr>
-                    {['วันที่', 'Ticker', 'ประเภท', 'Shares', 'ราคา', 'มูลค่า', 'หมายเหตุ'].map((h) => (
+                    {['วันที่', 'Ticker', 'ประเภท', 'สกุลเงิน', 'Shares', 'ราคา', 'มูลค่า', 'หมายเหตุ'].map((h) => (
                       <th key={h}>{h}</th>
                     ))}
                   </tr>
@@ -318,6 +324,7 @@ export default function PortfolioReport({
                       <td className="dash-report-muted">{t.date?.split('T')[0] || t.date}</td>
                       <td className="dash-report-ticker">{t.ticker}</td>
                       <td className={t.type === 'BUY' ? 'dash-text-gain' : 'dash-text-loss'}>{t.type}</td>
+                      <td><CcyChip ccy={t.currency} /></td>
                       <td>{Number(t.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })}</td>
                       <td>
                         {hideValues
