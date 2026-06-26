@@ -34,7 +34,11 @@ ssh -i ~/.ssh/portfolio-app-deploy root@YOUR_VPS_IP 'echo OK'
 
 Open: **https://github.com/FtndS/portfolio-app/settings/secrets/actions**
 
-Click **New repository secret** (not "Variables", not Environment-only unless linked to repo).
+Use **either** option (not both required):
+
+**Option A — Repository secrets (recommended):** tab **Secrets** → **Repository secrets** → **New repository secret**
+
+**Option B — Environment secrets:** tab **Secrets** → **Environments** → **Production** → add secrets there. Workflows use `environment: Production`.
 
 | Secret | Value |
 |--------|--------|
@@ -47,7 +51,7 @@ Click **New repository secret** (not "Variables", not Environment-only unless li
 
 **Common mistakes (why it "didn't work" before):**
 - Secret added under **Variables** instead of **Secrets**
-- Secret added to **Environment** but workflow doesn't use that environment
+- Secret added to **Environment** but workflow had no `environment:` (use **Production** or move to Repository secrets)
 - Wrong repo or fork
 - Pasted `.pub` (public) key instead of private key
 - Private key missing `BEGIN`/`END` lines (broken copy-paste)

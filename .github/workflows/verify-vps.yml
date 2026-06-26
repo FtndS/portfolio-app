@@ -6,6 +6,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    environment: Production
     env:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
