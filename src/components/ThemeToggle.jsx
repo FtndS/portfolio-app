@@ -9,19 +9,19 @@ export default function ThemeToggle({ className = '' }) {
         type="button"
         className={theme === 'light' ? 'active' : ''}
         onClick={() => setTheme('light')}
-        title="Light mode"
+        title="โหมดสว่าง"
         aria-pressed={theme === 'light'}
       >
-        ☀️
+        สว่าง
       </button>
       <button
         type="button"
         className={theme === 'dark' ? 'active' : ''}
         onClick={() => setTheme('dark')}
-        title="Dark mode"
+        title="โหมดมืด"
         aria-pressed={theme === 'dark'}
       >
-        🌙
+        มืด
       </button>
     </div>
   )

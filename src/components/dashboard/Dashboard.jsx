@@ -404,8 +404,8 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
               <select className="dash-select" value={activePortfolioId||''} onChange={e=>setActivePortfolioId(Number(e.target.value))}>
                 {portfolios.map(p=><option key={p.id} value={p.id}>{p.name}{p.is_default?' ★':''}</option>)}
               </select>
-              <button type="button" className="dash-icon-btn" onClick={()=>setModal('managePort')} title="จัดการพอร์ต" aria-label="จัดการพอร์ต">📁</button>
-              <button type="button" className="dash-icon-btn dash-icon-btn--accent" onClick={()=>setModal('newPort')} title="สร้างพอร์ตใหม่" aria-label="สร้างพอร์ตใหม่">+</button>
+              <button type="button" className="dash-icon-btn" onClick={()=>setModal('managePort')} title="จัดการพอร์ต" aria-label="จัดการพอร์ต">จัดการ</button>
+              <button type="button" className="dash-icon-btn dash-icon-btn--accent" onClick={()=>setModal('newPort')} title="สร้างพอร์ตใหม่" aria-label="สร้างพอร์ตใหม่">สร้างพอร์ต</button>
             </div>
             <div className="dash-segment dash-currency-toggle">
               {['USD','THB'].map(c=>(
@@ -419,13 +419,13 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 type="button"
                 className={`dash-util-btn${hideValues ? ' dash-util-btn--active' : ''}`}
                 onClick={toggleHideValues}
-                title={hideValues ? 'แสดงมูลค่าเงิน' : 'ซ่อนมูลค่า — แสดงแค่ %'}
-                aria-label={hideValues ? 'แสดงมูลค่าเงิน' : 'ซ่อนมูลค่า'}
+                title={hideValues ? 'แสดงมูลค่าเงินทั้งหมด' : 'ซ่อนมูลค่าเงิน — แสดงแค่ %'}
+                aria-label={hideValues ? 'แสดงมูลค่า' : 'ซ่อนมูลค่า'}
                 aria-pressed={hideValues}
               >
-                {hideValues ? '👁️' : '🙈'}
+                {hideValues ? 'แสดงมูลค่า' : 'ซ่อนมูลค่า'}
               </button>
-              <button type="button" className="dash-util-btn" onClick={()=>setModal('settings')} title="ตั้งค่าบัญชี" aria-label="ตั้งค่าบัญชี">⚙️</button>
+              <button type="button" className="dash-util-btn" onClick={()=>setModal('settings')} title="ตั้งค่าบัญชี" aria-label="ตั้งค่าบัญชี">ตั้งค่า</button>
               <button type="button" className="dash-util-btn dash-util-btn--logout" onClick={onLogout} title="ออกจากระบบ" aria-label="ออกจากระบบ">ออก</button>
             </div>
           </div>
@@ -531,7 +531,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
               <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} holdings</p>
-              <input type="text" className="dash-search" placeholder="🔍 ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+              <input type="text" className="dash-search" placeholder="ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <button onClick={()=>setModal('h')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เพิ่ม Holding ตรงๆ</button>
           </div>
@@ -580,10 +580,10 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
               <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>
-              <input type="text" className="dash-search" placeholder="🔍 ค้นหาด้วยชื่อย่อ Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+              <input type="text" className="dash-search" placeholder="ค้นหา Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <div className="dash-toolbar-actions">
-              <button type="button" onClick={()=>setModal('import')} style={{...btnGhost,width:'auto',padding:'7px 16px',fontSize:'13px',borderColor:'var(--accent)',color:'var(--accent-text)'}}>📥 Import CSV</button>
+              <button type="button" onClick={()=>setModal('import')} style={{...btnGhost,width:'auto',padding:'7px 16px',fontSize:'13px',borderColor:'var(--accent)',color:'var(--accent-text)'}}>Import CSV</button>
               <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึก Transaction</button>
             </div>
           </div>

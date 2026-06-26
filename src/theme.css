@@ -119,12 +119,15 @@ body,
 }
 
 .theme-toggle button {
-  padding: 7px 11px;
+  padding: 7px 12px;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font);
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -308,14 +311,17 @@ body,
 }
 
 .dash-icon-btn {
-  padding: 7px 12px;
+  padding: 7px 10px;
   border: none;
   border-left: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font);
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .dash-icon-btn--accent {
@@ -767,13 +773,15 @@ body,
 }
 
 .dash-util-btn {
-  padding: 7px 11px;
+  padding: 7px 10px;
   border: none;
   border-left: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
   font-family: var(--font);
   transition: background 0.15s, color 0.15s;
