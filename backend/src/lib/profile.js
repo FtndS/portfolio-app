@@ -1,24 +1,5 @@
 import { sanitizeTicker, toYahooTicker } from './ticker.js'
-
-/** Fallback when Yahoo API is blocked/unavailable from VPS */
-const KNOWN_PROFILES = {
-  NVDA: { name: 'NVIDIA Corporation', sector: 'Technology' },
-  'BRK-B': { name: 'Berkshire Hathaway Inc.', sector: 'Financial Services' },
-  VOO: { name: 'Vanguard S&P 500 ETF', sector: 'ETF — US Large Cap' },
-  QQQM: { name: 'Invesco NASDAQ 100 ETF', sector: 'ETF — US Growth' },
-  SMH: { name: 'VanEck Semiconductor ETF', sector: 'ETF — Semiconductors' },
-  QQQ: { name: 'Invesco QQQ Trust', sector: 'ETF — Technology' },
-  SPY: { name: 'SPDR S&P 500 ETF', sector: 'ETF — US Large Cap' },
-  VTI: { name: 'Vanguard Total Stock Market ETF', sector: 'ETF — US Total Market' },
-  AAPL: { name: 'Apple Inc.', sector: 'Technology' },
-  MSFT: { name: 'Microsoft Corporation', sector: 'Technology' },
-  GOOGL: { name: 'Alphabet Inc.', sector: 'Communication Services' },
-  AMZN: { name: 'Amazon.com Inc.', sector: 'Consumer Cyclical' },
-  META: { name: 'Meta Platforms Inc.', sector: 'Communication Services' },
-  TSLA: { name: 'Tesla Inc.', sector: 'Consumer Cyclical' },
-  PTT: { name: 'PTT Public Company Limited', sector: 'Energy' },
-  PTTBK: { name: 'PTT Public Company Limited', sector: 'Energy' },
-}
+import { KNOWN_PROFILES } from '../data/known-profiles.js'
 
 function lookupKnown(ticker) {
   const key = sanitizeTicker(ticker)
@@ -100,6 +81,11 @@ function mergeProfiles(...profiles) {
 export async function fetchCompanyProfile(ticker, market = 'US') {
   const yahooTicker = toYahooTicker(ticker, market)
   const known = lookupKnown(ticker)
+
+  // Prefer local lookup — Yahoo profile APIs often return 401 from server IPs
+  if (known?.sector && known.sector !== 'Other') {
+    return { name: known.name || '', sector: known.sector }
+  }
 
   try {
     const [summary, quote] = await Promise.all([
