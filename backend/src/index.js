@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.js'
 import holdingsRoutes from './routes/holdings.js'
 import transactionsRoutes from './routes/transactions.js'
 import journalRoutes from './routes/journal.js'
+import dividendsRoutes from './routes/dividends.js'
 import newsRoutes from './routes/news.js'
 import aiRoutes from './routes/ai.js'
 import portfoliosRoutes from './routes/portfolios.js'
@@ -140,6 +141,7 @@ app.use('/api/portfolios', portfoliosRoutes)
 app.use('/api/holdings', holdingsRoutes)
 app.use('/api/transactions', transactionsRoutes)
 app.use('/api/journal', journalRoutes)
+app.use('/api/dividends', dividendsRoutes)
 app.use('/api/news', newsRoutes)
 app.use('/api/ai', aiRoutes)
 

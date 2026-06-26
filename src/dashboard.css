@@ -92,6 +92,10 @@
   min-width: 860px;
 }
 
+.dash-table--dividends {
+  min-width: 720px;
+}
+
 .dash-donut {
   display: flex;
   gap: 24px;

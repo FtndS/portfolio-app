@@ -241,6 +241,26 @@ const migrations = [
       UPDATE transactions SET currency = 'USD' WHERE currency IS NULL;
     `,
   },
+  {
+    name: '013_dividends',
+    sql: `
+      CREATE TABLE IF NOT EXISTS dividends (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        ticker VARCHAR(32) NOT NULL,
+        amount NUMERIC(18, 2) NOT NULL,
+        currency VARCHAR(3) NOT NULL DEFAULT 'THB',
+        shares_held NUMERIC(18, 4),
+        pay_date DATE NOT NULL,
+        note TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS dividends_portfolio_pay_date_idx
+        ON dividends (portfolio_id, pay_date DESC);
+    `,
+  },
 ]
 
 export async function runMigrations() {

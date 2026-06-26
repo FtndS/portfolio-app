@@ -11,6 +11,7 @@ import AIPanel from './AIPanel'
 import HoldingModal from '../modals/HoldingModal'
 import JournalModal from '../modals/JournalModal'
 import TransactionModal from '../modals/TransactionModal'
+import DividendModal from '../modals/DividendModal'
 import ImportCsvModal from '../modals/ImportCsvModal'
 import PortfolioManageModal from '../modals/PortfolioManageModal'
 import SettingsModal from '../modals/SettingsModal'
@@ -36,12 +37,14 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const [allHoldings,setAllHoldings]=useState([])
   const [journal,setJournal]=useState([])
   const [transactions,setTransactions]=useState([])
+  const [dividends,setDividends]=useState([])
   const [prices,setPrices]=useState({})
   const [tab,setTab]=useState('overview')
   const [modal,setModal]=useState(null)
   const [editH,setEditH]=useState(null)
   const [editJ,setEditJ]=useState(null)
   const [editT,setEditT]=useState(null)
+  const [editDiv,setEditDiv]=useState(null)
   const [loadingP,setLoadingP]=useState(false)
   const [displayCurrency,setDisplayCurrency]=useState('USD')
   const { hideValues, toggleHideValues } = usePrivacy()
@@ -82,11 +85,11 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     const id=portfolioId||activePortfolioId
     if(!id) return []
     const params={portfolio_id:id}
-    const [h,j,t]=await Promise.all([
-      api.get('/holdings',params),api.get('/journal',params),api.get('/transactions',params)
+    const [h,j,t,d]=await Promise.all([
+      api.get('/holdings',params),api.get('/journal',params),api.get('/transactions',params),api.get('/dividends',params)
     ])
     const hl=Array.isArray(h)?h:[]
-    setHoldings(hl);setJournal(Array.isArray(j)?j:[]);setTransactions(Array.isArray(t)?t:[])
+    setHoldings(hl);setJournal(Array.isArray(j)?j:[]);setTransactions(Array.isArray(t)?t:[]);setDividends(Array.isArray(d)?d:[])
     setAllHoldings(prev=>{
       const others=prev.filter(x=>Number(x.portfolio_id)!==Number(id))
       return [...others,...hl.map(x=>({...x,portfolio_id:Number(id)}))]
@@ -254,6 +257,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const delH=async id=>{if(!confirm('ลบ holding นี้?'))return;await api.delete(`/holdings/${id}`);fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}
   const delJ=async id=>{if(!confirm('ลบ journal entry?'))return;await api.delete(`/journal/${id}`);fetchAll(activePortfolioId)}
   const delT=async id=>{if(!confirm('ลบ transaction นี้?'))return;await api.delete(`/transactions/${id}`);fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}
+  const delDiv=async id=>{if(!confirm('ลบรายการปันผลนี้?'))return;await api.delete(`/dividends/${id}`);fetchAll(activePortfolioId)}
 
   const convertToDisplay=(amount,currency)=>{
     if(displayCurrency==='THB') return currency==='THB'?amount:amount*fxRate
@@ -303,6 +307,13 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     const tone=c==='USD'?'usd':c==='THB'?'thb':'other'
     return <span className={`dash-currency-chip dash-currency-chip--${tone}`}>{symFor(c)} {c}</span>
   }
+  const fmtDiv=(d)=>hideValues?MASKED:`${symFor(d.currency||'THB')}${Number(d.amount).toLocaleString('en-US',{minimumFractionDigits:2})}`
+
+  const yearStart=`${new Date().getFullYear()}-01-01`
+  const sumDividends=(list)=>list.reduce((s,d)=>s+convertToDisplay(Number(d.amount),d.currency||'THB'),0)
+  const dividendYtd=sumDividends(dividends.filter(d=>(d.pay_date?.split('T')[0]||d.pay_date)>=yearStart))
+  const dividendAll=sumDividends(dividends)
+  const divYieldPct=totCost>0&&dividendYtd>0?(dividendYtd/totCost)*100:0
 
   const aBtn = (label, onClick, variant = 'accent') => (
     <button
@@ -399,6 +410,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             ['report','Report'],
             ['holdings','Holdings'],
             ['transactions','Transactions'],
+            ['dividends','ปันผล'],
             ['journal','Journal'],
             ['news','News']
           ].map(([k,l])=>(
@@ -413,7 +425,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
               ['มูลค่าพอร์ตนี้', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
               [portfolios.length>1?'มูลค่ารวมทุกพอร์ต':'ทุนรวม (พอร์ตนี้)', hideValues ? MASKED : fmt(portfolios.length>1?allPortValue:totCost), portfolios.length>1?(hideValues?`${portfolios.length} พอร์ต`:`ทุนรวม ${fmt(allInvested)} · ${portfolios.length} พอร์ต`):'ราคาซื้อเฉลี่ย · ไม่รวมกำไร', hideValues?'':'accent'],
               ['กำไร/ขาดทุน (พอร์ตนี้)', hideValues ? fmtPct(totPct) : fmt(totPnL), hideValues ? 'จากทุน' : `${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`, totPnL>=0?'gain':'loss'],
-              ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'Real-time', hideValues ? '' : 'info'],
+              dividends.length>0
+                ? ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), hideValues ? `สะสม ${MASKED}` : `สะสมทั้งหมด ${fmt(dividendAll)}${divYieldPct>0?` · ~${divYieldPct.toFixed(2)}% ของทุน`:''}`, 'gain']
+                : ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'Real-time', hideValues ? '' : 'info'],
             ].map(([label,val,sub,tone],i)=>(
               <div key={i} className="dash-kpi-card">
                 <div className="dash-kpi-label">{label}</div>
@@ -563,6 +577,55 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           </div>
         </>}
 
+        {/* Dividends */}
+        {tab==='dividends'&&<>
+          <div className="dash-kpi-grid" style={{marginBottom:'16px'}}>
+            {[
+              ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), `ปี ${new Date().getFullYear()}`, 'gain'],
+              ['ปันผลสะสมทั้งหมด', hideValues ? MASKED : fmt(dividendAll), `${dividends.length} รายการ`, 'accent'],
+              ['Yield จากทุน (ปีนี้)', hideValues ? MASKED : (divYieldPct>0?`${divYieldPct.toFixed(2)}%`:'—'), totCost>0?'ประมาณจากทุนพอร์ตนี้':'ยังไม่มีทุน', divYieldPct>0?'gain':''],
+            ].map(([label,val,sub,tone],i)=>(
+              <div key={i} className="dash-kpi-card">
+                <div className="dash-kpi-label">{label}</div>
+                <div className={`dash-kpi-value ${kpiTone(tone)}`}>{val}</div>
+                <div className="dash-kpi-sub">{sub}</div>
+              </div>
+            ))}
+          </div>
+          <div className="dash-toolbar">
+            <p className="dash-text-muted" style={{fontSize:'13px'}}>{dividends.length} รายการปันผล</p>
+            <button type="button" onClick={()=>setModal('div')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึกเงินปันผล</button>
+          </div>
+          <div className="dash-table-wrap">
+            <table className="dash-table dash-table--dividends">
+              <thead><tr style={{borderBottom:'1px solid var(--border)'}}>
+                {['วันที่รับ','Ticker','สกุลเงิน','จำนวนเงิน','หุ้น ณ วันจ่าย','หมายเหตุ',''].map((h,i)=>(
+                  <th key={i} className="dash-text-muted" style={{padding:'11px 13px',textAlign:'left',fontWeight:400}}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {dividends.length===0?<tr><td colSpan={7} className="dash-text-faint" style={{padding:'40px',textAlign:'center'}}>
+                  ยังไม่มีรายการปันผล — กด &quot;+ บันทึกเงินปันผล&quot; เพื่อเริ่มติดตามรายได้จากหุ้นปันผล
+                </td></tr>
+                :dividends.map(d=>(
+                  <tr key={d.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
+                    <td data-label="วันที่รับ" className="dash-text-muted" style={{padding:'11px 13px'}}>{d.pay_date?.split('T')[0]||d.pay_date}</td>
+                    <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{d.ticker}</td>
+                    <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(d.currency)}</td>
+                    <td data-label="จำนวนเงิน" className="dash-text-gain" style={{padding:'11px 13px',fontWeight:500}}>{fmtDiv(d)}</td>
+                    <td data-label="หุ้น ณ วันจ่าย" style={{padding:'11px 13px'}}>{d.shares_held?Number(d.shares_held).toLocaleString('en-US',{maximumFractionDigits:4}):'—'}</td>
+                    <td data-label="หมายเหตุ" className="dash-text-muted" style={{padding:'11px 13px'}}>{d.note||'—'}</td>
+                    <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
+                      {aBtn('แก้ไข',()=>{setEditDiv(d);setModal('ediv')})}
+                      {aBtn('ลบ',()=>delDiv(d.id),'danger')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>}
+
         {/* Journal */}
         {tab==='journal'&&<>
           <div className="dash-toolbar">
@@ -627,6 +690,8 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
       )}
       {modal==='tx'&&<TransactionModal portfolioId={activePortfolioId} holdings={holdings} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
       {modal==='et'&&editT&&<TransactionModal portfolioId={activePortfolioId} transaction={editT} holdings={holdings} onClose={()=>{setModal(null);setEditT(null)}} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
+      {modal==='div'&&<DividendModal portfolioId={activePortfolioId} holdings={holdings} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId)}/>}
+      {modal==='ediv'&&editDiv&&<DividendModal portfolioId={activePortfolioId} dividend={editDiv} holdings={holdings} onClose={()=>{setModal(null);setEditDiv(null)}} onSave={()=>fetchAll(activePortfolioId)}/>}
       {modal==='newPort'&&(
         <Modal title="สร้างพอร์ตใหม่" onClose={()=>setModal(null)}>
           <Field label="ชื่อพอร์ต"><input style={inp()} placeholder="เช่น US Growth, หุ้นไทย" value={newPortName} onChange={e=>setNewPortName(e.target.value)}/></Field>
