@@ -26,9 +26,18 @@ docker compose build backend
 docker compose up -d --force-recreate
 docker compose restart nginx
 
+health_ok() {
+  docker compose exec -T backend node -e "
+    fetch('http://127.0.0.1:3001/api/health')
+      .then((r) => r.json())
+      .then((d) => process.exit(d.status === 'ok' ? 0 : 1))
+      .catch(() => process.exit(1))
+  " 2>/dev/null
+}
+
 echo "==> Wait for backend"
 for i in $(seq 1 30); do
-  if curl -sfL http://localhost/api/health 2>/dev/null | grep -q '"status":"ok"'; then
+  if health_ok; then
     echo "Backend healthy"
     break
   fi
@@ -42,6 +51,6 @@ for i in $(seq 1 30); do
 done
 
 docker compose ps
-curl -sfL http://localhost/api/health
+health_ok && docker compose exec -T backend node -e "fetch('http://127.0.0.1:3001/api/health').then(r=>r.text()).then(t=>console.log(t))"
 echo ""
 echo "Deploy complete."
