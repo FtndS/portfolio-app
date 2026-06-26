@@ -612,29 +612,45 @@ function JournalModal({entry,onClose,onSave,portfolioId}){
   )
 }
 
-function TransactionModal({holdings,onClose,onSave,portfolioId}){
+function TransactionModal({holdings,transaction,onClose,onSave,portfolioId}){
   const today=new Date().toISOString().split('T')[0]
-  const [f,setF]=useState({ticker:'',type:'BUY',shares:'',price:'',note:'',date:today,holding_id:'',currency:'USD'})
+  const isEdit=!!transaction
+  const [f,setF]=useState(()=>({
+    ticker:transaction?.ticker||'',
+    type:transaction?.type||'BUY',
+    shares:transaction?.shares!=null?String(transaction.shares):'',
+    price:transaction?.price!=null?String(transaction.price):'',
+    note:transaction?.note||'',
+    date:transaction?.date?.split('T')[0]||today,
+    holding_id:transaction?.holding_id?String(transaction.holding_id):'',
+    currency:'USD',
+  }))
   const [loading,setLoading]=useState(false)
+  const [error,setError]=useState('')
   const selHolding=e=>{
     const h=holdings.find(h=>String(h.id)===e.target.value)
     if(h) setF({...f,holding_id:e.target.value,ticker:h.ticker,currency:h.currency||'USD'})
     else setF({...f,holding_id:''})
   }
   const save=async()=>{
-    if(!f.ticker||!f.shares||!f.price||!f.date) return
+    if(!f.ticker||!f.shares||!f.price||!f.date) return setError('กรุณากรอกข้อมูลให้ครบ')
     setLoading(true)
+    setError('')
     const cleanTicker = sanitizeTicker(f.ticker)
-    const r=await api.post('/transactions',{ticker:cleanTicker,type:f.type,shares:parseFloat(f.shares),price:parseFloat(f.price),note:f.note,date:f.date,holding_id:f.holding_id||null,portfolio_id:portfolioId})
+    const body={ticker:cleanTicker,type:f.type,shares:parseFloat(f.shares),price:parseFloat(f.price),note:f.note,date:f.date,holding_id:f.holding_id||null,portfolio_id:portfolioId}
+    const r=isEdit
+      ? await api.put(`/transactions/${transaction.id}`,body)
+      : await api.post('/transactions',body)
     setLoading(false)
-    if(r.id){onSave();onClose()} else alert(r.error||'บันทึกไม่สำเร็จ')
+    if(r.id){onSave();onClose()} else setError(r.error||'บันทึกไม่สำเร็จ')
   }
   const sym=f.currency==='THB'?'฿':'$'
   const total=f.shares&&f.price?parseFloat(f.shares)*parseFloat(f.price):0
   return(
-    <Modal title="บันทึก Transaction" onClose={onClose}>
+    <Modal title={isEdit?'แก้ไข Transaction':'บันทึก Transaction'} onClose={onClose}>
+      {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
       <Field label="เลือก Holding ที่มีอยู่ (optional)">
-        <select style={inp()} onChange={selHolding}>
+        <select style={inp()} value={f.holding_id} onChange={selHolding}>
           <option value="">-- หรือพิมพ์ Ticker เองด้านล่าง --</option>
           {holdings.map(h=><option key={h.id} value={h.id}>{h.ticker} — {h.name||h.ticker}</option>)}
         </select>
@@ -642,7 +658,7 @@ function TransactionModal({holdings,onClose,onSave,portfolioId}){
       <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
         <div style={{flex:1}}>
           <Field label="Ticker">
-            <input style={inp({marginBottom:0})} placeholder="เช่น VOO" value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})}/></Field>
+            <input style={inp({marginBottom:0})} placeholder="เช่น VOO" value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})} disabled={isEdit}/></Field>
         </div>
         <div style={{flex:'none',width:'120px'}}>
           <Field label="ประเภท">
@@ -669,7 +685,7 @@ function TransactionModal({holdings,onClose,onSave,portfolioId}){
       <Field label="หมายเหตุ (optional)"><input style={inp({marginBottom:0})} placeholder="เช่น DCA รายเดือน" value={f.note} onChange={e=>setF({...f,note:e.target.value})}/></Field>
       <div style={{display:'flex',gap:'10px',marginTop:'20px'}}>
         <button type="button" onClick={onClose} style={btnGhost}>ยกเลิก</button>
-        <button type="button" onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึก'}</button>
+        <button type="button" onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':isEdit?'บันทึกการแก้ไข':'บันทึก'}</button>
       </div>
     </Modal>
   )
@@ -894,6 +910,7 @@ function Dashboard({user,onLogout}){
   const [modal,setModal]=useState(null)
   const [editH,setEditH]=useState(null)
   const [editJ,setEditJ]=useState(null)
+  const [editT,setEditT]=useState(null)
   const [loadingP,setLoadingP]=useState(false)
   const [displayCurrency,setDisplayCurrency]=useState('USD')
   const [journalFilter,setJournalFilter]=useState('')
@@ -1228,7 +1245,7 @@ function Dashboard({user,onLogout}){
             <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึก Transaction</button>
           </div>
           <div style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'10px',overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px',minWidth:'680px'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px',minWidth:'760px'}}>
               <thead><tr style={{borderBottom:'1px solid #2a2a2a'}}>
                 {['วันที่','Ticker','ประเภท','Shares','ราคา/หุ้น','มูลค่ารวม','หมายเหตุ',''].map((h,i)=>(
                   <th key={i} style={{padding:'11px 13px',textAlign:'left',color:'#444',fontWeight:400}}>{h}</th>
@@ -1245,7 +1262,10 @@ function Dashboard({user,onLogout}){
                     <td style={{padding:'11px 13px'}}>{Number(t.price).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
                     <td style={{padding:'11px 13px',fontWeight:500}}>{Number(t.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
                     <td style={{padding:'11px 13px',color:'#555'}}>{t.note||'—'}</td>
-                    <td style={{padding:'11px 13px'}}>{aBtn('ลบ',()=>delT(t.id),'#e74c3c')}</td>
+                    <td style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
+                      {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')},'#a29bfe')}
+                      {aBtn('ลบ',()=>delT(t.id),'#e74c3c')}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1297,6 +1317,7 @@ function Dashboard({user,onLogout}){
       {modal==='j'&&<JournalModal portfolioId={activePortfolioId} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId)}/>}
       {modal==='ej'&&editJ&&<JournalModal portfolioId={activePortfolioId} entry={editJ} onClose={()=>{setModal(null);setEditJ(null)}} onSave={()=>fetchAll(activePortfolioId)}/>}
       {modal==='tx'&&<TransactionModal portfolioId={activePortfolioId} holdings={holdings} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
+      {modal==='et'&&editT&&<TransactionModal portfolioId={activePortfolioId} transaction={editT} holdings={holdings} onClose={()=>{setModal(null);setEditT(null)}} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
       {modal==='newPort'&&(
         <Modal title="สร้างพอร์ตใหม่" onClose={()=>setModal(null)}>
           <Field label="ชื่อพอร์ต"><input style={inp()} placeholder="เช่น US Growth, หุ้นไทย" value={newPortName} onChange={e=>setNewPortName(e.target.value)}/></Field>

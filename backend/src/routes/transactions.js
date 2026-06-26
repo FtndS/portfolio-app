@@ -35,11 +35,19 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const { ticker, type, shares, price, note, date, holding_id, portfolio_id } = req.body
-  if (!ticker || !type || !shares || !price) {
-    return res.status(400).json({ error: 'Missing required fields' })
+  if (!ticker || !type || !shares || !price || !date) {
+    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' })
+  }
+  if (!['BUY', 'SELL'].includes(type)) {
+    return res.status(400).json({ error: 'ประเภทต้องเป็น BUY หรือ SELL' })
+  }
+  const shareNum = parseFloat(shares)
+  const priceNum = parseFloat(price)
+  if (!(shareNum > 0) || !(priceNum > 0)) {
+    return res.status(400).json({ error: 'จำนวนหุ้นและราคาต้องมากกว่า 0' })
   }
   const sanitizedTicker = toYahooTicker(ticker).replace(/\./g, '-')
-  const total = parseFloat(shares) * parseFloat(price)
+  const total = shareNum * priceNum
   const client = await pool.connect()
   try {
     const portfolioId = await resolvePortfolioId(req.userId, portfolio_id)
@@ -49,7 +57,7 @@ router.post('/', async (req, res) => {
       `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, note, date)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [req.userId, portfolioId, holding_id || null, sanitizedTicker, type,
-        parseFloat(shares), parseFloat(price), total, note || null, date]
+        shareNum, priceNum, total, note || null, date]
     )
 
     await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker)
@@ -58,6 +66,67 @@ router.post('/', async (req, res) => {
     res.json(txResult.rows[0])
   } catch (err) {
     await client.query('ROLLBACK')
+    res.status(500).json({ error: err.message })
+  } finally {
+    client.release()
+  }
+})
+
+router.put('/:id', async (req, res) => {
+  const { ticker, type, shares, price, note, date, holding_id } = req.body
+  if (!ticker || !type || !shares || !price || !date) {
+    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' })
+  }
+  if (!['BUY', 'SELL'].includes(type)) {
+    return res.status(400).json({ error: 'ประเภทต้องเป็น BUY หรือ SELL' })
+  }
+  const shareNum = parseFloat(shares)
+  const priceNum = parseFloat(price)
+  if (!(shareNum > 0) || !(priceNum > 0)) {
+    return res.status(400).json({ error: 'จำนวนหุ้นและราคาต้องมากกว่า 0' })
+  }
+
+  const sanitizedTicker = toYahooTicker(ticker).replace(/\./g, '-')
+  const total = shareNum * priceNum
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const existing = await client.query(
+      'SELECT id, ticker, portfolio_id FROM transactions WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    )
+    if (!existing.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: 'ไม่พบรายการ' })
+    }
+
+    const oldTicker = existing.rows[0].ticker
+    const portfolioId = existing.rows[0].portfolio_id || await getDefaultPortfolioId(req.userId)
+
+    const txResult = await client.query(
+      `UPDATE transactions
+       SET ticker = $1, type = $2, shares = $3, price = $4, total = $5,
+           note = $6, date = $7, holding_id = $8
+       WHERE id = $9 AND user_id = $10
+       RETURNING *`,
+      [
+        sanitizedTicker, type, shareNum, priceNum, total,
+        note || null, date, holding_id || null,
+        req.params.id, req.userId,
+      ]
+    )
+
+    await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker)
+    if (oldTicker !== sanitizedTicker) {
+      await syncHoldingFromTransactions(client, req.userId, portfolioId, oldTicker)
+    }
+
+    await client.query('COMMIT')
+    res.json(txResult.rows[0])
+  } catch (err) {
+    await client.query('ROLLBACK')
+    console.error('PUT transaction error:', err)
     res.status(500).json({ error: err.message })
   } finally {
     client.release()
