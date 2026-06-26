@@ -1,6 +1,7 @@
 import { MASKED, fmtPct, fmtDate } from '../lib/format'
 import { symFor } from '../lib/constants'
 import { usePrivacy } from '../lib/privacy'
+import { computePortfolioPnL } from '../lib/pnl'
 
 const SECTOR_COLORS = ['#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e', '#e84393', '#55efc4', '#a29bfe']
 
@@ -37,8 +38,6 @@ export default function PortfolioReport({
   convertToDisplay,
   totVal,
   totCost,
-  totPnL,
-  totPct,
 }) {
   const { hideValues } = usePrivacy()
   const fmtMoney = (n) => (hideValues ? MASKED : fmt(n))
@@ -90,6 +89,14 @@ export default function PortfolioReport({
     ? allocation.reduce((s, h) => s + h.dayChg * (h.val / totVal), 0)
     : 0
 
+  const { total: totalPnL } = computePortfolioPnL({
+    transactions,
+    holdings,
+    prices,
+    convert: convertToDisplay,
+  })
+  const totalPct = totCost > 0 ? (totalPnL / totCost) * 100 : 0
+
   const topGainers = [...allocation].filter((h) => h.pnl > 0).sort((a, b) => b.pnlPct - a.pnlPct).slice(0, 3)
   const topLosers = [...allocation].filter((h) => h.pnl < 0).sort((a, b) => a.pnlPct - b.pnlPct).slice(0, 3)
 
@@ -119,8 +126,8 @@ export default function PortfolioReport({
     ['เงินลงทุน (ทุน)', hideValues ? MASKED : fmt(totCost), 'accent'],
     [
       'กำไร/ขาดทุน',
-      hideValues ? fmtPct(totPct) : `${fmt(totPnL)} (${fmtPct(totPct)})`,
-      pnlTone(totPnL),
+      hideValues ? fmtPct(totalPct) : `${fmt(totalPnL)} (${fmtPct(totalPct)})`,
+      pnlTone(totalPnL),
     ],
     ['% เปลี่ยนแปลงวันนี้', fmtPct(weightedDayChg), pnlTone(weightedDayChg)],
   ]

@@ -22,6 +22,7 @@ import { symFor, JOURNAL_TAGS as journalTags, CHART_RANGE_DAYS } from '../../lib
 import { MASKED, fmtPct, fmtDate, isoDate } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 import { journalDraftFromTransaction } from '../../lib/workflow'
+import { computePortfolioPnL } from '../../lib/pnl'
 import WorkflowGuide from './WorkflowGuide'
 
 export default function Dashboard({user,onLogout,onUserUpdate}){
@@ -298,6 +299,18 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const totPnL=totVal-totCost
   const totPct=totCost>0?(totPnL/totCost)*100:0
 
+  const { realized, unrealized, total: totalPnL, hasRealized } = computePortfolioPnL({
+    transactions,
+    holdings,
+    prices,
+    convert: convertToDisplay,
+  })
+  const pnlKpiSub = hideValues
+    ? 'จากทุน'
+    : hasRealized
+      ? `ขายแล้ว ${fmt(realized)} · ถืออยู่ ${fmt(unrealized)}`
+      : `${totPct >= 0 ? '+' : ''}${totPct.toFixed(2)}% จากทุน`
+
   const allInvested=portfolios.reduce((s,p)=>s+portfolioInvested(p),0)
   const allPortValue=allHoldings.reduce((s,h)=>{
     const p=prices[h.ticker]||Number(h.avg_cost)
@@ -444,7 +457,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             {[
               ['มูลค่าพอร์ตนี้', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
               [portfolios.length>1?'มูลค่ารวมทุกพอร์ต':'ทุนรวม (พอร์ตนี้)', hideValues ? MASKED : fmt(portfolios.length>1?allPortValue:totCost), portfolios.length>1?(hideValues?`${portfolios.length} พอร์ต`:`ทุนรวม ${fmt(allInvested)} · ${portfolios.length} พอร์ต`):'ราคาซื้อเฉลี่ย · ไม่รวมกำไร', hideValues?'':'accent'],
-              ['กำไร/ขาดทุน (พอร์ตนี้)', hideValues ? fmtPct(totPct) : fmt(totPnL), hideValues ? 'จากทุน' : `${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`, totPnL>=0?'gain':'loss'],
+              ['กำไร/ขาดทุน (พอร์ตนี้)', hideValues ? fmtPct(totPct) : fmt(totalPnL), pnlKpiSub, totalPnL >= 0 ? 'gain' : 'loss'],
               dividends.length>0
                 ? ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), hideValues ? `สะสม ${MASKED}` : `สะสมทั้งหมด ${fmt(dividendAll)}${divYieldPct>0?` · ~${divYieldPct.toFixed(2)}% ของทุน`:''}`, 'gain']
                 : ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'Real-time', hideValues ? '' : 'info'],
@@ -506,8 +519,6 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             convertToDisplay={convertToDisplay}
             totVal={totVal}
             totCost={totCost}
-            totPnL={totPnL}
-            totPct={totPct}
           />
         )}
 
