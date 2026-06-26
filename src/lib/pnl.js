@@ -59,3 +59,18 @@ export function computePortfolioPnL({ transactions, holdings, prices = {}, conve
 
   return { realized, unrealized, total, hasRealized }
 }
+
+/** Sum dividend payouts in display currency. */
+export function sumDividends(dividends, convert) {
+  return (dividends || []).reduce(
+    (s, d) => s + convert(Number(d.amount), d.currency || 'THB'),
+    0,
+  )
+}
+
+/** Price P&L + dividends = total return. */
+export function computeTotalReturn(pricePnL, dividendTotal) {
+  const dividends = Number(dividendTotal) || 0
+  const totalReturn = pricePnL + dividends
+  return { totalReturn, hasDividends: dividends > 0.0001 }
+}

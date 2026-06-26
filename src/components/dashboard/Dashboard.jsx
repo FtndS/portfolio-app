@@ -22,7 +22,7 @@ import { symFor, JOURNAL_TAGS as journalTags, CHART_RANGE_DAYS } from '../../lib
 import { MASKED, fmtPct, fmtDate, isoDate } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 import { journalDraftFromTransaction } from '../../lib/workflow'
-import { computePortfolioPnL } from '../../lib/pnl'
+import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../../lib/pnl'
 import WorkflowGuide from './WorkflowGuide'
 
 export default function Dashboard({user,onLogout,onUserUpdate}){
@@ -308,11 +308,28 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     prices,
     convert: convertToDisplay,
   })
-  const pnlKpiSub = hideValues
+
+  const yearStart=`${new Date().getFullYear()}-01-01`
+  const sumDivList=(list)=>sumDividends(list, convertToDisplay)
+  const dividendYtd=sumDivList(dividends.filter(d=>isoDate(d.pay_date)>=yearStart))
+  const dividendAll=sumDivList(dividends)
+  const divYieldPct=totCost>0&&dividendYtd>0?(dividendYtd/totCost)*100:0
+
+  const { totalReturn, hasDividends } = computeTotalReturn(totalPnL, dividendAll)
+  const returnPct=totCost>0?(totalReturn/totCost)*100:0
+
+  const pnlKpiLabel=hasDividends?'ผลตอบแทนรวม':'กำไร/ขาดทุน (พอร์ตนี้)'
+  const pnlKpiVal=hideValues
+    ? fmtPct(hasDividends?returnPct:totPct)
+    : fmt(hasDividends?totalReturn:totalPnL)
+  const pnlKpiTone=(hasDividends?totalReturn:totalPnL)>=0?'gain':'loss'
+  const pnlKpiSub=hideValues
     ? 'จากทุน'
-    : hasRealized
-      ? `ขายแล้ว ${fmt(realized)} · ถืออยู่ ${fmt(unrealized)}`
-      : `${totPct >= 0 ? '+' : ''}${totPct.toFixed(2)}% จากทุน`
+    : hasDividends
+      ? `${hasRealized?`ราคา: ขายแล้ว ${fmt(realized)} · ถืออยู่ ${fmt(unrealized)}`:`จากราคา ${fmt(totalPnL)}`} · ปันผล ${fmt(dividendAll)}`
+      : hasRealized
+        ? `ขายแล้ว ${fmt(realized)} · ถืออยู่ ${fmt(unrealized)}`
+        : `${totPct >= 0 ? '+' : ''}${totPct.toFixed(2)}% จากทุน`
 
   const allInvested=portfolios.reduce((s,p)=>s+portfolioInvested(p),0)
   const allPortValue=allHoldings.reduce((s,h)=>{
@@ -333,12 +350,6 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     return <span className={`dash-currency-chip dash-currency-chip--${tone}`}>{symFor(c)} {c}</span>
   }
   const fmtDiv=(d)=>hideValues?MASKED:`${symFor(d.currency||'THB')}${Number(d.amount).toLocaleString('en-US',{minimumFractionDigits:2})}`
-
-  const yearStart=`${new Date().getFullYear()}-01-01`
-  const sumDividends=(list)=>list.reduce((s,d)=>s+convertToDisplay(Number(d.amount),d.currency||'THB'),0)
-  const dividendYtd=sumDividends(dividends.filter(d=>isoDate(d.pay_date)>=yearStart))
-  const dividendAll=sumDividends(dividends)
-  const divYieldPct=totCost>0&&dividendYtd>0?(dividendYtd/totCost)*100:0
 
   const aBtn = (label, onClick, variant = 'accent') => (
     <button
@@ -458,9 +469,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             {[
               ['มูลค่าพอร์ตนี้', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
               [portfolios.length>1?'มูลค่ารวมทุกพอร์ต':'ทุนรวม (พอร์ตนี้)', hideValues ? MASKED : fmt(portfolios.length>1?allPortValue:totCost), portfolios.length>1?(hideValues?`${portfolios.length} พอร์ต`:`ทุนรวม ${fmt(allInvested)} · ${portfolios.length} พอร์ต`):'ราคาซื้อเฉลี่ย · ไม่รวมกำไร', hideValues?'':'accent'],
-              ['กำไร/ขาดทุน (พอร์ตนี้)', hideValues ? fmtPct(totPct) : fmt(totalPnL), pnlKpiSub, totalPnL >= 0 ? 'gain' : 'loss'],
+              [pnlKpiLabel, pnlKpiVal, pnlKpiSub, pnlKpiTone],
               dividends.length>0
-                ? ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), hideValues ? `สะสม ${MASKED}` : `สะสมทั้งหมด ${fmt(dividendAll)}${divYieldPct>0?` · ~${divYieldPct.toFixed(2)}% ของทุน`:''}`, 'gain']
+                ? ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), hideValues ? `สะสม ${MASKED}` : `สะสม ${fmt(dividendAll)}${hasDividends&&!hideValues?` · รวม ~${returnPct.toFixed(2)}% ของทุน`:divYieldPct>0?` · yield ปีนี้ ~${divYieldPct.toFixed(2)}%`:''}`, 'gain']
                 : ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'Real-time', hideValues ? '' : 'info'],
             ].map(([label,val,sub,tone],i)=>(
               <div key={i} className="dash-kpi-card">
@@ -510,6 +521,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             portfolios={portfolios}
             holdings={holdings}
             transactions={transactions}
+            dividends={dividends}
             prices={prices}
             displayCurrency={displayCurrency}
             fxRate={fxRate}
@@ -625,7 +637,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           <div className="dash-kpi-grid" style={{marginBottom:'16px'}}>
             {[
               ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), `ปี ${new Date().getFullYear()}`, 'gain'],
-              ['ปันผลสะสมทั้งหมด', hideValues ? MASKED : fmt(dividendAll), `${dividends.length} รายการ`, 'accent'],
+              ['ปันผลสะสมทั้งหมด', hideValues ? MASKED : fmt(dividendAll), hideValues ? `${dividends.length} รายการ` : (hasDividends ? `รวมกับกำไรจากราคา ~${returnPct.toFixed(2)}% ของทุน` : `${dividends.length} รายการ`), hasDividends?'gain':'accent'],
               ['Yield จากทุน (ปีนี้)', hideValues ? MASKED : (divYieldPct>0?`${divYieldPct.toFixed(2)}%`:'—'), totCost>0?'ประมาณจากทุนพอร์ตนี้':'ยังไม่มีทุน', divYieldPct>0?'gain':''],
             ].map(([label,val,sub,tone],i)=>(
               <div key={i} className="dash-kpi-card">

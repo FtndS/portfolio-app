@@ -61,3 +61,15 @@ export function computePortfolioPnL({ transactions, holdings, prices = {}, conve
     hasRealized: sorted.some((t) => t.type === 'SELL'),
   }
 }
+
+export function sumDividends(dividends, convert) {
+  return (dividends || []).reduce(
+    (s, d) => s + convert(Number(d.amount), d.currency || 'THB'),
+    0,
+  )
+}
+
+export function computeTotalReturn(pricePnL, dividendTotal) {
+  const dividends = Number(dividendTotal) || 0
+  return { totalReturn: pricePnL + dividends, hasDividends: dividends > 0.0001 }
+}

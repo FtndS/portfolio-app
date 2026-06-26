@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computePortfolioPnL } from '../src/lib/pnl.js'
+import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../src/lib/pnl.js'
 
 const id = (n) => n
 
@@ -37,5 +37,31 @@ describe('computePortfolioPnL', () => {
     expect(result.realized).toBeCloseTo(94, 2)
     expect(result.unrealized).toBeCloseTo(5 * (120 - 101), 2)
     expect(result.hasRealized).toBe(true)
+  })
+})
+
+describe('sumDividends', () => {
+  const convert = (amount) => amount
+
+  it('sums dividend amounts', () => {
+    const total = sumDividends([
+      { amount: 100, currency: 'THB' },
+      { amount: 50, currency: 'THB' },
+    ], convert)
+    expect(total).toBe(150)
+  })
+})
+
+describe('computeTotalReturn', () => {
+  it('adds dividends to price pnl', () => {
+    const r = computeTotalReturn(1000, 200)
+    expect(r.totalReturn).toBe(1200)
+    expect(r.hasDividends).toBe(true)
+  })
+
+  it('hasDividends false when no dividends', () => {
+    const r = computeTotalReturn(500, 0)
+    expect(r.totalReturn).toBe(500)
+    expect(r.hasDividends).toBe(false)
   })
 })
