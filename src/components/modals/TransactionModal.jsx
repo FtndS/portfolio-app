@@ -62,7 +62,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
       : await api.post('/transactions', body)
     setLoading(false)
     if (r.id) {
-      onSave()
+      onSave(r, { isNew: !isEdit })
       onClose()
     } else setError(r.error || 'บันทึกไม่สำเร็จ')
   }

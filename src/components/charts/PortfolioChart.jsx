@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { symFor, CHART_RANGES, BENCHMARK_OPTIONS } from '../../lib/constants'
-import { fmtPct } from '../../lib/format'
+import { fmtPct, fmtDate } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 
 function dateKey(d) {
@@ -188,7 +188,7 @@ export default function PortfolioChart({
 
       {shortHistory && !loading && (
         <p className="dash-chart-hint">
-          พอร์ตมีข้อมูล {dates.length} วันในช่วงนี้ (เริ่ม {dates[0]})
+          พอร์ตมีข้อมูล {dates.length} วันในช่วงนี้ (เริ่ม {fmtDate(dates[0])})
           {compareMode && ' — ลองปิด Benchmark หรือเลือกช่วง All เพื่อดูมูลค่าเต็ม'}
         </p>
       )}

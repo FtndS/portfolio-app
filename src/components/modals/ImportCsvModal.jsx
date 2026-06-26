@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
+import { fmtDate } from '../../lib/format'
 import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
@@ -63,7 +64,7 @@ export default function ImportCsvModal({ portfolioId, onClose, onSave }) {
       </p>
       <p className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '14px' }}>
         <a href="/import-template.csv" download className="dash-link">ดาวน์โหลดไฟล์ตัวอย่าง</a>
-        {' · '}รองรับวันที่ YYYY-MM-DD หรือ DD/MM/YYYY · ประเภท BUY/SELL หรือ ซื้อ/ขาย
+        {' · '}รองรับวันที่ DD/MM/YYYY (แนะนำ) หรือ YYYY-MM-DD · ประเภท BUY/SELL หรือ ซื้อ/ขาย
       </p>
 
       <Field label="เลือกไฟล์ .csv">
@@ -73,7 +74,7 @@ export default function ImportCsvModal({ portfolioId, onClose, onSave }) {
         <textarea
           value={csvText}
           onChange={(e) => { setCsvText(e.target.value); setPreview(null) }}
-          placeholder={'date,ticker,type,shares,price,currency,note\n2024-01-15,VOO,BUY,10,450.25,USD,'}
+          placeholder={'date,ticker,type,shares,price,currency,note\n15/01/2024,VOO,BUY,10,450.25,USD,'}
           style={{ ...inp(), height: '120px', resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', marginBottom: 0 }}
         />
       </Field>
@@ -104,7 +105,7 @@ export default function ImportCsvModal({ portfolioId, onClose, onSave }) {
               <tbody>
                 {preview.validRows?.slice(0, 20).map((r, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                    <td style={{ padding: '8px' }}>{r.date}</td>
+                    <td style={{ padding: '8px' }}>{fmtDate(r.date)}</td>
                     <td style={{ padding: '8px', fontWeight: 600 }}>{r.ticker}</td>
                     <td style={{ padding: '8px' }}>{r.type}</td>
                     <td style={{ padding: '8px' }}>{r.shares}</td>

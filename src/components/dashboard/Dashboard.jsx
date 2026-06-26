@@ -20,8 +20,10 @@ import Modal from '../ui/Modal'
 import Field from '../ui/Field'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
 import { symFor, JOURNAL_TAGS as journalTags, CHART_RANGE_DAYS } from '../../lib/constants'
-import { MASKED, fmtPct } from '../../lib/format'
+import { MASKED, fmtPct, fmtDate, isoDate } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
+import { journalDraftFromTransaction } from '../../lib/workflow'
+import WorkflowGuide from './WorkflowGuide'
 
 export default function Dashboard({user,onLogout,onUserUpdate}){
   const [portfolios,setPortfolios]=useState([])
@@ -45,6 +47,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const [editJ,setEditJ]=useState(null)
   const [editT,setEditT]=useState(null)
   const [editDiv,setEditDiv]=useState(null)
+  const [journalDraft,setJournalDraft]=useState(null)
   const [loadingP,setLoadingP]=useState(false)
   const [displayCurrency,setDisplayCurrency]=useState('USD')
   const { hideValues, toggleHideValues } = usePrivacy()
@@ -259,6 +262,15 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const delT=async id=>{if(!confirm('ลบ transaction นี้?'))return;await api.delete(`/transactions/${id}`);fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}
   const delDiv=async id=>{if(!confirm('ลบรายการปันผลนี้?'))return;await api.delete(`/dividends/${id}`);fetchAll(activePortfolioId)}
 
+  const handleTxSaved=async(tx,{isNew})=>{
+    const hl=await fetchAll(activePortfolioId)
+    await fetchPrices(hl,activePortfolioId)
+    if(isNew&&tx?.id){
+      setJournalDraft(journalDraftFromTransaction(tx))
+      setModal('j')
+    }
+  }
+
   const convertToDisplay=(amount,currency)=>{
     if(displayCurrency==='THB') return currency==='THB'?amount:amount*fxRate
     return currency==='THB'?amount/fxRate:amount
@@ -311,7 +323,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
   const yearStart=`${new Date().getFullYear()}-01-01`
   const sumDividends=(list)=>list.reduce((s,d)=>s+convertToDisplay(Number(d.amount),d.currency||'THB'),0)
-  const dividendYtd=sumDividends(dividends.filter(d=>(d.pay_date?.split('T')[0]||d.pay_date)>=yearStart))
+  const dividendYtd=sumDividends(dividends.filter(d=>isoDate(d.pay_date)>=yearStart))
   const dividendAll=sumDividends(dividends)
   const divYieldPct=totCost>0&&dividendYtd>0?(dividendYtd/totCost)*100:0
 
@@ -420,6 +432,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
         {/* Overview */}
         {tab==='overview'&&<>
+          <WorkflowGuide activeTab={tab} compact />
           <div className="dash-kpi-grid">
             {[
               ['มูลค่าพอร์ตนี้', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
@@ -493,6 +506,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
         {/* Holdings */}
         {tab==='holdings'&&<>
+          <p className="dash-holdings-hint">
+            <strong>ส่วนใหญ่ไม่ต้องใช้แท็บนี้</strong> — ยอดหุ้นและราคาทุนอัปเดตจาก <button type="button" className="dash-link" onClick={()=>setTab('transactions')}>Transactions</button> อัตโนมัติ ใช้ Holdings เฉพาะแก้ไขยอดตรงๆ
+          </p>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
               <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} holdings</p>
@@ -537,6 +553,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
         {/* Transactions */}
         {tab==='transactions'&&<>
+          <WorkflowGuide activeTab={tab} />
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
               <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>
@@ -558,7 +575,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 {filteredTransactions.length===0?<tr><td colSpan={9} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
                 :filteredTransactions.map(t=>(
                   <tr key={t.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
-                    <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{t.date?.split('T')[0]||t.date}</td>
+                    <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(t.date)}</td>
                     <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
                     <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(t.currency)}</td>
@@ -609,7 +626,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 </td></tr>
                 :dividends.map(d=>(
                   <tr key={d.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
-                    <td data-label="วันที่รับ" className="dash-text-muted" style={{padding:'11px 13px'}}>{d.pay_date?.split('T')[0]||d.pay_date}</td>
+                    <td data-label="วันที่รับ" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(d.pay_date)}</td>
                     <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{d.ticker}</td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(d.currency)}</td>
                     <td data-label="จำนวนเงิน" className="dash-text-gain" style={{padding:'11px 13px',fontWeight:500}}>{fmtDiv(d)}</td>
@@ -638,14 +655,14 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 ))}
               </div>
             </div>
-            <button onClick={()=>setModal('j')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เขียน Journal</button>
+            <button onClick={()=>{setJournalDraft(null);setModal('j')}} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เขียน Journal</button>
           </div>
           {filteredJournal.length===0?<p className="dash-text-faint" style={{fontSize:'13px',textAlign:'center',padding:'40px'}}>ไม่มี entry {journalFilter?`ใน tag "${journalFilter}"`:''}</p>
           :filteredJournal.map(j=>(
             <div key={j.id} className="dash-journal-card">
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
                 <div className="dash-journal-meta">
-                  <span className="dash-text-faint" style={{fontSize:'12px'}}>{j.date?.split('T')[0]||j.date}</span>
+                  <span className="dash-text-faint" style={{fontSize:'12px'}}>{fmtDate(j.date)}</span>
                   {j.tag&&<span className="dash-tag">{j.tag}</span>}
                   {j.tickers&&j.tickers.split(',').map(t=><span key={t} className="dash-ticker-chip">{t.trim()}</span>)}
                 </div>
@@ -679,7 +696,15 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
       {modal==='h'&&<HoldingModal portfolioId={activePortfolioId} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
       {modal==='eh'&&editH&&<HoldingModal portfolioId={activePortfolioId} holding={editH} onClose={()=>{setModal(null);setEditH(null)}} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
-      {modal==='j'&&<JournalModal portfolioId={activePortfolioId} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId)}/>}
+      {modal==='j'&&(
+        <JournalModal
+          portfolioId={activePortfolioId}
+          initial={journalDraft}
+          fromTransaction={!!journalDraft}
+          onClose={()=>{setModal(null);setJournalDraft(null)}}
+          onSave={()=>{setJournalDraft(null);fetchAll(activePortfolioId)}}
+        />
+      )}
       {modal==='ej'&&editJ&&<JournalModal portfolioId={activePortfolioId} entry={editJ} onClose={()=>{setModal(null);setEditJ(null)}} onSave={()=>fetchAll(activePortfolioId)}/>}
       {modal==='import'&&(
         <ImportCsvModal
@@ -688,8 +713,8 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}
         />
       )}
-      {modal==='tx'&&<TransactionModal portfolioId={activePortfolioId} holdings={holdings} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
-      {modal==='et'&&editT&&<TransactionModal portfolioId={activePortfolioId} transaction={editT} holdings={holdings} onClose={()=>{setModal(null);setEditT(null)}} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
+      {modal==='tx'&&<TransactionModal portfolioId={activePortfolioId} holdings={holdings} onClose={()=>setModal(null)} onSave={handleTxSaved}/>}
+      {modal==='et'&&editT&&<TransactionModal portfolioId={activePortfolioId} transaction={editT} holdings={holdings} onClose={()=>{setModal(null);setEditT(null)}} onSave={async()=>{await fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}}/>}
       {modal==='div'&&<DividendModal portfolioId={activePortfolioId} holdings={holdings} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId)}/>}
       {modal==='ediv'&&editDiv&&<DividendModal portfolioId={activePortfolioId} dividend={editDiv} holdings={holdings} onClose={()=>{setModal(null);setEditDiv(null)}} onSave={()=>fetchAll(activePortfolioId)}/>}
       {modal==='newPort'&&(

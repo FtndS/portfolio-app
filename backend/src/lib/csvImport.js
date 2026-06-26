@@ -74,12 +74,10 @@ function parseDate(value) {
 
   const dmy = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
   if (dmy) {
-    const a = parseInt(dmy[1], 10)
-    const b = parseInt(dmy[2], 10)
+    const day = parseInt(dmy[1], 10)
+    const month = parseInt(dmy[2], 10)
     const year = dmy[3]
-    // Prefer DD/MM/YYYY (Thai/EU); if first part > 12 treat as day
-    const day = a > 12 ? a : b > 12 ? b : a
-    const month = a > 12 ? b : b > 12 ? a : b
+    if (day < 1 || day > 31 || month < 1 || month > 12) return null
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 

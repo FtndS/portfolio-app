@@ -14,7 +14,7 @@ const STEPS = [
   },
   {
     title: 'บันทึกการลงทุนครั้งแรก',
-    body: 'เพิ่ม transaction ซื้อ/ขาย หรือ import จาก CSV — ระบบจะคำนวณ holdings และกราฟให้อัตโนมัติ',
+    body: 'เพิ่ม Transaction ซื้อ/ขาย ที่แท็บ Transactions (หรือ Import CSV) — ระบบจะคำนวณ Holdings และกราฟให้อัตโนมัติ จากนั้นเขียน Journal ได้ถ้าต้องการบันทึกเหตุผล',
     icon: '✏️',
   },
   {
@@ -25,11 +25,12 @@ const STEPS = [
 ]
 
 const TABS_TOUR = [
-  { key: 'overview', label: 'Overview', desc: 'กราฟมูลค่า, sector, heatmap และ AI' },
+  { key: 'overview', label: 'Overview', desc: 'กราฟมูลค่า, sector, heatmap และ AI — ดูภาพรวม' },
   { key: 'report', label: 'Report', desc: 'สรุปพอร์ตแบบรายงาน — พิมพ์หรือบันทึก PDF' },
-  { key: 'holdings', label: 'Holdings', desc: 'รายการหุ้นที่ถือ พร้อม P&L แต่ละตัว' },
-  { key: 'transactions', label: 'Transactions', desc: 'ประวัติซื้อ-ขายทั้งหมด' },
-  { key: 'journal', label: 'Journal', desc: 'บันทึกความคิดและเหตุผลการลงทุน' },
+  { key: 'transactions', label: 'Transactions', desc: '★ จุดเริ่มหลัก — บันทึกซื้อ/ขายหรือ Import CSV' },
+  { key: 'journal', label: 'Journal', desc: 'บันทึกเหตุผลหลังเทรด (แนะนำ ไม่บังคับ)' },
+  { key: 'dividends', label: 'ปันผล', desc: 'เมื่อได้รับเงินปันผล — แยกจากการซื้อขาย' },
+  { key: 'holdings', label: 'Holdings', desc: 'ดูยอดหุ้น — แก้ตรงๆ เฉพาะกรณีพิเศษ' },
 ]
 
 export function onboardingKey(userId) {

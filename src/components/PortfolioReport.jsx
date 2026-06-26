@@ -1,4 +1,4 @@
-import { MASKED, fmtPct } from '../lib/format'
+import { MASKED, fmtPct, fmtDate } from '../lib/format'
 import { symFor } from '../lib/constants'
 import { usePrivacy } from '../lib/privacy'
 
@@ -321,7 +321,7 @@ export default function PortfolioReport({
                 <tbody>
                   {recentTx.map((t) => (
                     <tr key={t.id}>
-                      <td className="dash-report-muted">{t.date?.split('T')[0] || t.date}</td>
+                      <td className="dash-report-muted">{fmtDate(t.date)}</td>
                       <td className="dash-report-ticker">{t.ticker}</td>
                       <td className={t.type === 'BUY' ? 'dash-text-gain' : 'dash-text-loss'}>{t.type}</td>
                       <td><CcyChip ccy={t.currency} /></td>
