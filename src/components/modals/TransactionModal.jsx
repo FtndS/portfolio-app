@@ -6,6 +6,15 @@ import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
 import { sanitizeTicker } from '../../lib/constants'
 
+function inferTxCurrency(ticker, holdings) {
+  const h = holdings.find((x) => x.ticker === ticker)
+  if (h?.currency) return h.currency
+  const t = (ticker || '').toUpperCase()
+  if (t.includes('-BK') || t.endsWith('.BK')) return 'THB'
+  if (t.includes('-HK')) return 'HKD'
+  return 'USD'
+}
+
 export default function TransactionModal({ holdings, transaction, onClose, onSave, portfolioId }) {
   const today = new Date().toISOString().split('T')[0]
   const isEdit = !!transaction
@@ -17,7 +26,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     note: transaction?.note || '',
     date: transaction?.date?.split('T')[0] || today,
     holding_id: transaction?.holding_id ? String(transaction.holding_id) : '',
-    currency: 'USD',
+    currency: inferTxCurrency(transaction?.ticker, holdings),
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -79,7 +88,12 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
               style={inp({ marginBottom: 0 })}
               placeholder="เช่น VOO"
               value={f.ticker}
-              onChange={(e) => setF({ ...f, ticker: e.target.value })}
+              onChange={(e) => {
+                const ticker = e.target.value
+                const next = { ...f, ticker }
+                if (!isEdit && !f.holding_id) next.currency = inferTxCurrency(sanitizeTicker(ticker), holdings)
+                setF(next)
+              }}
               disabled={isEdit}
             />
           </Field>

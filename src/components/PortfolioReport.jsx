@@ -92,7 +92,9 @@ export default function PortfolioReport({
     id: p.id,
     name: p.name,
     holdings: Number(p.holding_count || 0),
-    invested: convertToDisplay(Number(p.total_invested || 0), p.currency || 'USD'),
+    invested: p.invested_thb != null || p.invested_usd != null
+      ? convertToDisplay(Number(p.invested_usd || 0), 'USD') + convertToDisplay(Number(p.invested_thb || 0), 'THB')
+      : convertToDisplay(Number(p.total_invested || 0), p.currency || 'USD'),
     isActive: Number(p.id) === Number(activePort?.id),
   }))
 

@@ -211,6 +211,15 @@ const migrations = [
       UPDATE users SET email_verified = true WHERE email_verified IS NULL;
     `,
   },
+  {
+    name: '011_fix_thai_holding_currency',
+    sql: `
+      UPDATE holdings SET currency = 'THB', market = 'SET'
+      WHERE (
+        ticker ILIKE '%-BK' OR ticker ILIKE '%.BK'
+      ) AND COALESCE(currency, 'USD') = 'USD';
+    `,
+  },
 ]
 
 export async function runMigrations() {

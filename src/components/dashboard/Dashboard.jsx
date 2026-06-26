@@ -231,6 +231,14 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     return currency==='THB'?amount/fxRate:amount
   }
 
+  const portfolioInvested=(p)=>{
+    if(p.invested_thb!=null||p.invested_usd!=null){
+      return convertToDisplay(Number(p.invested_usd||0),'USD')
+        +convertToDisplay(Number(p.invested_thb||0),'THB')
+    }
+    return convertToDisplay(Number(p.total_invested||0),p.currency||'USD')
+  }
+
   const getVal=useCallback(h=>{
     const p=prices[h.ticker]||Number(h.avg_cost),v=Number(h.shares)*p
     return convertToDisplay(v,h.currency||'USD')
@@ -246,7 +254,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const totPnL=totVal-totCost
   const totPct=totCost>0?(totPnL/totCost)*100:0
 
-  const allInvested=portfolios.reduce((s,p)=>s+convertToDisplay(Number(p.total_invested||0),p.currency||'USD'),0)
+  const allInvested=portfolios.reduce((s,p)=>s+portfolioInvested(p),0)
   const activePort=portfolios.find(p=>p.id===activePortfolioId)
 
   const sym=symFor(displayCurrency)

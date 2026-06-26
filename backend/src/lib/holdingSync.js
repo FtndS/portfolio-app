@@ -1,4 +1,4 @@
-import { resolveMarket, defaultCurrency, storageTicker } from './ticker.js'
+import { resolveMarket, defaultCurrency, storageTicker, detectMarket } from './ticker.js'
 import { fetchCompanyProfile, needsSectorRefresh } from './profile.js'
 
 export async function syncHoldingFromTransactions(client, userId, portfolioId, ticker, profile = null, txCurrency) {
@@ -64,13 +64,15 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
   if (needsSectorRefresh(sector) && profile?.sector && profile.sector !== 'Other') {
     sector = profile.sector
   }
-  const holdingCurrency = existing.rows[0]?.currency || txCurrency || defaultCurrency(market)
+  const holdingCurrency = txCurrency
+    || existing.rows[0]?.currency
+    || defaultCurrency(detectMarket(ticker, txCurrency))
 
   if (existing.rows.length > 0) {
     await client.query(
-      `UPDATE holdings SET shares = $1, avg_cost = $2, name = $3, sector = $4, market = $8, updated_at = NOW()
+      `UPDATE holdings SET shares = $1, avg_cost = $2, name = $3, sector = $4, currency = $9, market = $8, updated_at = NOW()
        WHERE user_id = $5 AND portfolio_id = $6 AND ticker = $7`,
-      [netShares, avgCost, name, sector, userId, portfolioId, ticker, market]
+      [netShares, avgCost, name, sector, userId, portfolioId, ticker, market, holdingCurrency]
     )
   } else {
     await client.query(
