@@ -76,10 +76,10 @@ app.get('/api/health', async (req, res) => {
 })
 
 app.get('/api/prices', pricesLimiter, async (req, res) => {
-  const { tickers, markets, currencies } = req.query
+  const { tickers, markets, currencies, portfolio_currencies } = req.query
   if (!tickers) return res.json({})
 
-  const cacheKey = [tickers, markets || '', currencies || ''].join('|')
+  const cacheKey = [tickers, markets || '', currencies || '', portfolio_currencies || ''].join('|')
   const cached = priceCache.get(cacheKey)
   if (cached && Date.now() - cached.ts < PRICE_TTL) {
     return res.json(cached.data)
@@ -89,6 +89,7 @@ app.get('/api/prices', pricesLimiter, async (req, res) => {
     const tickerList = tickers.split(',').filter(Boolean)
     const marketList = markets?.split(',') || []
     const currencyList = currencies?.split(',') || []
+    const portfolioCurrencyList = portfolio_currencies?.split(',') || []
     const result = {}
 
     const jobs = tickerList.map(async (ticker, i) => {
@@ -105,7 +106,8 @@ app.get('/api/prices', pricesLimiter, async (req, res) => {
       const quote = await fetchHoldingQuote(
         ticker,
         marketList[i] || '',
-        currencyList[i] || ''
+        currencyList[i] || '',
+        portfolioCurrencyList[i] || ''
       )
       if (quote) {
         result[ticker] = quote.price

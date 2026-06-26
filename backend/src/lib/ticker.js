@@ -49,32 +49,56 @@ export function detectMarket(ticker, currency) {
   return 'US'
 }
 
-export function resolveMarket(ticker, market, currency) {
+export function resolveMarket(ticker, market, currency, portfolioCurrency) {
   const inferred = detectMarket(ticker, currency)
+  if (portfolioCurrency === 'THB' && inferred === 'US' && !hasExchangeSuffix(ticker)) {
+    return 'SET'
+  }
   if (market && MARKETS[market]) {
     const marketCurrency = defaultCurrency(market)
     if (currency && currency !== marketCurrency && inferred !== market) {
       return inferred
     }
+    if (market === 'SET') return 'SET'
     return market
   }
   return inferred
 }
 
+export function hasExchangeSuffix(ticker) {
+  const base = sanitizeTicker(ticker)
+  if (!base.includes('-')) return false
+  const suffix = base.split('-').pop()
+  return ['BK', 'HK', 'SS', 'SZ'].includes(suffix)
+}
+
+/** Plain symbol without exchange suffix (e.g. TISCO, SCB, AAPL). */
+export function isPlainTicker(ticker) {
+  return Boolean(ticker) && !hasExchangeSuffix(ticker)
+}
+
 /** Yahoo symbols to try when fetching quotes (primary + currency-based fallback). */
-export function yahooSymbolsForHolding(ticker, market, currency) {
-  const resolved = resolveMarket(ticker, market, currency)
-  const symbols = new Set([
-    toYahooTicker(ticker, resolved),
-    toYahooTicker(ticker),
-  ])
-  if (currency === 'THB') symbols.add(toYahooTicker(ticker, 'SET'))
-  if (currency === 'HKD') symbols.add(toYahooTicker(ticker, 'HK'))
-  return [...symbols].filter(Boolean)
+export function yahooSymbolsForHolding(ticker, market, currency, portfolioCurrency) {
+  const resolved = resolveMarket(ticker, market, currency, portfolioCurrency)
+  const symbols = []
+  const add = (m) => {
+    const sym = toYahooTicker(ticker, m)
+    if (sym && !symbols.includes(sym)) symbols.push(sym)
+  }
+
+  add(resolved)
+  if (isPlainTicker(ticker)) {
+    if (resolved !== 'SET') add('SET')
+    if (resolved !== 'US') add('US')
+  }
+  if (currency === 'THB' || portfolioCurrency === 'THB') add('SET')
+  if (currency === 'HKD') add('HK')
+
+  return symbols
 }
 
 /** Normalize ticker for DB storage (e.g. TISCO + SET → TISCO-BK). */
-export function storageTicker(ticker, market, currency) {
-  const m = resolveMarket(ticker, market, currency)
+export function storageTicker(ticker, market, currency, portfolioCurrency) {
+  const m = resolveMarket(ticker, market, currency, portfolioCurrency)
   return toYahooTicker(ticker, m).replace(/\./g, '-')
 }

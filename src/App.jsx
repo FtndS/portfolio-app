@@ -1065,19 +1065,21 @@ function Dashboard({user,onLogout,onUserUpdate}){
 
   const fetchPrices=useCallback(async(hl,portfolioId)=>{
     if(!hl?.length) return
+    const portCur=portfolios.find(p=>Number(p.id)===Number(portfolioId))?.currency||'USD'
     setLoadingP(true)
     try{
       const params=new URLSearchParams()
       params.set('tickers',hl.map(h=>h.ticker).join(','))
       params.set('markets',hl.map(h=>h.market||'').join(','))
       params.set('currencies',hl.map(h=>h.currency||'').join(','))
+      params.set('portfolio_currencies',hl.map(()=>portCur).join(','))
       const r=await fetch(`/api/prices?${params}`)
       const p=await r.json()
       setPrices(p)
       if(portfolioId) await recordSnapshot(portfolioId,hl,p)
     }catch(e){}
     setLoadingP(false)
-  },[recordSnapshot])
+  },[recordSnapshot, portfolios])
 
   const loadClientNews = useCallback(async (hl) => {
     if (!hl?.length) return

@@ -1,4 +1,4 @@
-import { toYahooTicker } from './ticker.js'
+import { toYahooTicker, resolveMarket, isPlainTicker } from './ticker.js'
 import { yahooGet } from './yahooAuth.js'
 
 const QUOTE_SUMMARY_MODULES = [
@@ -75,6 +75,28 @@ export async function fetchCompanyProfile(ticker, market = 'US') {
 
 export function needsSectorRefresh(sector) {
   return !sector || sector === 'Other'
+}
+
+function isGarbageProfileName(name) {
+  return !name || /^\d+$/.test(String(name).trim())
+}
+
+/** Pick SET vs US for ambiguous plain tickers (e.g. SCB stored as US). */
+export async function resolveHoldingMarket(holding, portfolioCurrency) {
+  const { ticker, market, currency } = holding
+  const quick = resolveMarket(ticker, market, currency, portfolioCurrency)
+  if (!isPlainTicker(ticker) || quick !== 'US') return quick
+
+  const [setProfile, usProfile] = await Promise.all([
+    fetchCompanyProfile(ticker, 'SET'),
+    fetchCompanyProfile(ticker, market || 'US'),
+  ])
+
+  const setGood = !needsSectorRefresh(setProfile.sector) && !isGarbageProfileName(setProfile.name)
+  const usBad = needsSectorRefresh(usProfile.sector) || isGarbageProfileName(usProfile.name)
+
+  if (setGood && usBad) return 'SET'
+  return quick
 }
 
 export async function resolveSectorForHolding(ticker, market = 'US') {

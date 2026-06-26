@@ -183,6 +183,13 @@ const migrations = [
       WHERE currency = 'THB' AND market = 'SET';
     `,
   },
+  {
+    name: '009_repair_thai_holdings_metadata',
+    sql: `
+      UPDATE holdings SET sector = 'Other'
+      WHERE name ~ '^[0-9]+$';
+    `,
+  },
 ]
 
 export async function runMigrations() {

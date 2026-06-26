@@ -50,7 +50,8 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
   const market = resolveMarket(
     ticker,
     existing.rows[0]?.market,
-    existing.rows[0]?.currency || txCurrency
+    existing.rows[0]?.currency || txCurrency,
+    null
   )
   if (!profile && (existing.rows.length === 0 || needsSectorRefresh(existing.rows[0]?.sector))) {
     profile = await fetchCompanyProfile(ticker, market)
