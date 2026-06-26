@@ -1,10 +1,13 @@
-import { sanitizeTicker, toYahooTicker } from './ticker.js'
-import { KNOWN_PROFILES } from '../data/known-profiles.js'
+import { toYahooTicker } from './ticker.js'
+import { yahooGet } from './yahooAuth.js'
 
-function lookupKnown(ticker) {
-  const key = sanitizeTicker(ticker)
-  return KNOWN_PROFILES[key] || null
-}
+const QUOTE_SUMMARY_MODULES = [
+  'assetProfile',
+  'price',
+  'fundProfile',
+  'quoteType',
+  'summaryProfile',
+].join(',')
 
 function resolveSector(result) {
   const sector = result.assetProfile?.sector
@@ -14,8 +17,7 @@ function resolveSector(result) {
   if (quoteType === 'ETF' || quoteType === 'MUTUALFUND') {
     const category = result.fundProfile?.categoryName
       || result.summaryProfile?.category
-      || 'Index Fund'
-    return `ETF — ${category}`
+    if (category) return `ETF — ${category}`
   }
 
   const industry = result.assetProfile?.industry
@@ -25,84 +27,49 @@ function resolveSector(result) {
 }
 
 async function fetchQuoteSummary(yahooTicker) {
-  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(yahooTicker)}?modules=assetProfile,price,fundProfile,quoteType,summaryProfile`
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      Accept: 'application/json',
-    },
-    signal: AbortSignal.timeout(8000),
-  })
-  if (!response.ok) return null
+  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(yahooTicker)}?modules=${QUOTE_SUMMARY_MODULES}`
+  const response = await yahooGet(url)
+  if (!response.ok) {
+    console.error(`Yahoo quoteSummary ${yahooTicker}: HTTP ${response.status}`)
+    return null
+  }
+
   const data = await response.json()
+  const error = data?.finance?.error || data?.quoteSummary?.error
+  if (error) {
+    console.error(`Yahoo quoteSummary ${yahooTicker}:`, error.description || error.code)
+    return null
+  }
+
   const result = data.quoteSummary?.result?.[0]
   if (!result) return null
+
   const sector = resolveSector(result)
   return {
     name: result.price?.longName || result.price?.shortName || '',
-    sector: sector || null,
-  }
-}
-
-async function fetchQuoteV7(yahooTicker) {
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(yahooTicker)}`
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      Accept: 'application/json',
-    },
-    signal: AbortSignal.timeout(8000),
-  })
-  if (!response.ok) return null
-  const data = await response.json()
-  const q = data.quoteResponse?.result?.[0]
-  if (!q) return null
-
-  let sector = q.sectorDisp || q.sector || null
-  if (!sector && (q.quoteType === 'ETF' || q.quoteType === 'MUTUALFUND')) {
-    sector = `ETF — ${q.category || 'Index Fund'}`
-  }
-  return {
-    name: q.longName || q.shortName || q.symbol || '',
     sector,
   }
 }
 
-function mergeProfiles(...profiles) {
-  const out = { name: '', sector: null }
-  for (const p of profiles) {
-    if (!p) continue
-    if (p.name && !out.name) out.name = p.name
-    if (p.sector && p.sector !== 'Other' && !out.sector) out.sector = p.sector
-  }
-  return out
-}
-
 export async function fetchCompanyProfile(ticker, market = 'US') {
   const yahooTicker = toYahooTicker(ticker, market)
-  const known = lookupKnown(ticker)
-
-  // Prefer local lookup — Yahoo profile APIs often return 401 from server IPs
-  if (known?.sector && known.sector !== 'Other') {
-    return { name: known.name || '', sector: known.sector }
-  }
 
   try {
-    const [summary, quote] = await Promise.all([
-      fetchQuoteSummary(yahooTicker),
-      fetchQuoteV7(yahooTicker),
-    ])
-    const merged = mergeProfiles(summary, quote, known)
+    const profile = await fetchQuoteSummary(yahooTicker)
+    if (profile?.sector) {
+      return {
+        name: profile.name || '',
+        sector: profile.sector,
+      }
+    }
+
     return {
-      name: merged.name || known?.name || '',
-      sector: merged.sector || known?.sector || 'Other',
+      name: profile?.name || '',
+      sector: 'Other',
     }
   } catch (e) {
     console.error(`Profile fetch failed for ${yahooTicker}:`, e.message)
-    return {
-      name: known?.name || '',
-      sector: known?.sector || 'Other',
-    }
+    return { name: '', sector: 'Other' }
   }
 }
 

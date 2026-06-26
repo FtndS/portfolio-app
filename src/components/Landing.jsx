@@ -127,13 +127,13 @@ export default function Landing({ onLogin, onRegister }) {
 
           <div className="landing-preview-holdings">
             {[
-              { ticker: 'VOO', pct: 42 },
-              { ticker: 'NVDA', pct: 28 },
-              { ticker: 'QQQM', pct: 18 },
-              { ticker: 'SMH', pct: 12 },
+              { label: 'ETF', pct: 42 },
+              { label: 'Tech', pct: 28 },
+              { label: 'Growth', pct: 18 },
+              { label: 'Semi', pct: 12 },
             ].map((h) => (
-              <div key={h.ticker} className="landing-holding-row">
-                <span className="landing-holding-ticker">{h.ticker}</span>
+              <div key={h.label} className="landing-holding-row">
+                <span className="landing-holding-ticker">{h.label}</span>
                 <div className="landing-holding-bar">
                   <div className="landing-holding-bar-fill" style={{ width: `${h.pct}%` }} />
                 </div>

@@ -102,50 +102,6 @@ const migrations = [
     `
   },
   {
-    name: '004_seed_known_sectors',
-    sql: `
-      UPDATE holdings SET sector = 'Technology', name = 'NVIDIA Corporation'
-        WHERE ticker = 'NVDA' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Financial Services', name = 'Berkshire Hathaway Inc.'
-        WHERE ticker = 'BRK-B' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'ETF — US Large Cap', name = 'Vanguard S&P 500 ETF'
-        WHERE ticker = 'VOO' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'ETF — US Growth', name = 'Invesco NASDAQ 100 ETF'
-        WHERE ticker = 'QQQM' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'ETF — Semiconductors', name = 'VanEck Semiconductor ETF'
-        WHERE ticker = 'SMH' AND (sector IS NULL OR sector = 'Other');
-    `
-  },
-  {
-    name: '006_backfill_known_sectors',
-    sql: `
-      UPDATE holdings SET sector = 'Healthcare', name = 'Eli Lilly and Company'
-        WHERE ticker = 'LLY' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Technology', name = 'Taiwan Semiconductor Manufacturing'
-        WHERE ticker = 'TSM' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Healthcare', name = 'Johnson & Johnson'
-        WHERE ticker = 'JNJ' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Healthcare', name = 'UnitedHealth Group'
-        WHERE ticker = 'UNH' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Technology', name = 'Apple Inc.'
-        WHERE ticker = 'AAPL' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Technology', name = 'Microsoft Corporation'
-        WHERE ticker = 'MSFT' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Technology', name = 'Advanced Micro Devices'
-        WHERE ticker = 'AMD' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Financial Services', name = 'JPMorgan Chase'
-        WHERE ticker = 'JPM' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Consumer Cyclical', name = 'Amazon.com Inc.'
-        WHERE ticker = 'AMZN' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Communication Services', name = 'Alphabet Inc.'
-        WHERE ticker IN ('GOOGL', 'GOOG') AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Communication Services', name = 'Meta Platforms Inc.'
-        WHERE ticker = 'META' AND (sector IS NULL OR sector = 'Other');
-      UPDATE holdings SET sector = 'Consumer Cyclical', name = 'Tesla Inc.'
-        WHERE ticker = 'TSLA' AND (sector IS NULL OR sector = 'Other');
-    `
-  },
-  {
     name: '005_auth_security_columns',
     sql: `
       ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(64);

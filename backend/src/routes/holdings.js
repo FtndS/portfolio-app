@@ -12,11 +12,11 @@ async function refreshStaleSectors(rows) {
   const stale = rows.filter(h => needsSectorRefresh(h.sector))
   if (!stale.length) return
 
-  for (const h of stale) {
+  await Promise.all(stale.map(async (h) => {
     const profile = await fetchCompanyProfile(h.ticker, h.market || 'US')
     const sector = profile.sector
     const name = profile.name
-    if (needsSectorRefresh(sector)) continue
+    if (needsSectorRefresh(sector)) return
     await pool.query(
       `UPDATE holdings SET sector = $1,
         name = CASE WHEN name IS NULL OR name = ticker THEN $2 ELSE name END
@@ -25,7 +25,7 @@ async function refreshStaleSectors(rows) {
     )
     h.sector = sector
     if (name) h.name = name
-  }
+  }))
 }
 
 router.get('/', async (req, res) => {
