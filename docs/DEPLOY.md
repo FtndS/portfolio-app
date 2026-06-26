@@ -1,5 +1,33 @@
 # Deploy to VPS (GitHub Actions)
 
+## Daily workflow (auto)
+
+```
+PC: แก้โค้ด → commit → push main
+         ↓
+GitHub Actions: SSH เข้า VPS → git pull → docker compose rebuild
+```
+
+**บน Windows (แนะนำ):**
+
+```powershell
+.\scripts\push-deploy.ps1 "fix: คำอธิบายการเปลี่ยนแปลง"
+```
+
+**หรือด้วยมือ:**
+
+```bash
+git add .
+git commit -m "your message"
+git push origin main
+```
+
+หลัง push ดูสถานะที่ [Actions → Deploy to VPS](https://github.com/FtndS/portfolio-app/actions/workflows/deploy.yml) — ประมาณ 3–5 นาที แล้วเว็บ [portdiary.com](https://portdiary.com) จะอัปเดต (hard refresh ถ้า CSS ค้าง)
+
+**ครั้งแรกเท่านั้น:** ตั้ง GitHub Secrets + deploy key บน VPS (ด้านล่าง) แล้วรัน workflow **Verify VPS SSH** ให้ผ่าน
+
+---
+
 ## Why deploy was failing
 
 Deploy jobs failed at **SSH** because GitHub Secrets were missing or the SSH key was misconfigured. The workflow now validates secrets and uses native SSH (`webfactory/ssh-agent`) instead of `appleboy/ssh-action`.

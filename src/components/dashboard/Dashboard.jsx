@@ -15,7 +15,6 @@ import DividendModal from '../modals/DividendModal'
 import ImportCsvModal from '../modals/ImportCsvModal'
 import PortfolioManageModal from '../modals/PortfolioManageModal'
 import SettingsModal from '../modals/SettingsModal'
-import ThemeToggle from '../ThemeToggle'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
@@ -391,8 +390,8 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
               <select className="dash-select" value={activePortfolioId||''} onChange={e=>setActivePortfolioId(Number(e.target.value))}>
                 {portfolios.map(p=><option key={p.id} value={p.id}>{p.name}{p.is_default?' ★':''}</option>)}
               </select>
-              <button type="button" className="dash-icon-btn" onClick={()=>setModal('managePort')} title="จัดการพอร์ต">⚙️</button>
-              <button type="button" className="dash-icon-btn dash-icon-btn--accent" onClick={()=>setModal('newPort')} title="สร้างพอร์ตใหม่">+</button>
+              <button type="button" className="dash-icon-btn" onClick={()=>setModal('managePort')} title="จัดการพอร์ต" aria-label="จัดการพอร์ต">📁</button>
+              <button type="button" className="dash-icon-btn dash-icon-btn--accent" onClick={()=>setModal('newPort')} title="สร้างพอร์ตใหม่" aria-label="สร้างพอร์ตใหม่">+</button>
             </div>
             <div className="dash-segment dash-currency-toggle">
               {['USD','THB'].map(c=>(
@@ -401,17 +400,20 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 </button>
               ))}
             </div>
-            <ThemeToggle />
-            <button
-              type="button"
-              className={`dash-privacy-btn${hideValues ? ' dash-privacy-btn--active' : ''}`}
-              onClick={toggleHideValues}
-              title={hideValues ? 'แสดงมูลค่าเงิน' : 'ซ่อนมูลค่า — แสดงแค่ %'}
-            >
-              {hideValues ? '👁️ แสดงมูลค่า' : '🙈 ซ่อนมูลค่า'}
-            </button>
-            <button type="button" onClick={()=>setModal('settings')} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ตั้งค่า</button>
-            <button type="button" onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออกจากระบบ</button>
+            <div className="dash-header-util" role="group" aria-label="เมนูบัญชี">
+              <button
+                type="button"
+                className={`dash-util-btn${hideValues ? ' dash-util-btn--active' : ''}`}
+                onClick={toggleHideValues}
+                title={hideValues ? 'แสดงมูลค่าเงิน' : 'ซ่อนมูลค่า — แสดงแค่ %'}
+                aria-label={hideValues ? 'แสดงมูลค่าเงิน' : 'ซ่อนมูลค่า'}
+                aria-pressed={hideValues}
+              >
+                {hideValues ? '👁️' : '🙈'}
+              </button>
+              <button type="button" className="dash-util-btn" onClick={()=>setModal('settings')} title="ตั้งค่าบัญชี" aria-label="ตั้งค่าบัญชี">⚙️</button>
+              <button type="button" className="dash-util-btn dash-util-btn--logout" onClick={onLogout} title="ออกจากระบบ" aria-label="ออกจากระบบ">ออก</button>
+            </div>
           </div>
         </div>
 

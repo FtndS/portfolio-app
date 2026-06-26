@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../lib/api'
-import { inp, btnPrimary, btnGhost } from '../../lib/styles'
+import { inp, btnPrimary } from '../../lib/styles'
 import Field from '../ui/Field'
 import Modal from '../ui/Modal'
 
@@ -36,17 +36,17 @@ export default function PortfolioManageModal({portfolio,portfolios,onClose,onUpd
   }
   return(
     <Modal title="จัดการพอร์ต" onClose={onClose}>
-      <div style={{background:'#0f0f0f',border:'1px solid #2a2a2a',borderRadius:'8px',padding:'12px',marginBottom:'16px',fontSize:'13px',color:'#888'}}>
+      <div className="dash-modal-summary">
         <div>{portfolio.holding_count||0} holdings · ทุน {hideValues ? MASKED : `${symFor(portfolio.currency||'USD')}${Number(portfolio.total_invested||0).toLocaleString('en-US',{minimumFractionDigits:2})}`}</div>
-        {portfolio.is_default&&<div style={{color:'#a29bfe',marginTop:'4px',fontSize:'12px'}}>★ พอร์ตหลัก (Default)</div>}
+        {portfolio.is_default&&<div className="dash-modal-summary-badge">★ พอร์ตหลัก (Default)</div>}
       </div>
-      {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'12px'}}>{error}</p>}
+      {error&&<p className="dash-text-loss" style={{fontSize:'13px',marginBottom:'12px'}}>{error}</p>}
       <Field label="ชื่อพอร์ต"><input style={inp()} value={name} onChange={e=>setName(e.target.value)}/></Field>
       <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'16px'}}>
-        <button onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึกชื่อ'}</button>
-        {!portfolio.is_default&&<button onClick={setDefault} style={{...btnGhost,borderColor:'#6c5ce7',color:'#a29bfe'}} disabled={loading}>ตั้งเป็นพอร์ตหลัก</button>}
-        {canDelete&&!portfolio.is_default&&<button onClick={del} style={{...btnGhost,borderColor:'#e74c3c',color:'#e74c3c'}} disabled={loading}>ลบพอร์ตนี้</button>}
-        {!canDelete&&<p style={{fontSize:'12px',color:'#555',textAlign:'center'}}>ต้องมีอย่างน้อย 1 พอร์ต</p>}
+        <button type="button" onClick={save} style={btnPrimary} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึกชื่อ'}</button>
+        {!portfolio.is_default&&<button type="button" onClick={setDefault} className="dash-btn-ghost-accent" disabled={loading}>ตั้งเป็นพอร์ตหลัก</button>}
+        {canDelete&&!portfolio.is_default&&<button type="button" onClick={del} className="dash-btn-ghost-danger" disabled={loading}>ลบพอร์ตนี้</button>}
+        {!canDelete&&<p className="dash-text-faint" style={{fontSize:'12px',textAlign:'center'}}>ต้องมีอย่างน้อย 1 พอร์ต</p>}
       </div>
     </Modal>
   )
