@@ -36,76 +36,76 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Validate deploy secrets
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          missing=0
+          if [ -z "$VPS_HOST" ]; then
+            echo "::error::Missing GitHub secret VPS_HOST (VPS IP or domain)"
+            missing=1
+          fi
+          if [ -z "$VPS_USER" ]; then
+            echo "::error::Missing GitHub secret VPS_USER (e.g. root)"
+            missing=1
+          fi
+          if [ -z "$VPS_SSH_KEY" ]; then
+            echo "::error::Missing GitHub secret VPS_SSH_KEY — see docs/DEPLOY.md"
+            missing=1
+          elif ! printf '%s' "$VPS_SSH_KEY" | grep -q 'BEGIN.*PRIVATE KEY'; then
+            echo "::error::VPS_SSH_KEY must be the full private key including BEGIN/END lines"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          echo "Secrets OK — will deploy to ${VPS_USER}@${VPS_HOST} port ${VPS_PORT:-22}"
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script_stop: true
-          command_timeout: 15m
-          script: |
-            set -e
-            cd ~/portfolio-app
-            echo "==> Pull latest code"
-            git fetch origin main
-            git reset --hard origin/main
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-            if [ ! -f .env ]; then
-              echo "ERROR: .env not found — create it on VPS first"
-              exit 1
-            fi
+      - name: Trust VPS host key
+        run: |
+          PORT="${VPS_PORT:-22}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if ! ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "::warning::ssh-keyscan failed — will use StrictHostKeyChecking=accept-new"
+          fi
 
-            if grep -qE '^JWT_SECRET=(your-super-secret-jwt-key-change-this|change-this-to-a-long-random-string)$' .env; then
-              echo "WARN: JWT_SECRET is still default — run: ./scripts/generate-jwt-secret.sh"
-            fi
+      - name: Test SSH connection
+        run: |
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=30 \
+            -o StrictHostKeyChecking=accept-new \
+            "${VPS_USER}@${VPS_HOST}" \
+            'echo "SSH OK — connected as $(whoami) on $(hostname)"'
 
-            chmod +x scripts/backup-db.sh scripts/restore-db.sh scripts/setup-backup-cron.sh scripts/generate-jwt-secret.sh 2>/dev/null || true
-
-            echo "==> Backup database before deploy"
-            if [ -x scripts/backup-db.sh ]; then
-              ./scripts/backup-db.sh pre-deploy || echo "WARN: backup failed — deploy continues"
-            else
-              echo "WARN: scripts/backup-db.sh not found"
-            fi
-
-            echo "==> Deployed commit: $(git rev-parse --short HEAD)"
-
-            echo "==> Build & restart containers"
-            docker compose build --no-cache frontend
-            docker compose build backend
-            docker compose up -d --force-recreate
-            docker compose restart nginx
-
-            health_ok() {
-              docker compose exec -T backend node -e "
-                fetch('http://127.0.0.1:3001/api/health')
-                  .then((r) => r.json())
-                  .then((d) => process.exit(d.status === 'ok' ? 0 : 1))
-                  .catch(() => process.exit(1))
-              " 2>/dev/null
-            }
-
-            echo "==> Wait for backend"
-            for i in $(seq 1 30); do
-              if health_ok; then
-                echo "Backend healthy"
-                break
-              fi
-              if [ "$i" -eq 30 ]; then
-                echo "ERROR: Backend failed to start"
-                docker compose ps
-                docker compose logs backend --tail 80
-                exit 1
-              fi
-              sleep 2
-            done
-
-            echo "==> Health check"
-            docker compose ps
-            health_ok && docker compose exec -T backend node -e "fetch('http://127.0.0.1:3001/api/health').then(r=>r.text()).then(t=>console.log(t))"
-            echo ""
-            echo "Deploy complete."
+      - name: Deploy on VPS
+        run: |
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o StrictHostKeyChecking=accept-new \
+            "${VPS_USER}@${VPS_HOST}" \
+            'bash -s' << 'ENDSSH'
+          set -euo pipefail
+          if [ ! -d ~/portfolio-app/.git ]; then
+            echo "ERROR: ~/portfolio-app is missing or not a git repo"
+            exit 1
+          fi
+          cd ~/portfolio-app
+          chmod +x scripts/deploy-vps.sh
+          ./scripts/deploy-vps.sh
+          ENDSSH
