@@ -19,15 +19,10 @@ if [ ! -f "$BACKUP_FILE" ]; then
   exit 1
 fi
 
-if [ -f .env ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
-fi
-
-DB_USER="${DB_USER:-ftnds}"
-DB_NAME="${DB_NAME:-portfolio_db}"
+# shellcheck disable=SC1091
+source "$(dirname "$0")/lib/read-env.sh"
+DB_USER="$(read_env_var DB_USER ftnds)"
+DB_NAME="$(read_env_var DB_NAME portfolio_db)"
 
 echo "This will REPLACE all data in database: $DB_NAME"
 read -r -p "Type yes to continue: " CONFIRM

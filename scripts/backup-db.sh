@@ -12,15 +12,10 @@ LABEL="${1:-manual}"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/portfolio-app}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 
-if [ -f .env ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
-fi
-
-DB_USER="${DB_USER:-ftnds}"
-DB_NAME="${DB_NAME:-portfolio_db}"
+# shellcheck disable=SC1091
+source "$(dirname "$0")/lib/read-env.sh"
+DB_USER="$(read_env_var DB_USER ftnds)"
+DB_NAME="$(read_env_var DB_NAME portfolio_db)"
 
 mkdir -p "$BACKUP_DIR"
 FILE="$BACKUP_DIR/${DB_NAME}_${LABEL}_$(date +%Y%m%d_%H%M%S).sql.gz"
