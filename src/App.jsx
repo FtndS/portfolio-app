@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from './lib/api'
+import Landing from './components/Landing'
 
 const inp = (extra={}) => ({width:'100%',padding:'10px 12px',marginBottom:'12px',background:'#1e1e1e',border:'1px solid #3a3a3a',borderRadius:'8px',color:'#fff',fontSize:'14px',boxSizing:'border-box',...extra})
 const btnPrimary = {padding:'10px 20px',background:'#6c5ce7',border:'none',borderRadius:'8px',color:'#fff',fontSize:'14px',cursor:'pointer',width:'100%'}
@@ -100,7 +101,7 @@ function AmountInput({prefix,suffix,placeholder,value,onChange,type='number'}){
   )
 }
 
-function Login({onLogin,onGoRegister}){
+function Login({onLogin,onGoRegister,onGoHome}){
   const [form,setForm]=useState({email:'',password:''})
   const [error,setError]=useState('')
   const go=async()=>{
@@ -122,11 +123,12 @@ function Login({onLogin,onGoRegister}){
       <Field label="Password"><input type="password" style={inp({marginBottom:0})} placeholder="••••••••" onChange={e=>setForm({...form,password:e.target.value})}/></Field>
       <button onClick={go} style={{...btnPrimary,marginTop:'20px'}}>เข้าสู่ระบบ</button>
       <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'#555'}}>ยังไม่มีบัญชี? <span onClick={onGoRegister} style={{color:'#a29bfe',cursor:'pointer'}}>สมัครสมาชิก</span></p>
+      {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
     </div></div>
   )
 }
 
-function Register({onGoLogin}){
+function Register({onGoLogin,onGoHome}){
   const [form,setForm]=useState({name:'',email:'',password:'',confirm:''})
   const [error,setError]=useState('')
   const [ok,setOk]=useState(false)
@@ -150,6 +152,7 @@ function Register({onGoLogin}){
       <Field label="ยืนยัน Password"><input type="password" style={inp({marginBottom:0})} placeholder="พิมพ์อีกครั้ง" onChange={e=>setForm({...form,confirm:e.target.value})}/></Field>
       <button onClick={go} style={{...btnPrimary,marginTop:'20px'}}>สมัครสมาชิก</button>
       <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'#555'}}>มีบัญชีแล้ว? <span onClick={onGoLogin} style={{color:'#a29bfe',cursor:'pointer'}}>เข้าสู่ระบบ</span></p>
+      {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
     </div></div>
   )
 }
@@ -1246,9 +1249,11 @@ function Dashboard({user,onLogout}){
 
 export default function App(){
   const [user,setUser]=useState(()=>{const u=localStorage.getItem('user');return u?JSON.parse(u):null})
-  const [page,setPage]=useState('login')
-  const logout=()=>{localStorage.removeItem('token');localStorage.removeItem('user');setUser(null);setPage('login')}
+  const [page,setPage]=useState('landing')
+  const goHome=()=>setPage('landing')
+  const logout=()=>{localStorage.removeItem('token');localStorage.removeItem('user');setUser(null);setPage('landing')}
   if(user) return <Dashboard user={user} onLogout={logout}/>
-  if(page==='register') return <Register onGoLogin={()=>setPage('login')}/>
-  return <Login onLogin={setUser} onGoRegister={()=>setPage('register')}/>
+  if(page==='register') return <Register onGoLogin={()=>setPage('login')} onGoHome={goHome}/>
+  if(page==='login') return <Login onLogin={setUser} onGoRegister={()=>setPage('register')} onGoHome={goHome}/>
+  return <Landing onLogin={()=>setPage('login')} onRegister={()=>setPage('register')}/>
 }
