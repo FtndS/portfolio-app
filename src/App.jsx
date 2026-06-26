@@ -725,7 +725,7 @@ function TransactionModal({holdings,transaction,onClose,onSave,portfolioId}){
     setLoading(true)
     setError('')
     const cleanTicker = sanitizeTicker(f.ticker)
-    const body={ticker:cleanTicker,type:f.type,shares:parseFloat(f.shares),price:parseFloat(f.price),note:f.note,date:f.date,holding_id:f.holding_id||null,portfolio_id:portfolioId}
+    const body={ticker:cleanTicker,type:f.type,shares:parseFloat(f.shares),price:parseFloat(f.price),note:f.note,date:f.date,holding_id:f.holding_id||null,portfolio_id:portfolioId,currency:f.currency}
     const r=isEdit
       ? await api.put(`/transactions/${transaction.id}`,body)
       : await api.post('/transactions',body)
@@ -1067,7 +1067,11 @@ function Dashboard({user,onLogout,onUserUpdate}){
     if(!hl?.length) return
     setLoadingP(true)
     try{
-      const r=await fetch(`/api/prices?tickers=${hl.map(h=>h.ticker).join(',')}`)
+      const params=new URLSearchParams()
+      params.set('tickers',hl.map(h=>h.ticker).join(','))
+      params.set('markets',hl.map(h=>h.market||'').join(','))
+      params.set('currencies',hl.map(h=>h.currency||'').join(','))
+      const r=await fetch(`/api/prices?${params}`)
       const p=await r.json()
       setPrices(p)
       if(portfolioId) await recordSnapshot(portfolioId,hl,p)

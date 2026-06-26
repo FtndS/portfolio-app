@@ -36,11 +36,45 @@ export function defaultCurrency(market = 'US') {
   return m?.currencies[0] || 'USD'
 }
 
-export function detectMarket(ticker) {
+/** Infer exchange from ticker suffix and/or trading currency. */
+export function detectMarket(ticker, currency) {
   const yahoo = toYahooTicker(ticker)
   if (yahoo.endsWith('.BK')) return 'SET'
   if (yahoo.endsWith('.HK')) return 'HK'
   if (yahoo.endsWith('.SS')) return 'CN'
   if (yahoo.endsWith('.SZ')) return 'SZ'
+  if (currency === 'THB') return 'SET'
+  if (currency === 'HKD') return 'HK'
+  if (currency === 'CNY') return 'CN'
   return 'US'
+}
+
+export function resolveMarket(ticker, market, currency) {
+  const inferred = detectMarket(ticker, currency)
+  if (market && MARKETS[market]) {
+    const marketCurrency = defaultCurrency(market)
+    if (currency && currency !== marketCurrency && inferred !== market) {
+      return inferred
+    }
+    return market
+  }
+  return inferred
+}
+
+/** Yahoo symbols to try when fetching quotes (primary + currency-based fallback). */
+export function yahooSymbolsForHolding(ticker, market, currency) {
+  const resolved = resolveMarket(ticker, market, currency)
+  const symbols = new Set([
+    toYahooTicker(ticker, resolved),
+    toYahooTicker(ticker),
+  ])
+  if (currency === 'THB') symbols.add(toYahooTicker(ticker, 'SET'))
+  if (currency === 'HKD') symbols.add(toYahooTicker(ticker, 'HK'))
+  return [...symbols].filter(Boolean)
+}
+
+/** Normalize ticker for DB storage (e.g. TISCO + SET → TISCO-BK). */
+export function storageTicker(ticker, market, currency) {
+  const m = resolveMarket(ticker, market, currency)
+  return toYahooTicker(ticker, m).replace(/\./g, '-')
 }

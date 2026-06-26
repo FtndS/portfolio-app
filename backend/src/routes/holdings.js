@@ -1,7 +1,7 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { toYahooTicker, defaultCurrency, detectMarket } from '../lib/ticker.js'
+import { defaultCurrency, resolveMarket, storageTicker } from '../lib/ticker.js'
 import { resolvePortfolioId } from '../lib/portfolio.js'
 import { fetchCompanyProfile, needsSectorRefresh } from '../lib/profile.js'
 
@@ -13,7 +13,12 @@ async function refreshStaleSectors(rows) {
   if (!stale.length) return
 
   await Promise.all(stale.map(async (h) => {
-    const profile = await fetchCompanyProfile(h.ticker, h.market || 'US')
+    const resolvedMarket = resolveMarket(h.ticker, h.market, h.currency)
+    if (resolvedMarket !== (h.market || 'US')) {
+      await pool.query('UPDATE holdings SET market = $1 WHERE id = $2', [resolvedMarket, h.id])
+      h.market = resolvedMarket
+    }
+    const profile = await fetchCompanyProfile(h.ticker, resolvedMarket)
     const sector = profile.sector
     const name = profile.name
     if (needsSectorRefresh(sector)) return
@@ -44,8 +49,8 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const { ticker, name, shares, avg_cost, currency, market, portfolio_id } = req.body
-  const mkt = market || detectMarket(ticker)
-  const sanitizedTicker = toYahooTicker(ticker, mkt).replace(/\./g, '-')
+  const mkt = resolveMarket(ticker, market, currency)
+  const sanitizedTicker = storageTicker(ticker, mkt, currency)
   const profile = await fetchCompanyProfile(ticker, mkt)
   const finalName = name || profile.name || sanitizedTicker
   const finalSector = profile.sector || 'Other'
@@ -66,8 +71,8 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { ticker, name, shares, avg_cost, currency, market } = req.body
-  const mkt = market || detectMarket(ticker)
-  const sanitizedTicker = toYahooTicker(ticker, mkt).replace(/\./g, '-')
+  const mkt = resolveMarket(ticker, market, currency)
+  const sanitizedTicker = storageTicker(ticker, mkt, currency)
   const profile = await fetchCompanyProfile(ticker, mkt)
   const finalName = name || profile.name || sanitizedTicker
   const finalSector = profile.sector || 'Other'

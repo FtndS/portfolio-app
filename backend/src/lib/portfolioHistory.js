@@ -1,11 +1,11 @@
 import pool from '../db/index.js'
-import { toYahooTicker } from './ticker.js'
+import { toYahooTicker, resolveMarket } from './ticker.js'
 
 const priceHistoryCache = new Map()
 const PRICE_HIST_TTL = 30 * 60 * 1000
 
-async function fetchHistoricalPrices(ticker, range = '6mo') {
-  const yahoo = toYahooTicker(ticker)
+async function fetchHistoricalPrices(ticker, range = '6mo', meta = {}) {
+  const yahoo = toYahooTicker(ticker, resolveMarket(ticker, meta.market, meta.currency))
   const cacheKey = `${yahoo}:${range}`
   const cached = priceHistoryCache.get(cacheKey)
   if (cached && Date.now() - cached.ts < PRICE_HIST_TTL) return cached.data
@@ -101,6 +101,14 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   )
   const transactions = txResult.rows
 
+  const holdingMetaResult = await pool.query(
+    'SELECT ticker, market, currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2',
+    [userId, portfolioId]
+  )
+  const holdingMeta = Object.fromEntries(
+    holdingMetaResult.rows.map((r) => [r.ticker, r])
+  )
+
   const snapshotResult = await pool.query(
     `SELECT snapshot_date AS date, total_value, total_cost
      FROM portfolio_snapshots
@@ -125,7 +133,7 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   const range = days <= 90 ? '3mo' : days <= 180 ? '6mo' : '1y'
   const priceMaps = {}
   await Promise.all(tickers.map(async (t) => {
-    priceMaps[t] = await fetchHistoricalPrices(t, range)
+    priceMaps[t] = await fetchHistoricalPrices(t, range, holdingMeta[t] || {})
   }))
 
   const sampleDates = buildSampleDates(transactions, days)

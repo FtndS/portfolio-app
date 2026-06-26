@@ -170,6 +170,19 @@ const migrations = [
       await rebuildHoldingsFromTransactions(pool)
     },
   },
+  {
+    name: '008_thai_market_backfill',
+    sql: `
+      UPDATE holdings SET market = 'SET'
+      WHERE currency = 'THB' AND (market IS NULL OR market = 'US');
+
+      UPDATE holdings SET market = 'HK'
+      WHERE currency = 'HKD' AND (market IS NULL OR market = 'US');
+
+      UPDATE holdings SET sector = 'Other'
+      WHERE currency = 'THB' AND market = 'SET';
+    `,
+  },
 ]
 
 export async function runMigrations() {

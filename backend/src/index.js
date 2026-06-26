@@ -11,7 +11,7 @@ import journalRoutes from './routes/journal.js'
 import newsRoutes from './routes/news.js'
 import aiRoutes from './routes/ai.js'
 import portfoliosRoutes from './routes/portfolios.js'
-import { toYahooTicker, sanitizeTicker } from './lib/ticker.js'
+import { fetchHoldingQuote, fetchLiveQuote } from './lib/yahooPrices.js'
 import { pricesLimiter } from './middleware/rateLimit.js'
 
 dotenv.config()
@@ -76,46 +76,55 @@ app.get('/api/health', async (req, res) => {
 })
 
 app.get('/api/prices', pricesLimiter, async (req, res) => {
-  const { tickers } = req.query
+  const { tickers, markets, currencies } = req.query
   if (!tickers) return res.json({})
 
-  const cacheKey = tickers
+  const cacheKey = [tickers, markets || '', currencies || ''].join('|')
   const cached = priceCache.get(cacheKey)
   if (cached && Date.now() - cached.ts < PRICE_TTL) {
     return res.json(cached.data)
   }
 
   try {
-    const tickerList = [...new Set([...tickers.split(','), 'USDTHB=X'])]
+    const tickerList = tickers.split(',').filter(Boolean)
+    const marketList = markets?.split(',') || []
+    const currencyList = currencies?.split(',') || []
     const result = {}
 
-    await Promise.all(tickerList.map(async (ticker) => {
-      const symbols = [...new Set([
-        toYahooTicker(ticker),
-        sanitizeTicker(ticker),
-      ].filter(Boolean))]
-
-      for (const yahooSymbol of symbols) {
-        try {
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`
-          const r = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-            signal: AbortSignal.timeout(5000)
-          })
-          const data = await r.json()
-          const meta = data?.chart?.result?.[0]?.meta
-          if (meta?.regularMarketPrice) {
-            result[ticker] = meta.regularMarketPrice
-            const prev = meta.chartPreviousClose || meta.previousClose || 0
-            result[`${ticker}_chg`] = prev > 0 ? ((meta.regularMarketPrice - prev) / prev) * 100 : 0
-            result[`${ticker}_prev`] = prev
-            break
-          }
-        } catch (e) {
-          console.error(`Price fetch error for ${ticker} (${yahooSymbol}):`, e.message)
+    const jobs = tickerList.map(async (ticker, i) => {
+      if (ticker === 'USDTHB=X') {
+        const quote = await fetchLiveQuote('USDTHB=X')
+        if (quote) {
+          result[ticker] = quote.price
+          result[`${ticker}_chg`] = quote.changePct
+          result[`${ticker}_prev`] = quote.previousClose
         }
+        return
       }
-    }))
+
+      const quote = await fetchHoldingQuote(
+        ticker,
+        marketList[i] || '',
+        currencyList[i] || ''
+      )
+      if (quote) {
+        result[ticker] = quote.price
+        result[`${ticker}_chg`] = quote.changePct
+        result[`${ticker}_prev`] = quote.previousClose
+      }
+    })
+
+    if (!tickerList.includes('USDTHB=X')) {
+      jobs.push((async () => {
+        const quote = await fetchLiveQuote('USDTHB=X')
+        if (quote) {
+          result['USDTHB=X'] = quote.price
+          result['USDTHB=X_chg'] = quote.changePct
+        }
+      })())
+    }
+
+    await Promise.all(jobs)
 
     priceCache.set(cacheKey, { data: result, ts: Date.now() })
     res.json(result)

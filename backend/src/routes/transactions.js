@@ -1,7 +1,7 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { toYahooTicker } from '../lib/ticker.js'
+import { storageTicker, resolveMarket } from '../lib/ticker.js'
 import { resolvePortfolioId, repairAllPortfolioLinks } from '../lib/portfolio.js'
 import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
 
@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { ticker, type, shares, price, note, date, holding_id, portfolio_id } = req.body
+  const { ticker, type, shares, price, note, date, holding_id, portfolio_id, currency } = req.body
   if (!ticker || !type || !shares || !price || !date) {
     return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' })
   }
@@ -37,7 +37,17 @@ router.post('/', async (req, res) => {
   if (!(shareNum > 0) || !(priceNum > 0)) {
     return res.status(400).json({ error: 'จำนวนหุ้นและราคาต้องมากกว่า 0' })
   }
-  const sanitizedTicker = toYahooTicker(ticker).replace(/\./g, '-')
+
+  let txCurrency = currency
+  if (!txCurrency && holding_id) {
+    const holdingRow = await pool.query(
+      'SELECT currency FROM holdings WHERE id = $1 AND user_id = $2',
+      [holding_id, req.userId]
+    )
+    txCurrency = holdingRow.rows[0]?.currency
+  }
+
+  const sanitizedTicker = storageTicker(ticker, null, txCurrency)
   const total = shareNum * priceNum
   const client = await pool.connect()
   try {
@@ -51,7 +61,7 @@ router.post('/', async (req, res) => {
         shareNum, priceNum, total, note || null, date]
     )
 
-    await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker)
+    await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker, null, txCurrency)
 
     await client.query('COMMIT')
     res.json(txResult.rows[0])
@@ -64,7 +74,7 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { ticker, type, shares, price, note, date, holding_id } = req.body
+  const { ticker, type, shares, price, note, date, holding_id, currency } = req.body
   if (!ticker || !type || !shares || !price || !date) {
     return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' })
   }
@@ -77,8 +87,6 @@ router.put('/:id', async (req, res) => {
     return res.status(400).json({ error: 'จำนวนหุ้นและราคาต้องมากกว่า 0' })
   }
 
-  const sanitizedTicker = toYahooTicker(ticker).replace(/\./g, '-')
-  const total = shareNum * priceNum
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -102,6 +110,25 @@ router.put('/:id', async (req, res) => {
       )
     }
 
+    let txCurrency = currency
+    if (!txCurrency && holding_id) {
+      const holdingRow = await client.query(
+        'SELECT currency FROM holdings WHERE id = $1 AND user_id = $2',
+        [holding_id, req.userId]
+      )
+      txCurrency = holdingRow.rows[0]?.currency
+    }
+    if (!txCurrency) {
+      const holdingRow = await client.query(
+        'SELECT currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3 LIMIT 1',
+        [req.userId, portfolioId, oldTicker]
+      )
+      txCurrency = holdingRow.rows[0]?.currency
+    }
+
+    const sanitizedTicker = storageTicker(ticker, null, txCurrency)
+    const total = shareNum * priceNum
+
     const txResult = await client.query(
       `UPDATE transactions
        SET ticker = $1, type = $2, shares = $3, price = $4, total = $5,
@@ -115,9 +142,9 @@ router.put('/:id', async (req, res) => {
       ]
     )
 
-    await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker)
+    await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker, null, txCurrency)
     if (oldTicker !== sanitizedTicker) {
-      await syncHoldingFromTransactions(client, req.userId, portfolioId, oldTicker)
+      await syncHoldingFromTransactions(client, req.userId, portfolioId, oldTicker, null, txCurrency)
     }
 
     await client.query('COMMIT')
