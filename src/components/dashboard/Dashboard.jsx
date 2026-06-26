@@ -299,6 +299,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const totPnL=totVal-totCost
   const totPct=totCost>0?(totPnL/totCost)*100:0
 
+  const sym=symFor(displayCurrency)
+  const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+
   const { realized, unrealized, total: totalPnL, hasRealized } = computePortfolioPnL({
     transactions,
     holdings,
@@ -318,8 +321,6 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   },0)
   const activePort=portfolios.find(p=>p.id===activePortfolioId)
 
-  const sym=symFor(displayCurrency)
-  const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
   const fmtMoney=(n)=>hideValues?MASKED:fmt(n)
   const fmtTx=(t,n)=>{
     if(hideValues) return MASKED
