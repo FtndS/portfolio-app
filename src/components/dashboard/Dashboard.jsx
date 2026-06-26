@@ -14,6 +14,7 @@ import TransactionModal from '../modals/TransactionModal'
 import ImportCsvModal from '../modals/ImportCsvModal'
 import PortfolioManageModal from '../modals/PortfolioManageModal'
 import SettingsModal from '../modals/SettingsModal'
+import ThemeToggle from '../ThemeToggle'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
@@ -247,7 +248,23 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
   const sym=symFor(displayCurrency)
   const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
-  const aBtn=(label,onClick,color)=><button onClick={onClick} style={{padding:'4px 10px',fontSize:'12px',border:`1px solid ${color}`,borderRadius:'6px',background:'transparent',color,cursor:'pointer',marginLeft:'6px'}}>{label}</button>
+  const aBtn = (label, onClick, variant = 'accent') => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`dash-action-btn${variant === 'danger' ? ' dash-action-btn--danger' : ''}`}
+    >
+      {label}
+    </button>
+  )
+
+  const kpiTone = (tone) => {
+    if (tone === 'gain') return 'dash-kpi-value--gain'
+    if (tone === 'loss') return 'dash-kpi-value--loss'
+    if (tone === 'accent') return 'dash-kpi-value--accent'
+    if (tone === 'info') return 'dash-kpi-value--info'
+    return ''
+  }
 
   const filteredJournal=journalFilter?journal.filter(j=>j.tag===journalFilter):journal
 
@@ -264,7 +281,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const renderNewsGrid = () => (
     <div className="dash-news-grid">
       <div>
-        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#a29bfe', marginBottom: '14px', borderBottom: '1px solid #2a2a2a', paddingBottom: '6px' }}>
+        <h3 className="dash-settings-section-title" style={{ marginBottom: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '6px' }}>
           🔥 Real-Time News (เฉพาะกลุ่ม Sector ที่ถือ)
         </h3>
         {!inSectorNews.length ? <p style={{ color: '#444', fontSize: '13px' }}>กำลังอัปเดตข่าวสารจากระบบ...</p>
@@ -281,29 +298,33 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   )
 
   return(
-    <div style={{minHeight:'100vh',background:'#0a0a0a',color:'#fff',fontFamily:'system-ui,sans-serif'}}>
+    <div className="dash-shell">
       <div className="dash-inner">
 
         {/* Header */}
         <div className="dash-header">
           <div>
-            <h1 style={{fontSize:'17px',fontWeight:600,marginBottom:'2px'}}>📓 Port Diary</h1>
-            <p style={{color:'#444',fontSize:'13px'}}>สวัสดี, {user.name}</p>
+            <h1>📓 Port Diary</h1>
+            <p className="dash-header-sub">สวัสดี, {user.name}</p>
           </div>
           <div className="dash-header-actions">
             <div className="dash-portfolio-select">
-              <select value={activePortfolioId||''} onChange={e=>setActivePortfolioId(Number(e.target.value))}
-                style={{padding:'7px 12px',background:'#141414',border:'none',color:'#fff',fontSize:'13px',cursor:'pointer',flex:1,minWidth:'140px'}}>
+              <select className="dash-select" value={activePortfolioId||''} onChange={e=>setActivePortfolioId(Number(e.target.value))}>
                 {portfolios.map(p=><option key={p.id} value={p.id}>{p.name}{p.is_default?' ★':''}</option>)}
               </select>
-              <button onClick={()=>setModal('managePort')} style={{padding:'7px 12px',border:'none',borderLeft:'1px solid #2a2a2a',background:'transparent',color:'#888',cursor:'pointer',fontSize:'14px',lineHeight:1}} title="จัดการพอร์ต">⚙️</button>
-              <button onClick={()=>setModal('newPort')} style={{padding:'7px 12px',border:'none',borderLeft:'1px solid #2a2a2a',background:'#2d2a5e',color:'#a29bfe',cursor:'pointer',fontSize:'16px',lineHeight:1}} title="สร้างพอร์ตใหม่">+</button>
+              <button type="button" className="dash-icon-btn" onClick={()=>setModal('managePort')} title="จัดการพอร์ต">⚙️</button>
+              <button type="button" className="dash-icon-btn dash-icon-btn--accent" onClick={()=>setModal('newPort')} title="สร้างพอร์ตใหม่">+</button>
             </div>
-            <div className="dash-currency-toggle" style={{display:'flex',background:'#141414',border:'1px solid #2a2a2a',borderRadius:'8px',overflow:'hidden'}}>
-              {['USD','THB'].map(c=><button key={c} onClick={()=>setDisplayCurrency(c)} style={{padding:'7px 16px',border:'none',cursor:'pointer',fontSize:'13px',fontWeight:500,background:displayCurrency===c?'#6c5ce7':'transparent',color:displayCurrency===c?'#fff':'#555'}}>{c==='USD'?'$ USD':'฿ THB'}</button>)}
+            <div className="dash-segment dash-currency-toggle">
+              {['USD','THB'].map(c=>(
+                <button key={c} type="button" className={`dash-segment-btn${displayCurrency===c?' dash-segment-btn--active':''}`} onClick={()=>setDisplayCurrency(c)}>
+                  {c==='USD'?'$ USD':'฿ THB'}
+                </button>
+              ))}
             </div>
-            <button onClick={()=>setModal('settings')} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ตั้งค่า</button>
-            <button onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออก</button>
+            <ThemeToggle />
+            <button type="button" onClick={()=>setModal('settings')} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ตั้งค่า</button>
+            <button type="button" onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออก</button>
           </div>
         </div>
 
@@ -317,53 +338,55 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             ['journal','Journal'],
             ['news','News']
           ].map(([k,l])=>(
-            <button key={k} onClick={() => { setTab(k); setSearchQuery(''); }} style={{padding:'7px 18px',borderRadius:'8px',border:'1px solid #2a2a2a',background:tab===k?'#6c5ce7':'transparent',color:tab===k?'#fff':'#555',cursor:'pointer',fontSize:'13px',fontWeight:tab===k?500:400}}>{l}</button>
+            <button key={k} type="button" className={`dash-tab-btn${tab===k?' dash-tab-btn--active':''}`} onClick={() => { setTab(k); setSearchQuery(''); }}>{l}</button>
           ))}
         </div>
 
         {/* Overview */}
         {tab==='overview'&&<>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'12px',marginBottom:'20px'}}>
+          <div className="dash-kpi-grid">
             {[
-              ['มูลค่าพอร์ตรวม',fmt(totVal),`${holdings.length} holdings · ${activePort?.name||''}`,null],
-              ['เงินลงทุนทั้งหมด (ทุกพอร์ต)',fmt(allInvested),`${portfolios.length} พอร์ต · ไม่รวม P&L`,'#a29bfe'],
-              ['กำไร/ขาดทุน (พอร์ตนี้)',fmt(totPnL),`${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`,totPnL>=0?'#27ae60':'#e74c3c'],
-              ['USD/THB',loadingP?'กำลังโหลด...':`$1 = ฿${fxRate.toFixed(2)}`,'Real-time','#74b9ff']
-            ].map(([label,val,sub,color],i)=>(
-              <div key={i} style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'10px',padding:'16px 18px'}}>
-                <div style={{color:'#555',fontSize:'12px',marginBottom:'6px'}}>{label}</div>
-                <div style={{color:color||'#fff',fontSize:'20px',fontWeight:500}}>{val}</div>
-                <div style={{color:'#444',fontSize:'12px',marginTop:'3px'}}>{sub}</div>
+              ['มูลค่าพอร์ตรวม', fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, ''],
+              ['เงินลงทุนทั้งหมด (ทุกพอร์ต)', fmt(allInvested), `${portfolios.length} พอร์ต · ไม่รวม P&L`, 'accent'],
+              ['กำไร/ขาดทุน (พอร์ตนี้)', fmt(totPnL), `${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`, totPnL>=0?'gain':'loss'],
+              ['USD/THB', loadingP?'กำลังโหลด...':`$1 = ฿${fxRate.toFixed(2)}`, 'Real-time', 'info'],
+            ].map(([label,val,sub,tone],i)=>(
+              <div key={i} className="dash-kpi-card">
+                <div className="dash-kpi-label">{label}</div>
+                <div className={`dash-kpi-value ${kpiTone(tone)}`}>{val}</div>
+                <div className="dash-kpi-sub">{sub}</div>
               </div>
             ))}
           </div>
           {holdings.length>0&&<>
-            <PortfolioChart
-              history={portfolioHistory}
-              benchmark={benchmarkData}
-              displayCurrency={displayCurrency}
-              chartRange={chartRange}
-              onChartRangeChange={setChartRange}
-              benchmarkMode={benchmarkMode}
-              onBenchmarkModeChange={setBenchmarkMode}
-              loading={loadingHistory}
-            />
+            <div className="dash-overview-charts">
+              <PortfolioChart
+                history={portfolioHistory}
+                benchmark={benchmarkData}
+                displayCurrency={displayCurrency}
+                chartRange={chartRange}
+                onChartRangeChange={setChartRange}
+                benchmarkMode={benchmarkMode}
+                onBenchmarkModeChange={setBenchmarkMode}
+                loading={loadingHistory}
+              />
+              <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
+            </div>
             <SectorAreaChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
-            <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px',gap:'6px'}}>
-              <span style={{fontSize:'12px',color:'#555',alignSelf:'center'}}>Heatmap:</span>
+              <span className="dash-text-muted" style={{fontSize:'12px',alignSelf:'center'}}>Heatmap:</span>
               {[['today','% วันนี้'],['invested','% จากทุน']].map(([k,l])=>(
-                <button key={k} onClick={()=>setHeatmapMode(k)} style={{padding:'5px 12px',fontSize:'12px',borderRadius:'6px',border:`1px solid ${heatmapMode===k?'#6c5ce7':'#2a2a2a'}`,background:heatmapMode===k?'#2d2a5e':'transparent',color:heatmapMode===k?'#a29bfe':'#555',cursor:'pointer'}}>{l}</button>
+                <button key={k} type="button" className={`dash-chart-segment-btn${heatmapMode===k?' dash-chart-segment-btn--active':''}`} onClick={()=>setHeatmapMode(k)}>{l}</button>
               ))}
             </div>
             <Treemap holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} heatmapMode={heatmapMode}/>
             <AIPanel holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} inSectorNews={inSectorNews} />
             {renderNewsGrid()}
           </>}
-          {holdings.length===0&&<div style={{textAlign:'center',padding:'60px',color:'#444'}}>
+          {holdings.length===0&&<div className="dash-empty-state">
             <p style={{fontSize:'36px',marginBottom:'12px'}}>📊</p>
             <p style={{fontSize:'14px',marginBottom:'20px'}}>เริ่มบันทึก Transaction แรกเพื่อสร้าง portfolio</p>
-            <button onClick={()=>{setTab('transactions');setModal('tx')}} style={{...btnPrimary,width:'auto',padding:'10px 24px'}}>+ บันทึก Transaction แรก</button>
+            <button type="button" onClick={()=>{setTab('transactions');setModal('tx')}} style={{...btnPrimary,width:'auto',padding:'10px 24px'}}>+ บันทึก Transaction แรก</button>
           </div>}
         </>}
 
@@ -413,17 +436,17 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                   const val=getVal(h),cost=getCost(h),pnl=val-cost,pct=cost>0?(pnl/cost)*100:0
                   const os=symFor(h.currency||'USD')
                   return(<tr key={h.id} style={{borderBottom:'1px solid #1a1a1a'}}>
-                    <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600, color: '#6c5ce7', cursor: 'pointer', textDecoration: 'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
-                    <td data-label="ชื่อ" style={{padding:'11px 13px',color:'#666'}}>{h.name||'—'}</td>
+                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
+                    <td data-label="ชื่อ" className="dash-text-muted" style={{padding:'11px 13px'}}>{h.name||'—'}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(h.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'999px',background:h.currency==='USD'?'#1a2a4a':'#1a3a2a',color:h.currency==='USD'?'#74b9ff':'#55efc4'}}>{h.currency}</span></td>
                     <td data-label="Avg Cost" style={{padding:'11px 13px',color:'#666'}}>{os}{Number(h.avg_cost).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
                     <td data-label="ราคาปัจจุบัน" style={{padding:'11px 13px'}}>{os}{Number(cur).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
                     <td data-label={`มูลค่า (${displayCurrency})`} style={{padding:'11px 13px'}}>{fmt(val)}</td>
-                    <td data-label={`กำไร/ขาดทุน (${displayCurrency})`} style={{padding:'11px 13px',color:pnl>=0?'#27ae60':'#e74c3c'}}>{fmt(pnl)}<span style={{fontSize:'11px',marginLeft:'4px'}}>({pct>=0?'+':''}{pct.toFixed(2)}%)</span></td>
+                    <td data-label={`กำไร/ขาดทุน (${displayCurrency})`} className={pnl>=0?'dash-text-gain':'dash-text-loss'} style={{padding:'11px 13px'}}>{fmt(pnl)}<span style={{fontSize:'11px',marginLeft:'4px'}}>({pct>=0?'+':''}{pct.toFixed(2)}%)</span></td>
                     <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
-                      {aBtn('แก้ไข',()=>{setEditH(h);setModal('eh')},'#a29bfe')}
-                      {aBtn('ลบ',()=>delH(h.id),'#e74c3c')}
+                      {aBtn('แก้ไข',()=>{setEditH(h);setModal('eh')})}
+                      {aBtn('ลบ',()=>delH(h.id),'danger')}
                     </td>
                   </tr>)
                 })}
@@ -440,7 +463,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
               <input type="text" className="dash-search" placeholder="🔍 ค้นหาด้วยชื่อย่อ Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <div className="dash-toolbar-actions">
-              <button onClick={()=>setModal('import')} style={{...btnGhost,width:'auto',padding:'7px 16px',fontSize:'13px',borderColor:'#6c5ce7',color:'#a29bfe'}}>📥 Import CSV</button>
+              <button type="button" onClick={()=>setModal('import')} style={{...btnGhost,width:'auto',padding:'7px 16px',fontSize:'13px',borderColor:'var(--accent)',color:'var(--accent-text)'}}>📥 Import CSV</button>
               <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึก Transaction</button>
             </div>
           </div>
@@ -463,8 +486,8 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                     <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{Number(t.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
                     <td data-label="หมายเหตุ" style={{padding:'11px 13px',color:'#555'}}>{t.note||'—'}</td>
                     <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
-                      {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')},'#a29bfe')}
-                      {aBtn('ลบ',()=>delT(t.id),'#e74c3c')}
+                      {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')})}
+                      {aBtn('ลบ',()=>delT(t.id),'danger')}
                     </td>
                   </tr>
                 ))}
@@ -479,9 +502,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             <div className="dash-toolbar-left">
               <p style={{color:'#444',fontSize:'13px'}}>{filteredJournal.length} entries</p>
               <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
-                <button onClick={()=>setJournalFilter('')} style={{padding:'4px 10px',fontSize:'12px',borderRadius:'999px',border:'1px solid #2a2a2a',background:journalFilter===''?'#6c5ce7':'transparent',color:journalFilter===''?'#fff':'#555',cursor:'pointer'}}>ทั้งหมด</button>
+                <button type="button" onClick={()=>setJournalFilter('')} className={`dash-chart-segment-btn${journalFilter===''?' dash-chart-segment-btn--active':''}`} style={{borderRadius:'999px'}}>ทั้งหมด</button>
                 {journalTags.map(tag=>(
-                  <button key={tag} onClick={()=>setJournalFilter(journalFilter===tag?'':tag)} style={{padding:'4px 10px',fontSize:'12px',borderRadius:'999px',border:`1px solid ${journalFilter===tag?'#6c5ce7':'#2a2a2a'}`,background:journalFilter===tag?'#2d2a5e':'transparent',color:journalFilter===tag?'#a29bfe':'#555',cursor:'pointer'}}>{tag}</button>
+                  <button key={tag} type="button" onClick={()=>setJournalFilter(journalFilter===tag?'':tag)} className={`dash-chart-segment-btn${journalFilter===tag?' dash-chart-segment-btn--active':''}`} style={{borderRadius:'999px'}}>{tag}</button>
                 ))}
               </div>
             </div>
@@ -489,20 +512,20 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           </div>
           {filteredJournal.length===0?<p style={{color:'#333',fontSize:'13px',textAlign:'center',padding:'40px'}}>ไม่มี entry {journalFilter?`ใน tag "${journalFilter}"`:''}</p>
           :filteredJournal.map(j=>(
-            <div key={j.id} style={{background:'#141414',border:'1px solid #2a2a2a',borderRadius:'10px',padding:'16px',marginBottom:'10px'}}>
+            <div key={j.id} className="dash-journal-card">
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
-                <div style={{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}}>
-                  <span style={{fontSize:'12px',color:'#444'}}>{j.date?.split('T')[0]||j.date}</span>
-                  {j.tag&&<span style={{fontSize:'11px',background:'#2d2d5e',color:'#a29bfe',padding:'2px 9px',borderRadius:'999px'}}>{j.tag}</span>}
-                  {j.tickers&&j.tickers.split(',').map(t=><span key={t} style={{fontSize:'11px',background:'#1e1e1e',color:'#555',padding:'2px 7px',borderRadius:'5px'}}>{t.trim()}</span>)}
+                <div className="dash-journal-meta">
+                  <span className="dash-text-faint" style={{fontSize:'12px'}}>{j.date?.split('T')[0]||j.date}</span>
+                  {j.tag&&<span className="dash-tag">{j.tag}</span>}
+                  {j.tickers&&j.tickers.split(',').map(t=><span key={t} className="dash-ticker-chip">{t.trim()}</span>)}
                 </div>
                 <div style={{flexShrink:0}}>
-                  {aBtn('แก้ไข',()=>{setEditJ(j);setModal('ej')},'#a29bfe')}
-                  {aBtn('ลบ',()=>delJ(j.id),'#e74c3c')}
+                  {aBtn('แก้ไข',()=>{setEditJ(j);setModal('ej')})}
+                  {aBtn('ลบ',()=>delJ(j.id),'danger')}
                 </div>
               </div>
-              {j.title&&<p style={{fontWeight:600,marginBottom:'6px',fontSize:'14px'}}>{j.title}</p>}
-              <p style={{fontSize:'13px',color:'#bbb',lineHeight:1.8,whiteSpace:'pre-wrap'}}>{j.content}</p>
+              {j.title&&<p style={{fontWeight:600,marginBottom:'6px',fontSize:'15px'}}>{j.title}</p>}
+              <p style={{fontSize:'14px',color:'var(--text-secondary)',lineHeight:1.8,whiteSpace:'pre-wrap'}}>{j.content}</p>
             </div>
           ))}
         </>}

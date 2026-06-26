@@ -1,3 +1,5 @@
+@import './theme.css';
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -7,10 +9,11 @@
 html, body, #root {
   width: 100%;
   min-height: 100vh;
-  background: #0a0a0a;
-  color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
   -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
 }
 
 body {
@@ -25,6 +28,6 @@ input, button, select, textarea {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-track { background: #1a1a1a; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar-track { background: var(--surface-subtle); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }

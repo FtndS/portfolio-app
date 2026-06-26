@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from './lib/api'
+import { ThemeProvider } from './lib/theme'
 import Landing from './components/Landing'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
@@ -52,15 +53,21 @@ export default function App() {
   }, [])
 
   if (authChecking) return (
-    <div className="auth-wrap"><div className="auth-card" style={{ textAlign: 'center', width: '320px', maxWidth: '100%' }}>
-      <p style={{ color: '#888', fontSize: '14px' }}>กำลังตรวจสอบบัญชี...</p>
-    </div></div>
+    <ThemeProvider>
+      <div className="auth-wrap"><div className="auth-card" style={{ textAlign: 'center', width: '320px', maxWidth: '100%' }}>
+        <p className="dash-text-muted" style={{ fontSize: '14px' }}>กำลังตรวจสอบบัญชี...</p>
+      </div></div>
+    </ThemeProvider>
   )
 
-  if (user) return <Dashboard user={user} onLogout={logout} onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)) }} />
-  if (page === 'register') return <Register onLogin={setUser} onGoLogin={() => setPage('login')} onGoHome={goHome} />
-  if (page === 'login') return <Login onLogin={setUser} onGoRegister={() => setPage('register')} onGoForgot={() => setPage('forgot')} onGoHome={goHome} />
-  if (page === 'forgot') return <ForgotPassword onGoLogin={() => setPage('login')} onGoHome={goHome} />
-  if (page === 'reset') return <ResetPassword token={resetToken} onGoLogin={() => { clearResetUrl(); setPage('login') }} onGoHome={() => { clearResetUrl(); goHome() }} />
-  return <Landing onLogin={() => setPage('login')} onRegister={() => setPage('register')} />
+  if (user) return (
+    <ThemeProvider>
+      <Dashboard user={user} onLogout={logout} onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)) }} />
+    </ThemeProvider>
+  )
+  if (page === 'register') return <ThemeProvider><Register onLogin={setUser} onGoLogin={() => setPage('login')} onGoHome={goHome} /></ThemeProvider>
+  if (page === 'login') return <ThemeProvider><Login onLogin={setUser} onGoRegister={() => setPage('register')} onGoForgot={() => setPage('forgot')} onGoHome={goHome} /></ThemeProvider>
+  if (page === 'forgot') return <ThemeProvider><ForgotPassword onGoLogin={() => setPage('login')} onGoHome={goHome} /></ThemeProvider>
+  if (page === 'reset') return <ThemeProvider><ResetPassword token={resetToken} onGoLogin={() => { clearResetUrl(); setPage('login') }} onGoHome={() => { clearResetUrl(); goHome() }} /></ThemeProvider>
+  return <ThemeProvider><Landing onLogin={() => setPage('login')} onRegister={() => setPage('register')} /></ThemeProvider>
 }

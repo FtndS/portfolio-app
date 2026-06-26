@@ -119,15 +119,8 @@ export default function PortfolioChart({
   const costPts = compareMode ? '' : toPts(costs)
   const bmPts = compareMode ? toPts(bmVals) : ''
 
-  const btnStyle = (active) => ({
-    padding: '5px 12px',
-    fontSize: '12px',
-    borderRadius: '6px',
-    border: `1px solid ${active ? '#6c5ce7' : '#2a2a2a'}`,
-    background: active ? '#2d2a5e' : 'transparent',
-    color: active ? '#a29bfe' : '#555',
-    cursor: 'pointer',
-  })
+  const segmentClass = (active) =>
+    `dash-chart-segment-btn${active ? ' dash-chart-segment-btn--active' : ''}`
 
   return (
     <div className="dash-chart-card">
@@ -142,10 +135,10 @@ export default function PortfolioChart({
         </div>
         <div className="dash-chart-stats">
           <div className="dash-chart-stat-value">{sym}{latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-          <div className="dash-chart-stat-chg" style={{ color: portChg >= 0 ? '#27ae60' : '#e74c3c' }}>
+          <div className="dash-chart-stat-chg" style={{ color: portChg >= 0 ? 'var(--gain)' : 'var(--loss)' }}>
             {compareMode ? 'ในช่วงนี้ ' : ''}{portChg >= 0 ? '+' : ''}{portChg.toFixed(2)}%
             {hasBenchmark && (
-              <span style={{ color: '#888', marginLeft: '8px' }}>
+              <span className="dash-text-muted" style={{ marginLeft: '8px' }}>
                 vs {benchmark.label} {bmChg >= 0 ? '+' : ''}{bmChg.toFixed(2)}%
               </span>
             )}
@@ -160,7 +153,7 @@ export default function PortfolioChart({
             <button
               key={r.id}
               type="button"
-              style={btnStyle(chartRange === r.id)}
+              className={segmentClass(chartRange === r.id)}
               onClick={() => onChartRangeChange?.(r.id)}
               disabled={loading}
             >
@@ -174,7 +167,7 @@ export default function PortfolioChart({
             <button
               key={b.id}
               type="button"
-              style={btnStyle(benchmarkMode === b.id)}
+              className={segmentClass(benchmarkMode === b.id)}
               onClick={() => onBenchmarkModeChange?.(b.id)}
               disabled={loading}
             >
@@ -195,23 +188,23 @@ export default function PortfolioChart({
 
       <svg viewBox={`0 0 ${W} ${H}`} className="dash-chart-svg" preserveAspectRatio="xMidYMid meet">
         {!compareMode && costPts && (
-          <polyline points={costPts} fill="none" stroke="#555" strokeWidth="1.5" strokeDasharray="4,4" strokeLinejoin="round" />
+          <polyline points={costPts} fill="none" stroke="var(--chart-cost)" strokeWidth="1.5" strokeDasharray="4,4" strokeLinejoin="round" />
         )}
         {portPts && (
-          <polyline points={portPts} fill="none" stroke="#6c5ce7" strokeWidth="2.5" strokeLinejoin="round" />
+          <polyline points={portPts} fill="none" stroke="var(--chart-port)" strokeWidth="2.5" strokeLinejoin="round" />
         )}
         {compareMode && bmPts && (
-          <polyline points={bmPts} fill="none" stroke="#e17055" strokeWidth="2" strokeDasharray="6,4" strokeLinejoin="round" />
+          <polyline points={bmPts} fill="none" stroke="var(--chart-benchmark)" strokeWidth="2" strokeDasharray="6,4" strokeLinejoin="round" />
         )}
       </svg>
 
       <div className="dash-chart-foot">
         <span>{dates[0]}</span>
         <span className="dash-chart-legend">
-          <span><span className="dash-chart-legend-line" style={{ background: '#6c5ce7' }} /> {compareMode ? 'พอร์ต (indexed)' : 'มูลค่า'}</span>
-          {!compareMode && <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: '#555' }} /> ทุน</span>}
+          <span><span className="dash-chart-legend-line" style={{ background: 'var(--chart-port)' }} /> {compareMode ? 'พอร์ต (indexed)' : 'มูลค่า'}</span>
+          {!compareMode && <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-cost)' }} /> ทุน</span>}
           {compareMode && benchmark?.label && (
-            <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: '#e17055' }} /> {benchmark.label}</span>
+            <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-benchmark)' }} /> {benchmark.label}</span>
           )}
         </span>
         <span>{dates[dates.length - 1]}</span>

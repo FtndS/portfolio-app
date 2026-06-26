@@ -2,10 +2,10 @@ export const inp = (extra = {}) => ({
   width: '100%',
   padding: '10px 12px',
   marginBottom: '12px',
-  background: '#1e1e1e',
-  border: '1px solid #3a3a3a',
+  background: 'var(--surface-input)',
+  border: '1px solid var(--border-strong)',
   borderRadius: '8px',
-  color: '#fff',
+  color: 'var(--text)',
   fontSize: '14px',
   boxSizing: 'border-box',
   ...extra,
@@ -13,21 +13,22 @@ export const inp = (extra = {}) => ({
 
 export const btnPrimary = {
   padding: '10px 20px',
-  background: '#6c5ce7',
+  background: 'var(--accent)',
   border: 'none',
   borderRadius: '8px',
   color: '#fff',
   fontSize: '14px',
   cursor: 'pointer',
   width: '100%',
+  fontWeight: 500,
 }
 
 export const btnGhost = {
   padding: '10px 20px',
   background: 'transparent',
-  border: '1px solid #3a3a3a',
+  border: '1px solid var(--border-strong)',
   borderRadius: '8px',
-  color: '#888',
+  color: 'var(--text-muted)',
   fontSize: '14px',
   cursor: 'pointer',
   width: '100%',
@@ -38,13 +39,14 @@ export const wrap = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#0a0a0a',
+  background: 'var(--bg)',
 }
 
 export const card = {
-  background: '#141414',
+  background: 'var(--surface)',
   padding: '36px',
   borderRadius: '14px',
   width: '380px',
-  border: '1px solid #2a2a2a',
+  border: '1px solid var(--border)',
+  boxShadow: 'var(--shadow-md)',
 }

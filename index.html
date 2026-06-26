@@ -3,8 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="theme-color" content="#0f0f12" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      (function () {
+        var t = localStorage.getItem('portdiary-theme');
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
     <title>Port Diary — บันทึกพอร์ตการลงทุน</title>
     <meta name="description" content="Port Diary — บันทึกพอร์ตการลงทุน กราฟ real-time, journal, ข่าว และ AI วิเคราะห์พอร์ต รองรับหุ้นไทยและต่างประเทศ" />
     <meta property="og:title" content="Port Diary — บันทึกพอร์ตการลงทุน" />

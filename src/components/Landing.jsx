@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ThemeToggle from './ThemeToggle'
 import './Landing.css'
 
 const FEATURES = [
@@ -56,6 +57,7 @@ export default function Landing({ onLogin, onRegister }) {
           <span>Port Diary</span>
         </div>
         <div className="landing-nav-actions">
+          <ThemeToggle />
           <button type="button" className="landing-btn-ghost" onClick={onLogin}>
             เข้าสู่ระบบ
           </button>
