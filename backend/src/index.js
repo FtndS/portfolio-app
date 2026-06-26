@@ -24,6 +24,19 @@ if (!process.env.JWT_SECRET) {
   process.exit(1)
 }
 
+const WEAK_JWT_SECRETS = new Set([
+  'your-super-secret-jwt-key-change-this',
+  'change-this-to-a-long-random-string',
+])
+
+if (
+  WEAK_JWT_SECRETS.has(process.env.JWT_SECRET) ||
+  process.env.JWT_SECRET.length < 32
+) {
+  console.warn('WARNING: JWT_SECRET is weak or too short')
+  console.warn('WARNING: Generate a new one with: ./scripts/generate-jwt-secret.sh')
+}
+
 const corsOrigins = (process.env.CORS_ORIGINS || 'https://portdiary.com,https://www.portdiary.com')
   .split(',')
   .map((o) => o.trim())

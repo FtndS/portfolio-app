@@ -1,0 +1,40 @@
+name: Verify VPS SSH
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test SSH connection
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          command_timeout: 2m
+          debug: true
+          script: |
+            set -e
+            echo "SSH OK — connected as $(whoami) on $(hostname)"
+            echo "Docker: $(docker --version)"
+            if [ -d ~/portfolio-app ]; then
+              cd ~/portfolio-app
+              echo "Repo: $(git rev-parse --short HEAD) on $(git branch --show-current)"
+              docker compose ps
+              if [ -f .env ]; then
+                if grep -qE '^JWT_SECRET=(your-super-secret|change-this)' .env; then
+                  echo "WARN: JWT_SECRET is still a default value"
+                else
+                  echo "JWT_SECRET: set (custom)"
+                fi
+              else
+                echo "WARN: .env not found"
+              fi
+            else
+              echo "WARN: ~/portfolio-app not found"
+            fi
+            echo "Verify complete."

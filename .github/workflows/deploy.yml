@@ -59,6 +59,19 @@ jobs:
               exit 1
             fi
 
+            if grep -qE '^JWT_SECRET=(your-super-secret-jwt-key-change-this|change-this-to-a-long-random-string)$' .env; then
+              echo "WARN: JWT_SECRET is still default — run: ./scripts/generate-jwt-secret.sh"
+            fi
+
+            chmod +x scripts/backup-db.sh scripts/restore-db.sh scripts/setup-backup-cron.sh scripts/generate-jwt-secret.sh 2>/dev/null || true
+
+            echo "==> Backup database before deploy"
+            if [ -x scripts/backup-db.sh ]; then
+              ./scripts/backup-db.sh pre-deploy || echo "WARN: backup failed — deploy continues"
+            else
+              echo "WARN: scripts/backup-db.sh not found"
+            fi
+
             echo "==> Build & restart containers"
             docker compose build
             docker compose up -d
