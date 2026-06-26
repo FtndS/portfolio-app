@@ -78,9 +78,29 @@ export default function PortfolioChart({
     : [...vals, ...costs].filter((v) => v > 0)
 
   const finite = ySeries.filter((v) => Number.isFinite(v))
-  const min = finite.length ? Math.min(...finite) * 0.98 : 0
-  const max = finite.length ? Math.max(...finite) * 1.02 : 1
+  let min = 0
+  let max = 1
+  if (finite.length) {
+    let dataMin = Math.min(...finite)
+    let dataMax = Math.max(...finite)
+    if (compareMode && dataMax - dataMin < 3) {
+      const mid = (dataMax + dataMin) / 2
+      dataMin = mid - 3
+      dataMax = mid + 3
+    } else {
+      dataMin *= 0.98
+      dataMax *= 1.02
+    }
+    min = dataMin
+    max = dataMax
+  }
   const range = max - min || 1
+
+  const daySpan =
+    dates.length >= 2
+      ? Math.round((new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000)
+      : 0
+  const shortHistory = daySpan < 7
 
   const toPts = (arr) =>
     arr
@@ -115,15 +135,15 @@ export default function PortfolioChart({
         <div>
           <h3 className="dash-chart-title">Portfolio Value</h3>
           <p className="dash-chart-sub">
-            {compareMode ? 'เทียบ % จากจุดเริ่มต้นช่วงที่เลือก (ฐาน 100)' : 'มูลค่าพอร์ตจาก transaction + ราคาย้อนหลัง'}
+            {compareMode
+              ? 'เทียบ % การเปลี่ยนในช่วงที่เลือก (ฐาน 100) — ไม่ใช่กำไรรวมจากทุน'
+              : 'มูลค่าพอร์ตจาก transaction + ราคาย้อนหลัง'}
           </p>
         </div>
         <div className="dash-chart-stats">
-          {!compareMode && (
-            <div className="dash-chart-stat-value">{sym}{latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-          )}
+          <div className="dash-chart-stat-value">{sym}{latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
           <div className="dash-chart-stat-chg" style={{ color: portChg >= 0 ? '#27ae60' : '#e74c3c' }}>
-            พอร์ต {portChg >= 0 ? '+' : ''}{portChg.toFixed(2)}%
+            {compareMode ? 'ในช่วงนี้ ' : ''}{portChg >= 0 ? '+' : ''}{portChg.toFixed(2)}%
             {hasBenchmark && (
               <span style={{ color: '#888', marginLeft: '8px' }}>
                 vs {benchmark.label} {bmChg >= 0 ? '+' : ''}{bmChg.toFixed(2)}%
@@ -165,6 +185,13 @@ export default function PortfolioChart({
       </div>
 
       {loading && <p className="dash-chart-loading">กำลังโหลดกราฟ...</p>}
+
+      {shortHistory && !loading && (
+        <p className="dash-chart-hint">
+          พอร์ตมีข้อมูล {dates.length} วันในช่วงนี้ (เริ่ม {dates[0]})
+          {compareMode && ' — ลองปิด Benchmark หรือเลือกช่วง All เพื่อดูมูลค่าเต็ม'}
+        </p>
+      )}
 
       <svg viewBox={`0 0 ${W} ${H}`} className="dash-chart-svg" preserveAspectRatio="xMidYMid meet">
         {!compareMode && costPts && (

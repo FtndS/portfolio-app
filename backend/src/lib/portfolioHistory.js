@@ -1,5 +1,7 @@
 import pool from '../db/index.js'
-import { toYahooTicker, resolveMarket } from './ticker.js'
+import { toYahooTicker, resolveMarket, yahooSymbolsForHolding } from './ticker.js'
+import { yahooGet } from './yahooAuth.js'
+import { fetchHoldingQuote } from './yahooPrices.js'
 
 const priceHistoryCache = new Map()
 const PRICE_HIST_TTL = 30 * 60 * 1000
@@ -51,10 +53,8 @@ async function fetchYahooDailyCloses(yahooSymbol, days) {
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=${range}`
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      signal: AbortSignal.timeout(10000),
-    })
+    const res = await yahooGet(url)
+    if (!res.ok) return {}
     const data = await res.json()
     const result = data.chart?.result?.[0]
     if (!result) return {}
@@ -74,9 +74,44 @@ async function fetchYahooDailyCloses(yahooSymbol, days) {
   }
 }
 
-async function fetchHistoricalPrices(ticker, days, meta = {}) {
-  const yahoo = toYahooTicker(ticker, resolveMarket(ticker, meta.market, meta.currency))
-  return fetchYahooDailyCloses(yahoo, days)
+async function fetchHistoricalPrices(ticker, days, meta = {}, portfolioCurrency = 'USD') {
+  const market = resolveMarket(ticker, meta.market, meta.currency, portfolioCurrency)
+  const symbols = yahooSymbolsForHolding(ticker, market, meta.currency, portfolioCurrency)
+  const merged = {}
+  for (const sym of symbols) {
+    const map = await fetchYahooDailyCloses(sym, days)
+    for (const [d, px] of Object.entries(map)) {
+      if (merged[d] == null) merged[d] = px
+    }
+    if (Object.keys(merged).length > 10) break
+  }
+  if (!Object.keys(merged).length) {
+    const yahoo = toYahooTicker(ticker, market)
+    return fetchYahooDailyCloses(yahoo, days)
+  }
+  return merged
+}
+
+async function livePortfolioTotals(positions, avgCosts, holdingMeta, portfolioCurrency) {
+  const entries = Object.entries(positions)
+  if (!entries.length) return { totalValue: 0, totalCost: 0 }
+
+  const parts = await Promise.all(
+    entries.map(async ([ticker, shares]) => {
+      const meta = holdingMeta[ticker] || {}
+      const avg = avgCosts[ticker] || 0
+      const quote = await fetchHoldingQuote(ticker, meta.market, meta.currency, portfolioCurrency)
+      const px = quote?.price ?? avg
+      return { value: shares * px, cost: shares * avg }
+    })
+  )
+  return parts.reduce(
+    (acc, p) => ({
+      totalValue: acc.totalValue + p.value,
+      totalCost: acc.totalCost + p.cost,
+    }),
+    { totalValue: 0, totalCost: 0 }
+  )
 }
 
 function priceOnDate(priceMap, dateStr, fallback = 0) {
@@ -113,44 +148,42 @@ function positionsAtDate(transactions, dateStr) {
 }
 
 function buildSampleDates(transactions, days) {
-  const dates = new Set()
   const today = new Date().toISOString().split('T')[0]
-  dates.add(today)
-
-  for (const tx of transactions) {
-    dates.add((tx.date instanceof Date ? tx.date.toISOString() : String(tx.date)).split('T')[0])
-  }
-
-  const step = days > 365 ? 14 : days > 180 ? 7 : 1
-
-  if (transactions.length) {
-    const first = [...dates].sort()[0]
-    const start = new Date(first)
-    const end = new Date(today)
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + step)) {
-      dates.add(d.toISOString().split('T')[0])
-    }
-  }
-
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - days)
   const cutoffStr = cutoff.toISOString().split('T')[0]
+  const step = days > 365 ? 14 : days > 180 ? 7 : 1
+  const dates = new Set([today])
 
-  return [...dates].filter(d => d >= cutoffStr).sort()
+  for (let d = new Date(`${cutoffStr}T12:00:00`); d <= new Date(`${today}T12:00:00`); d.setDate(d.getDate() + step)) {
+    dates.add(d.toISOString().split('T')[0])
+  }
+
+  for (const tx of transactions) {
+    const txDate = (tx.date instanceof Date ? tx.date.toISOString() : String(tx.date)).split('T')[0]
+    if (txDate >= cutoffStr && txDate <= today) dates.add(txDate)
+  }
+
+  return [...dates].sort()
 }
 
 export async function computePortfolioHistory(userId, portfolioId, days = 90) {
-  const txResult = await pool.query(
-    `SELECT ticker, type, shares, price, date FROM transactions
-     WHERE user_id = $1 AND portfolio_id = $2 ORDER BY date ASC, created_at ASC`,
-    [userId, portfolioId]
-  )
-  const transactions = txResult.rows
+  const today = new Date().toISOString().split('T')[0]
 
-  const holdingMetaResult = await pool.query(
-    'SELECT ticker, market, currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2',
-    [userId, portfolioId]
-  )
+  const [txResult, holdingMetaResult, portResult] = await Promise.all([
+    pool.query(
+      `SELECT ticker, type, shares, price, date FROM transactions
+       WHERE user_id = $1 AND portfolio_id = $2 ORDER BY date ASC, created_at ASC`,
+      [userId, portfolioId]
+    ),
+    pool.query(
+      'SELECT ticker, market, currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2',
+      [userId, portfolioId]
+    ),
+    pool.query('SELECT currency FROM portfolios WHERE id = $1 AND user_id = $2', [portfolioId, userId]),
+  ])
+  const transactions = txResult.rows
+  const portfolioCurrency = portResult.rows[0]?.currency || 'USD'
   const holdingMeta = Object.fromEntries(
     holdingMetaResult.rows.map((r) => [r.ticker, r])
   )
@@ -178,7 +211,7 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   const tickers = [...new Set(transactions.map(t => t.ticker))]
   const priceMaps = {}
   await Promise.all(tickers.map(async (t) => {
-    priceMaps[t] = await fetchHistoricalPrices(t, days, holdingMeta[t] || {})
+    priceMaps[t] = await fetchHistoricalPrices(t, days, holdingMeta[t] || {}, portfolioCurrency)
   }))
 
   const sampleDates = buildSampleDates(transactions, days)
@@ -196,7 +229,7 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
     }
 
     if (totalCost > 0 || totalValue > 0) {
-      const snap = snapshotMap[dateStr]
+      const snap = dateStr === today ? snapshotMap[dateStr] : null
       points.push({
         date: dateStr,
         total_value: snap ? Number(snap.total_value) : Math.round(totalValue * 100) / 100,
@@ -213,15 +246,21 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
     return true
   })
 
-  if (unique.length < 2 && unique.length > 0) {
-    const d = new Date(unique[0].date)
-    d.setDate(d.getDate() - 7)
-    unique.unshift({
-      date: d.toISOString().split('T')[0],
-      total_value: 0,
-      total_cost: 0,
-      source: 'computed',
-    })
+  const { positions: todayPos, avgCosts: todayCosts } = positionsAtDate(transactions, today)
+  if (Object.keys(todayPos).length) {
+    const live = await livePortfolioTotals(todayPos, todayCosts, holdingMeta, portfolioCurrency)
+    const snap = snapshotMap[today]
+    const liveValue = Math.round(live.totalValue * 100) / 100
+    const liveCost = Math.round(live.totalCost * 100) / 100
+    const todayPoint = {
+      date: today,
+      total_value: snap ? Number(snap.total_value) : liveValue,
+      total_cost: snap ? Number(snap.total_cost) : liveCost,
+      source: snap ? 'snapshot' : 'live',
+    }
+    const idx = unique.findIndex((p) => p.date === today)
+    if (idx >= 0) unique[idx] = todayPoint
+    else unique.push(todayPoint)
   }
 
   return unique.sort((a, b) => a.date.localeCompare(b.date))
