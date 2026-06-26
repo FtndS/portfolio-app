@@ -171,6 +171,10 @@ export default function Landing({ onLogin, onRegister }) {
       </section>
 
       <footer className="landing-footer">
+        <div style={{ marginBottom: '8px' }}>
+          <a href="/terms.html" style={{ color: '#555', marginRight: '16px', fontSize: '13px', textDecoration: 'none' }}>ข้อกำหนดการใช้งาน</a>
+          <a href="/privacy.html" style={{ color: '#555', fontSize: '13px', textDecoration: 'none' }}>นโยบายความเป็นส่วนตัว</a>
+        </div>
         © {new Date().getFullYear()} Port Diary — บันทึกพอร์ตการลงทุน
       </footer>
     </div>

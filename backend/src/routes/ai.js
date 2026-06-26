@@ -1,8 +1,10 @@
 import express from 'express'
 import { authMiddleware } from '../middleware/auth.js'
+import { aiLimiter } from '../middleware/rateLimit.js'
 
 const router = express.Router()
 router.use(authMiddleware)
+router.use(aiLimiter)
 
 function parseClaudeJson(text) {
   let raw = text.replace(/^```(?:json)?\s*\n?|\n?```\s*$/gm, '').trim()

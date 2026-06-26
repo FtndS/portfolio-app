@@ -15,15 +15,39 @@ const withQuery = (path, params) => {
   return qs ? `${path}?${qs}` : path
 }
 
+function clearAuth() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  window.dispatchEvent(new Event('auth:logout'))
+}
+
+async function parseResponse(res, path) {
+  let data = {}
+  try {
+    data = await res.json()
+  } catch {
+    data = {}
+  }
+  if (res.status === 401 && path !== '/auth/login' && path !== '/auth/register') {
+    clearAuth()
+  }
+  return { ...data, ok: res.ok, status: res.status }
+}
+
+async function request(method, path, body, params) {
+  const res = await fetch(withQuery(`${BASE}${path}`, params), {
+    method,
+    headers: headers(),
+    ...(body != null ? { body: JSON.stringify(body) } : {}),
+  })
+  return parseResponse(res, path)
+}
+
 export const api = {
-  post: (path, body) =>
-    fetch(`${BASE}${path}`, { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(r => r.json()),
-  get: (path, params) =>
-    fetch(withQuery(`${BASE}${path}`, params), { headers: headers() }).then(r => r.json()),
-  put: (path, body) =>
-    fetch(`${BASE}${path}`, { method: 'PUT', headers: headers(), body: JSON.stringify(body) }).then(r => r.json()),
-  delete: (path) =>
-    fetch(`${BASE}${path}`, { method: 'DELETE', headers: headers() }).then(r => r.json()),
+  post: (path, body) => request('POST', path, body),
+  get: (path, params) => request('GET', path, null, params),
+  put: (path, body) => request('PUT', path, body),
+  delete: (path) => request('DELETE', path),
   fetch: (path, params) =>
     fetch(withQuery(`${BASE}${path}`, params), { headers: headers() }),
 }

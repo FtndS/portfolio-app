@@ -101,7 +101,7 @@ function AmountInput({prefix,suffix,placeholder,value,onChange,type='number'}){
   )
 }
 
-function Login({onLogin,onGoRegister,onGoHome}){
+function Login({onLogin,onGoRegister,onGoForgot,onGoHome}){
   const [form,setForm]=useState({email:'',password:''})
   const [error,setError]=useState('')
   const go=async()=>{
@@ -112,6 +112,7 @@ function Login({onLogin,onGoRegister,onGoHome}){
       else setError(r.error||'Email หรือ Password ไม่ถูกต้อง')
     }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้ — ลองใหม่หรือติดต่อ admin')}
   }
+  const onKeyDown=e=>{ if(e.key==='Enter') go() }
   return(
     <div style={wrap}><div style={card}>
       <div style={{marginBottom:'28px'}}>
@@ -119,9 +120,12 @@ function Login({onLogin,onGoRegister,onGoHome}){
         <p style={{color:'#555',fontSize:'13px'}}>บันทึกพอร์ตการลงทุน</p>
       </div>
       {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
-      <Field label="Email"><input type="email" style={inp()} placeholder="you@email.com" onChange={e=>setForm({...form,email:e.target.value})}/></Field>
-      <Field label="Password"><input type="password" style={inp({marginBottom:0})} placeholder="••••••••" onChange={e=>setForm({...form,password:e.target.value})}/></Field>
-      <button onClick={go} style={{...btnPrimary,marginTop:'20px'}}>เข้าสู่ระบบ</button>
+      <Field label="Email"><input type="email" style={inp()} placeholder="you@email.com" onChange={e=>setForm({...form,email:e.target.value})} onKeyDown={onKeyDown}/></Field>
+      <Field label="Password"><input type="password" style={inp({marginBottom:0})} placeholder="••••••••" onChange={e=>setForm({...form,password:e.target.value})} onKeyDown={onKeyDown}/></Field>
+      <p style={{textAlign:'right',marginTop:'10px',fontSize:'12px'}}>
+        <span onClick={onGoForgot} style={{color:'#a29bfe',cursor:'pointer'}}>ลืมรหัสผ่าน?</span>
+      </p>
+      <button onClick={go} style={{...btnPrimary,marginTop:'12px'}}>เข้าสู่ระบบ</button>
       <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'#555'}}>ยังไม่มีบัญชี? <span onClick={onGoRegister} style={{color:'#a29bfe',cursor:'pointer'}}>สมัครสมาชิก</span></p>
       {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
     </div></div>
@@ -141,17 +145,90 @@ function Register({onGoLogin,onGoHome}){
       if(r.user) setOk(true); else setError(r.error||'สมัครไม่สำเร็จ')
     }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้ — ลองใหม่หรือติดต่อ admin')}
   }
+  const onKeyDown=e=>{ if(e.key==='Enter') go() }
   if(ok) return <div style={wrap}><div style={{...card,textAlign:'center'}}><div style={{fontSize:'48px',marginBottom:'16px'}}>🎉</div><h2 style={{color:'#fff',marginBottom:'8px'}}>สมัครสำเร็จ!</h2><button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button></div></div>
   return(
     <div style={wrap}><div style={card}>
       <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'24px'}}>สมัครสมาชิก</h1>
       {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
-      <Field label="ชื่อ"><input type="text" style={inp()} placeholder="ชื่อของคุณ" onChange={e=>setForm({...form,name:e.target.value})}/></Field>
-      <Field label="Email"><input type="email" style={inp()} placeholder="you@email.com" onChange={e=>setForm({...form,email:e.target.value})}/></Field>
-      <Field label="Password"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" onChange={e=>setForm({...form,password:e.target.value})}/></Field>
-      <Field label="ยืนยัน Password"><input type="password" style={inp({marginBottom:0})} placeholder="พิมพ์อีกครั้ง" onChange={e=>setForm({...form,confirm:e.target.value})}/></Field>
+      <Field label="ชื่อ"><input type="text" style={inp()} placeholder="ชื่อของคุณ" onChange={e=>setForm({...form,name:e.target.value})} onKeyDown={onKeyDown}/></Field>
+      <Field label="Email"><input type="email" style={inp()} placeholder="you@email.com" onChange={e=>setForm({...form,email:e.target.value})} onKeyDown={onKeyDown}/></Field>
+      <Field label="Password"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" onChange={e=>setForm({...form,password:e.target.value})} onKeyDown={onKeyDown}/></Field>
+      <Field label="ยืนยัน Password"><input type="password" style={inp({marginBottom:0})} placeholder="พิมพ์อีกครั้ง" onChange={e=>setForm({...form,confirm:e.target.value})} onKeyDown={onKeyDown}/></Field>
       <button onClick={go} style={{...btnPrimary,marginTop:'20px'}}>สมัครสมาชิก</button>
-      <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'#555'}}>มีบัญชีแล้ว? <span onClick={onGoLogin} style={{color:'#a29bfe',cursor:'pointer'}}>เข้าสู่ระบบ</span></p>
+      <p style={{textAlign:'center',marginTop:'16px',fontSize:'12px',color:'#555'}}>
+        การสมัครถือว่ายอมรับ <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{color:'#a29bfe'}}>ข้อกำหนด</a> และ <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{color:'#a29bfe'}}>นโยบายความเป็นส่วนตัว</a>
+      </p>
+      <p style={{textAlign:'center',marginTop:'12px',fontSize:'13px',color:'#555'}}>มีบัญชีแล้ว? <span onClick={onGoLogin} style={{color:'#a29bfe',cursor:'pointer'}}>เข้าสู่ระบบ</span></p>
+      {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
+    </div></div>
+  )
+}
+
+function ForgotPassword({onGoLogin,onGoHome}){
+  const [email,setEmail]=useState('')
+  const [error,setError]=useState('')
+  const [message,setMessage]=useState('')
+  const [loading,setLoading]=useState(false)
+  const go=async()=>{
+    setError('');setMessage('')
+    if(!email.trim()) return setError('กรุณาระบุอีเมล')
+    setLoading(true)
+    try{
+      const r=await api.post('/auth/forgot-password',{email:email.trim()})
+      if(r.message) setMessage(r.message)
+      else setError(r.error||'ส่งอีเมลไม่สำเร็จ')
+    }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้')}
+    setLoading(false)
+  }
+  return(
+    <div style={wrap}><div style={card}>
+      <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'8px'}}>ลืมรหัสผ่าน</h1>
+      <p style={{color:'#555',fontSize:'13px',marginBottom:'20px'}}>ใส่อีเมลที่ใช้สมัคร เราจะส่งลิงก์ตั้งรหัสผ่านใหม่</p>
+      {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
+      {message&&<p style={{color:'#55efc4',fontSize:'13px',marginBottom:'16px'}}>{message}</p>}
+      <Field label="Email"><input type="email" style={inp({marginBottom:0})} placeholder="you@email.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()}/></Field>
+      <button onClick={go} style={{...btnPrimary,marginTop:'20px'}} disabled={loading}>{loading?'กำลังส่ง...':'ส่งลิงก์รีเซ็ต'}</button>
+      <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'#555'}}><span onClick={onGoLogin} style={{color:'#a29bfe',cursor:'pointer'}}>← กลับหน้า Login</span></p>
+      {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
+    </div></div>
+  )
+}
+
+function ResetPassword({token,onGoLogin,onGoHome}){
+  const [password,setPassword]=useState('')
+  const [confirm,setConfirm]=useState('')
+  const [error,setError]=useState('')
+  const [message,setMessage]=useState('')
+  const [loading,setLoading]=useState(false)
+  const go=async()=>{
+    setError('');setMessage('')
+    if(!token) return setError('ลิงก์รีเซ็ตไม่ถูกต้อง กรุณาขอใหม่')
+    if(password.length<8) return setError('รหัสผ่านต้องมีอย่างน้อย 8 ตัว')
+    if(password!==confirm) return setError('รหัสผ่านไม่ตรงกัน')
+    setLoading(true)
+    try{
+      const r=await api.post('/auth/reset-password',{token,password})
+      if(r.message){ setMessage(r.message) }
+      else setError(r.error||'ตั้งรหัสผ่านไม่สำเร็จ')
+    }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้')}
+    setLoading(false)
+  }
+  if(message) return (
+    <div style={wrap}><div style={{...card,textAlign:'center'}}>
+      <div style={{fontSize:'48px',marginBottom:'16px'}}>✅</div>
+      <p style={{color:'#55efc4',marginBottom:'20px'}}>{message}</p>
+      <button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button>
+    </div></div>
+  )
+  return(
+    <div style={wrap}><div style={card}>
+      <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'8px'}}>ตั้งรหัสผ่านใหม่</h1>
+      {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
+      <Field label="รหัสผ่านใหม่"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" value={password} onChange={e=>setPassword(e.target.value)}/></Field>
+      <Field label="ยืนยันรหัสผ่าน"><input type="password" style={inp({marginBottom:0})} placeholder="พิมพ์อีกครั้ง" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()}/></Field>
+      <button onClick={go} style={{...btnPrimary,marginTop:'20px'}} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึกรหัสผ่านใหม่'}</button>
+      <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'#555'}}><span onClick={onGoLogin} style={{color:'#a29bfe',cursor:'pointer'}}>← กลับหน้า Login</span></p>
       {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
     </div></div>
   )
@@ -647,6 +724,7 @@ function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
               🤖 AI วิเคราะห์พอร์ต
             </h3>
             <p style={{ fontSize: '12px', color: '#555' }}>Claude วิเคราะห์ risk, concentration และแนะนำ rebalancing</p>
+            <p style={{ fontSize: '11px', color: '#444', marginTop: '4px' }}>⚠️ ไม่ใช่คำแนะนำการลงทุน — ใช้เพื่อการศึกษาและบันทึกส่วนตัวเท่านั้น</p>
           </div>
           <button onClick={analyze} disabled={loading || !holdings.length} style={{
             padding: '8px 18px', background: loading ? '#2a2a2a' : '#6c5ce7',
@@ -1248,12 +1326,53 @@ function Dashboard({user,onLogout}){
 }
 
 export default function App(){
-  const [user,setUser]=useState(()=>{const u=localStorage.getItem('user');return u?JSON.parse(u):null})
-  const [page,setPage]=useState('landing')
+  const [user,setUser]=useState(null)
+  const [authChecking,setAuthChecking]=useState(()=>!!localStorage.getItem('token'))
+  const [page,setPage]=useState(()=>{
+    if(new URLSearchParams(window.location.search).get('reset')) return 'reset'
+    return 'landing'
+  })
+  const [resetToken]=useState(()=>new URLSearchParams(window.location.search).get('reset')||'')
+
   const goHome=()=>setPage('landing')
   const logout=()=>{localStorage.removeItem('token');localStorage.removeItem('user');setUser(null);setPage('landing')}
+  const clearResetUrl=()=>{ if(window.location.search) window.history.replaceState({},'','/') }
+
+  useEffect(()=>{
+    const token=localStorage.getItem('token')
+    if(!token){ setAuthChecking(false); return }
+    api.get('/auth/me').then(r=>{
+      if(r.id){
+        setUser(r)
+        localStorage.setItem('user',JSON.stringify(r))
+      } else {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+      setAuthChecking(false)
+    }).catch(()=>{
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      setAuthChecking(false)
+    })
+  },[])
+
+  useEffect(()=>{
+    const onLogout=()=>{ setUser(null); setPage('landing') }
+    window.addEventListener('auth:logout',onLogout)
+    return ()=>window.removeEventListener('auth:logout',onLogout)
+  },[])
+
+  if(authChecking) return (
+    <div style={wrap}><div style={{...card,textAlign:'center',width:'320px'}}>
+      <p style={{color:'#888',fontSize:'14px'}}>กำลังตรวจสอบบัญชี...</p>
+    </div></div>
+  )
+
   if(user) return <Dashboard user={user} onLogout={logout}/>
   if(page==='register') return <Register onGoLogin={()=>setPage('login')} onGoHome={goHome}/>
-  if(page==='login') return <Login onLogin={setUser} onGoRegister={()=>setPage('register')} onGoHome={goHome}/>
+  if(page==='login') return <Login onLogin={setUser} onGoRegister={()=>setPage('register')} onGoForgot={()=>setPage('forgot')} onGoHome={goHome}/>
+  if(page==='forgot') return <ForgotPassword onGoLogin={()=>setPage('login')} onGoHome={goHome}/>
+  if(page==='reset') return <ResetPassword token={resetToken} onGoLogin={()=>{clearResetUrl();setPage('login')}} onGoHome={()=>{clearResetUrl();goHome()}}/>
   return <Landing onLogin={()=>setPage('login')} onRegister={()=>setPage('register')}/>
 }

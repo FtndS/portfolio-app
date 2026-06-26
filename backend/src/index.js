@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import dotenv from 'dotenv'
 import pool from './db/index.js'
 import { runMigrations } from './db/migrate.js'
@@ -11,14 +12,39 @@ import newsRoutes from './routes/news.js'
 import aiRoutes from './routes/ai.js'
 import portfoliosRoutes from './routes/portfolios.js'
 import { toYahooTicker } from './lib/ticker.js'
+import { pricesLimiter } from './middleware/rateLimit.js'
 
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(cors())
-app.use(express.json())
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set')
+  process.exit(1)
+}
+
+const corsOrigins = (process.env.CORS_ORIGINS || 'https://portdiary.com,https://www.portdiary.com')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
+if (process.env.NODE_ENV !== 'production') {
+  corsOrigins.push('http://localhost:5173', 'http://127.0.0.1:5173')
+}
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}))
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || corsOrigins.includes(origin)) return callback(null, true)
+    return callback(null, false)
+  },
+  credentials: true,
+}))
+app.use(express.json({ limit: '1mb' }))
 
 // Price cache 5 นาที
 const priceCache = new Map()
@@ -33,7 +59,7 @@ app.get('/api/health', async (req, res) => {
   }
 })
 
-app.get('/api/prices', async (req, res) => {
+app.get('/api/prices', pricesLimiter, async (req, res) => {
   const { tickers } = req.query
   if (!tickers) return res.json({})
 

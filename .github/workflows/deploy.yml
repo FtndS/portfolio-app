@@ -60,5 +60,5 @@ jobs:
             echo "==> Health check"
             sleep 5
             docker compose ps
-            curl -sf http://localhost/api/health || curl -sf https://portdiary.com/api/health
+            curl -sfL http://localhost/api/health || curl -sfL https://portdiary.com/api/health
             echo "Deploy complete."

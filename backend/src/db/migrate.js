@@ -115,6 +115,20 @@ const migrations = [
       UPDATE holdings SET sector = 'ETF — Semiconductors', name = 'VanEck Semiconductor ETF'
         WHERE ticker = 'SMH' AND (sector IS NULL OR sector = 'Other');
     `
+  },
+  {
+    name: '005_auth_security_columns',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(64);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_idx
+        ON users (LOWER(email));
+
+      CREATE UNIQUE INDEX IF NOT EXISTS users_password_reset_token_idx
+        ON users (password_reset_token)
+        WHERE password_reset_token IS NOT NULL;
+    `
   }
 ]
 
