@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { api } from './lib/api'
 import Landing from './components/Landing'
 import PortfolioReport from './components/PortfolioReport'
+import OnboardingModal, { isOnboardingDone, markOnboardingDone } from './components/OnboardingModal'
 import './dashboard.css'
 
 const inp = (extra={}) => ({width:'100%',padding:'10px 12px',marginBottom:'12px',background:'#1e1e1e',border:'1px solid #3a3a3a',borderRadius:'8px',color:'#fff',fontSize:'14px',boxSizing:'border-box',...extra})
@@ -1138,6 +1139,8 @@ function Dashboard({user,onLogout,onUserUpdate}){
   const [tickerNews, setTickerNews] = useState([])
   const [selectedTicker, setSelectedTicker] = useState(null)
   const [loadingNews, setLoadingNews] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [dataReady, setDataReady] = useState(false)
 
   const fxRate=prices['USDTHB=X']||35
   const pid=activePortfolioId
@@ -1162,6 +1165,7 @@ function Dashboard({user,onLogout,onUserUpdate}){
     ])
     const hl=Array.isArray(h)?h:[]
     setHoldings(hl);setJournal(Array.isArray(j)?j:[]);setTransactions(Array.isArray(t)?t:[])
+    setDataReady(true)
     return hl
   },[activePortfolioId])
 
@@ -1277,6 +1281,16 @@ function Dashboard({user,onLogout,onUserUpdate}){
     },15*60*1000)
     return()=>{clearInterval(priceInterval);clearInterval(newsInterval)}
   },[activePortfolioId])
+
+  useEffect(() => {
+    if (!user?.id || !dataReady || !activePortfolioId) return
+    if (holdings.length > 0 || transactions.length > 0) {
+      markOnboardingDone(user.id)
+      setShowOnboarding(false)
+      return
+    }
+    if (!isOnboardingDone(user.id)) setShowOnboarding(true)
+  }, [user, dataReady, activePortfolioId, holdings.length, transactions.length])
 
   const delH=async id=>{if(!confirm('ลบ holding นี้?'))return;await api.delete(`/holdings/${id}`);fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}
   const delJ=async id=>{if(!confirm('ลบ journal entry?'))return;await api.delete(`/journal/${id}`);fetchAll(activePortfolioId)}
@@ -1562,6 +1576,18 @@ function Dashboard({user,onLogout,onUserUpdate}){
         {tab==='news' && renderNewsGrid()}
 
       </div>
+
+      {showOnboarding && (
+        <OnboardingModal
+          user={user}
+          activePort={activePort}
+          onClose={() => setShowOnboarding(false)}
+          onRename={() => fetchPortfolios()}
+          onAddTransaction={() => { setTab('transactions'); setModal('tx') }}
+          onImportCsv={() => { setTab('transactions'); setModal('import') }}
+          onSetTab={setTab}
+        />
+      )}
 
       {modal==='h'&&<HoldingModal portfolioId={activePortfolioId} onClose={()=>setModal(null)} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}
       {modal==='eh'&&editH&&<HoldingModal portfolioId={activePortfolioId} holding={editH} onClose={()=>{setModal(null);setEditH(null)}} onSave={()=>fetchAll(activePortfolioId).then(hl=>fetchPrices(hl,activePortfolioId))}/>}

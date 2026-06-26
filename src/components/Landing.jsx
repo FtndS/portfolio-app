@@ -3,6 +3,11 @@ import './Landing.css'
 
 const FEATURES = [
   {
+    icon: '📋',
+    title: 'Portfolio Report',
+    desc: 'สรุปภาพรวมการลงทุน สัดส่วน sector กำไร/ขาดทุน — พิมพ์หรือบันทึกเป็น PDF ได้',
+  },
+  {
     icon: '📊',
     title: 'บันทึกพอร์ตหลายกอง',
     desc: 'แยกพอร์ต US, หุ้นไทย SET, ฮ่องกง จีน ได้ในบัญชีเดียว สลับดู USD/THB ได้ทันที',

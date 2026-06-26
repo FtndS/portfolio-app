@@ -142,6 +142,29 @@ export default function PortfolioReport({
         ))}
       </div>
 
+      <div className="dash-report-allocation-strip">
+        {allocation.map((h, i) => (
+          <div
+            key={h.id}
+            className="dash-report-allocation-seg"
+            style={{
+              width: `${Math.max(h.weight, 0.5)}%`,
+              background: SECTOR_COLORS[i % SECTOR_COLORS.length],
+            }}
+            title={`${h.ticker} ${h.weight.toFixed(1)}%`}
+          />
+        ))}
+      </div>
+      <div className="dash-report-allocation-legend report-no-print">
+        {allocation.slice(0, 8).map((h, i) => (
+          <span key={h.id} className="dash-report-legend-item">
+            <span className="dash-report-legend-dot" style={{ background: SECTOR_COLORS[i % SECTOR_COLORS.length] }} />
+            {h.ticker} {h.weight.toFixed(1)}%
+          </span>
+        ))}
+        {allocation.length > 8 && <span className="dash-report-muted">+{allocation.length - 8} อื่นๆ</span>}
+      </div>
+
       <div className="dash-report-grid">
         <section className="dash-report-card dash-report-card--wide">
           <h3>สัดส่วนการลงทุน (Holdings)</h3>
