@@ -55,12 +55,14 @@ export default function ImportCsvModal({ portfolioId, onClose, onSave }) {
 
   return (
     <Modal title="Import CSV" onClose={onClose}>
-      <p style={{ fontSize: '13px', color: '#888', marginBottom: '16px', lineHeight: 1.6 }}>
-        นำเข้า transaction หลายรายการพร้อมกัน คอลัมน์ที่ต้องมี: <code style={{ color: '#a29bfe' }}>date, ticker, type, shares, price</code>
-        {' '}(optional: currency, note)
+      <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '16px', lineHeight: 1.6 }}>
+        นำเข้า transaction หลายรายการพร้อมกัน คอลัมน์ที่ต้องมี:{' '}
+        <code className="dash-text-accent">date, ticker, type, shares, price</code>
+        <br />
+        ไม่บังคับ: <code className="dash-text-accent">currency</code> (ถ้าไม่ใส่ จะเดาจาก ticker เช่น SCB-BK → THB), <code className="dash-text-accent">note</code>
       </p>
-      <p style={{ fontSize: '12px', marginBottom: '14px' }}>
-        <a href="/import-template.csv" download style={{ color: '#74b9ff' }}>ดาวน์โหลดไฟล์ตัวอย่าง</a>
+      <p className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '14px' }}>
+        <a href="/import-template.csv" download className="dash-link">ดาวน์โหลดไฟล์ตัวอย่าง</a>
         {' · '}รองรับวันที่ YYYY-MM-DD หรือ DD/MM/YYYY · ประเภท BUY/SELL หรือ ซื้อ/ขาย
       </p>
 

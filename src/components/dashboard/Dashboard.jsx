@@ -293,6 +293,11 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const sym=symFor(displayCurrency)
   const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
   const fmtMoney=(n)=>hideValues?MASKED:fmt(n)
+  const fmtTx=(t,n)=>{
+    if(hideValues) return MASKED
+    const s=symFor(t.currency||'USD')
+    return s+Number(n).toLocaleString('en-US',{minimumFractionDigits:2})
+  }
 
   const aBtn = (label, onClick, variant = 'accent') => (
     <button
@@ -538,8 +543,8 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                     <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
                     <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
-                    <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{hideValues?MASKED:Number(t.price).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{hideValues?MASKED:Number(t.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                    <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{fmtTx(t,t.price)}</td>
+                    <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{fmtTx(t,t.total)}</td>
                     <td data-label="หมายเหตุ" className="dash-text-muted" style={{padding:'11px 13px'}}>{t.note||'—'}</td>
                     <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
                       {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')})}

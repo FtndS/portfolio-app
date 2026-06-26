@@ -220,6 +220,27 @@ const migrations = [
       ) AND COALESCE(currency, 'USD') = 'USD';
     `,
   },
+  {
+    name: '012_transactions_currency',
+    sql: `
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS currency VARCHAR(3) DEFAULT 'USD';
+
+      UPDATE transactions SET currency = 'THB'
+      WHERE (ticker ILIKE '%-BK' OR ticker ILIKE '%.BK')
+        AND COALESCE(currency, 'USD') = 'USD';
+
+      UPDATE transactions t SET currency = h.currency
+      FROM holdings h
+      WHERE h.user_id = t.user_id
+        AND h.portfolio_id = t.portfolio_id
+        AND h.ticker = t.ticker
+        AND h.currency IS NOT NULL
+        AND COALESCE(t.currency, 'USD') = 'USD'
+        AND h.currency != 'USD';
+
+      UPDATE transactions SET currency = 'USD' WHERE currency IS NULL;
+    `,
+  },
 ]
 
 export async function runMigrations() {

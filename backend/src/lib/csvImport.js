@@ -104,6 +104,14 @@ function parseNumber(value) {
   return Number.isFinite(n) ? n : null
 }
 
+function inferCurrencyFromTicker(ticker) {
+  const t = String(ticker || '').trim().toUpperCase()
+  if (t.includes('-BK') || t.endsWith('.BK')) return 'THB'
+  if (t.includes('-HK') || t.endsWith('.HK')) return 'HKD'
+  if (t.includes('-SS') || t.includes('-SZ')) return 'CNY'
+  return null
+}
+
 function rowFromCells(cells, colMap, lineNo, defaultCurrency) {
   const get = (field) => {
     const idx = colMap[field]
@@ -116,7 +124,10 @@ function rowFromCells(cells, colMap, lineNo, defaultCurrency) {
   const type = parseType(get('type'))
   const shares = parseNumber(get('shares'))
   const price = parseNumber(get('price'))
-  const currencyRaw = String(get('currency') || defaultCurrency || 'USD').trim().toUpperCase()
+  const currencyFromCol = String(get('currency') || '').trim().toUpperCase()
+  const currencyRaw = currencyFromCol
+    || inferCurrencyFromTicker(ticker)
+    || String(defaultCurrency || 'USD').trim().toUpperCase()
   const currency = ['USD', 'THB', 'HKD', 'CNY'].includes(currencyRaw) ? currencyRaw : null
   const note = String(get('note') || '').trim() || null
 

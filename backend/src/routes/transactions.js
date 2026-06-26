@@ -1,7 +1,7 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { storageTicker } from '../lib/ticker.js'
+import { storageTicker, defaultCurrency, detectMarket } from '../lib/ticker.js'
 import { resolvePortfolioId, repairAllPortfolioLinks } from '../lib/portfolio.js'
 import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
 import { parseTransactionCsv } from '../lib/csvImport.js'
@@ -69,12 +69,13 @@ router.post('/import', async (req, res) => {
 
       for (const row of sorted) {
         const total = row.shares * row.price
+        const txCurrency = row.currency || defaultCurrency
         const result = await client.query(
-          `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, note, date)
-           VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9) RETURNING id, ticker, date, type`,
+          `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, note, date, currency)
+           VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, ticker, date, type`,
           [
             req.userId, portfolioId, row.ticker, row.type,
-            row.shares, row.price, total, row.note, row.date,
+            row.shares, row.price, total, row.note, row.date, txCurrency,
           ]
         )
         imported.push(result.rows[0])
@@ -86,8 +87,9 @@ router.post('/import', async (req, res) => {
           'SELECT currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3 LIMIT 1',
           [req.userId, portfolioId, ticker]
         )
-        const txCurrency = holdingRow.rows[0]?.currency
-          || sorted.find((r) => r.ticker === ticker)?.currency
+        const rowMatch = sorted.find((r) => r.ticker === ticker)
+        const txCurrency = rowMatch?.currency
+          || holdingRow.rows[0]?.currency
           || defaultCurrency
         await syncHoldingFromTransactions(client, req.userId, portfolioId, ticker, null, txCurrency)
       }
@@ -133,6 +135,8 @@ router.post('/', async (req, res) => {
     )
     txCurrency = holdingRow.rows[0]?.currency
   }
+  if (!txCurrency) txCurrency = defaultCurrency(detectMarket(ticker, null))
+  if (!txCurrency) txCurrency = 'USD'
 
   const sanitizedTicker = storageTicker(ticker, null, txCurrency)
   const total = shareNum * priceNum
@@ -142,10 +146,10 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN')
 
     const txResult = await client.query(
-      `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, note, date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, note, date, currency)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [req.userId, portfolioId, holding_id || null, sanitizedTicker, type,
-        shareNum, priceNum, total, note || null, date]
+        shareNum, priceNum, total, note || null, date, txCurrency]
     )
 
     await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker, null, txCurrency)
@@ -212,6 +216,14 @@ router.put('/:id', async (req, res) => {
       )
       txCurrency = holdingRow.rows[0]?.currency
     }
+    if (!txCurrency) {
+      txCurrency = (await client.query(
+        'SELECT currency FROM transactions WHERE id = $1 AND user_id = $2',
+        [req.params.id, req.userId]
+      )).rows[0]?.currency
+    }
+    if (!txCurrency) txCurrency = defaultCurrency(detectMarket(ticker, null))
+    txCurrency = txCurrency || 'USD'
 
     const sanitizedTicker = storageTicker(ticker, null, txCurrency)
     const total = shareNum * priceNum
@@ -219,12 +231,12 @@ router.put('/:id', async (req, res) => {
     const txResult = await client.query(
       `UPDATE transactions
        SET ticker = $1, type = $2, shares = $3, price = $4, total = $5,
-           note = $6, date = $7, holding_id = $8
-       WHERE id = $9 AND user_id = $10
+           note = $6, date = $7, holding_id = $8, currency = $9
+       WHERE id = $10 AND user_id = $11
        RETURNING *`,
       [
         sanitizedTicker, type, shareNum, priceNum, total,
-        note || null, date, holding_id || null,
+        note || null, date, holding_id || null, txCurrency,
         req.params.id, req.userId,
       ]
     )

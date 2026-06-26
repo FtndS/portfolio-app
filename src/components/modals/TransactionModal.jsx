@@ -26,7 +26,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     note: transaction?.note || '',
     date: transaction?.date?.split('T')[0] || today,
     holding_id: transaction?.holding_id ? String(transaction.holding_id) : '',
-    currency: inferTxCurrency(transaction?.ticker, holdings),
+    currency: transaction?.currency || inferTxCurrency(transaction?.ticker, holdings),
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

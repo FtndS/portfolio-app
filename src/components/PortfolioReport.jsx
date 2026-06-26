@@ -1,4 +1,5 @@
 import { MASKED, fmtPct } from '../lib/format'
+import { symFor } from '../lib/constants'
 import { usePrivacy } from '../lib/privacy'
 
 const SECTOR_COLORS = ['#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e', '#e84393', '#55efc4', '#a29bfe']
@@ -321,12 +322,12 @@ export default function PortfolioReport({
                       <td>
                         {hideValues
                           ? MASKED
-                          : Number(t.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          : `${symFor(t.currency || 'USD')}${Number(t.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                       </td>
                       <td>
                         {hideValues
                           ? MASKED
-                          : Number(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          : `${symFor(t.currency || 'USD')}${Number(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                       </td>
                       <td className="dash-report-muted">{t.note || '—'}</td>
                     </tr>
