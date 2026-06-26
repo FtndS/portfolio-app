@@ -53,12 +53,34 @@ jobs:
             echo "==> Pull latest code"
             git fetch origin main
             git reset --hard origin/main
+
+            if [ ! -f .env ]; then
+              echo "ERROR: .env not found — create it on VPS first"
+              exit 1
+            fi
+
             echo "==> Build & restart containers"
             docker compose build
             docker compose up -d
             docker compose restart nginx
+
+            echo "==> Wait for backend"
+            for i in $(seq 1 30); do
+              if curl -sfL http://localhost/api/health 2>/dev/null | grep -q '"status":"ok"'; then
+                echo "Backend healthy"
+                break
+              fi
+              if [ "$i" -eq 30 ]; then
+                echo "ERROR: Backend failed to start"
+                docker compose ps
+                docker compose logs backend --tail 80
+                exit 1
+              fi
+              sleep 2
+            done
+
             echo "==> Health check"
-            sleep 5
             docker compose ps
-            curl -sfL http://localhost/api/health || curl -sfL https://portdiary.com/api/health
+            curl -sfL http://localhost/api/health
+            echo ""
             echo "Deploy complete."
