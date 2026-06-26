@@ -11,8 +11,15 @@ jobs:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_PORT: ${{ secrets.VPS_PORT }}
+      SSH_RETRIES: 4
+      TCP_TIMEOUT: 45
+      SSH_CONNECT_TIMEOUT: 45
+      RETRY_DELAY: 12
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Validate deploy secrets
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -35,25 +42,4 @@ jobs:
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Test SSH connection
-        run: |
-          PORT="${VPS_PORT:-22}"
-          ssh -p "$PORT" -v -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=accept-new \
-            "${VPS_USER}@${VPS_HOST}" \
-            'bash -s' << 'ENDSSH'
-          set -e
-          echo "SSH OK — connected as $(whoami) on $(hostname)"
-          echo "Docker: $(docker --version 2>/dev/null || echo not installed)"
-          if [ -d ~/portfolio-app ]; then
-            cd ~/portfolio-app
-            echo "Repo: $(git rev-parse --short HEAD 2>/dev/null || echo unknown) on $(git branch --show-current 2>/dev/null || echo unknown)"
-            docker compose ps 2>/dev/null || true
-            if [ -f .env ]; then
-              echo ".env: present"
-            else
-              echo "WARN: .env not found"
-            fi
-          else
-            echo "WARN: ~/portfolio-app not found"
-          fi
-          echo "Verify complete."
-          ENDSSH
+        run: bash scripts/github-ssh-retry.sh verify

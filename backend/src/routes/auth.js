@@ -483,4 +483,85 @@ router.put('/change-password', authMiddleware, authLimiter, async (req, res) => 
   }
 })
 
+router.get('/export', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId
+    const [userResult, portfolios, holdings, transactions, journal, dividends] = await Promise.all([
+      pool.query('SELECT id, email, name, email_verified, created_at FROM users WHERE id = $1', [userId]),
+      pool.query('SELECT * FROM portfolios WHERE user_id = $1 ORDER BY id', [userId]),
+      pool.query('SELECT * FROM holdings WHERE user_id = $1 ORDER BY portfolio_id, ticker', [userId]),
+      pool.query('SELECT * FROM transactions WHERE user_id = $1 ORDER BY date DESC, id DESC', [userId]),
+      pool.query('SELECT * FROM journal WHERE user_id = $1 ORDER BY date DESC, id DESC', [userId]),
+      pool.query('SELECT * FROM dividends WHERE user_id = $1 ORDER BY pay_date DESC, id DESC', [userId]),
+    ])
+
+    const user = userResult.rows[0]
+    if (!user) return res.status(404).json({ error: 'ไม่พบบัญชี' })
+
+    const portfolioIds = portfolios.rows.map((p) => p.id)
+    let snapshots = { rows: [] }
+    if (portfolioIds.length) {
+      snapshots = await pool.query(
+        'SELECT * FROM portfolio_snapshots WHERE portfolio_id = ANY($1) ORDER BY snapshot_date DESC',
+        [portfolioIds]
+      )
+    }
+
+    const exportedAt = new Date().toISOString()
+    const payload = {
+      exportedAt,
+      app: 'Port Diary',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        emailVerified: user.email_verified,
+        createdAt: user.created_at,
+      },
+      portfolios: portfolios.rows,
+      holdings: holdings.rows,
+      transactions: transactions.rows,
+      journal: journal.rows,
+      dividends: dividends.rows,
+      portfolioSnapshots: snapshots.rows,
+    }
+
+    const stamp = exportedAt.slice(0, 10)
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="portdiary-export-${stamp}.json"`)
+    res.json(payload)
+  } catch (err) {
+    console.error('Export data error:', err.message)
+    res.status(500).json({ error: 'ส่งออกข้อมูลไม่สำเร็จ กรุณาลองใหม่' })
+  }
+})
+
+router.delete('/account', authMiddleware, authLimiter, async (req, res) => {
+  const { password, confirmation } = req.body
+
+  if (confirmation !== 'DELETE') {
+    return res.status(400).json({ error: 'กรุณาพิมพ์ DELETE เพื่อยืนยันการลบบัญชี' })
+  }
+  if (!password) {
+    return res.status(400).json({ error: 'กรุณาระบุรหัสผ่านปัจจุบัน' })
+  }
+
+  try {
+    const result = await pool.query('SELECT password FROM users WHERE id = $1', [req.userId])
+    const user = result.rows[0]
+    if (!user) return res.status(404).json({ error: 'ไม่พบบัญชี' })
+
+    const valid = await bcrypt.compare(password, user.password)
+    if (!valid) {
+      return res.status(400).json({ error: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' })
+    }
+
+    await pool.query('DELETE FROM users WHERE id = $1', [req.userId])
+    res.json({ message: 'ลบบัญชีและข้อมูลทั้งหมดสำเร็จ' })
+  } catch (err) {
+    console.error('Delete account error:', err.message)
+    res.status(500).json({ error: 'ลบบัญชีไม่สำเร็จ กรุณาลองใหม่' })
+  }
+})
+
 export default router

@@ -3,6 +3,121 @@ import { rebuildHoldingsFromTransactions } from '../lib/holdingSync.js'
 
 const migrations = [
   {
+    name: '000_initial_schema',
+    sql: `
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        email_verified BOOLEAN NOT NULL DEFAULT false,
+        password_reset_token VARCHAR(64),
+        password_reset_expires TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_idx
+        ON users (LOWER(email));
+
+      CREATE UNIQUE INDEX IF NOT EXISTS users_password_reset_token_idx
+        ON users (password_reset_token)
+        WHERE password_reset_token IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS portfolios (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        currency VARCHAR(3) DEFAULT 'USD',
+        is_default BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS holdings (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        ticker VARCHAR(32) NOT NULL,
+        name VARCHAR(255),
+        shares NUMERIC(18, 4) NOT NULL DEFAULT 0,
+        avg_cost NUMERIC(18, 4) NOT NULL DEFAULT 0,
+        sector VARCHAR(64) DEFAULT 'Other',
+        currency VARCHAR(3) DEFAULT 'USD',
+        market VARCHAR(20) DEFAULT 'US',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS transactions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        holding_id INTEGER REFERENCES holdings(id) ON DELETE SET NULL,
+        ticker VARCHAR(32) NOT NULL,
+        type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
+        shares NUMERIC(18, 4) NOT NULL,
+        price NUMERIC(18, 4) NOT NULL,
+        total NUMERIC(18, 2),
+        note TEXT,
+        date DATE NOT NULL,
+        currency VARCHAR(3) DEFAULT 'USD',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS journal (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        title VARCHAR(255),
+        content TEXT,
+        tickers VARCHAR(255),
+        tag VARCHAR(64),
+        date DATE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+        id SERIAL PRIMARY KEY,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        snapshot_date DATE NOT NULL,
+        total_value NUMERIC(18, 2) NOT NULL DEFAULT 0,
+        total_cost NUMERIC(18, 2) NOT NULL DEFAULT 0,
+        sector_data JSONB DEFAULT '[]',
+        UNIQUE (portfolio_id, snapshot_date)
+      );
+
+      CREATE TABLE IF NOT EXISTS email_otps (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        purpose VARCHAR(32) NOT NULL,
+        otp_hash VARCHAR(64) NOT NULL,
+        meta JSONB DEFAULT '{}',
+        attempts INTEGER NOT NULL DEFAULT 0,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS email_otps_email_purpose_idx
+        ON email_otps (email, purpose);
+
+      CREATE TABLE IF NOT EXISTS dividends (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        ticker VARCHAR(32) NOT NULL,
+        amount NUMERIC(18, 2) NOT NULL,
+        currency VARCHAR(3) NOT NULL DEFAULT 'THB',
+        shares_held NUMERIC(18, 4),
+        pay_date DATE NOT NULL,
+        note TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS dividends_portfolio_pay_date_idx
+        ON dividends (portfolio_id, pay_date DESC);
+    `,
+  },
+  {
     name: '001_phase3_portfolios',
     sql: `
       CREATE TABLE IF NOT EXISTS portfolios (
@@ -259,6 +374,14 @@ const migrations = [
 
       CREATE INDEX IF NOT EXISTS dividends_portfolio_pay_date_idx
         ON dividends (portfolio_id, pay_date DESC);
+    `,
+  },
+  {
+    name: '014_email_verified_strict',
+    sql: `
+      UPDATE users SET email_verified = false WHERE email_verified IS NULL;
+      ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT false;
+      ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
     `,
   },
 ]

@@ -32,6 +32,9 @@ async function parseResponse(res, path) {
   if (res.status === 401 && path !== '/auth/login' && path !== '/auth/register') {
     clearAuth()
   }
+  if (res.status === 403 && path !== '/auth/login' && path !== '/auth/register' && localStorage.getItem('token')) {
+    clearAuth()
+  }
 
   if (!res.ok) {
     const err =
@@ -58,7 +61,7 @@ export const api = {
   post: (path, body) => request('POST', path, body),
   get: (path, params) => request('GET', path, null, params),
   put: (path, body) => request('PUT', path, body),
-  delete: (path) => request('DELETE', path),
+  delete: (path, body) => request('DELETE', path, body),
   fetch: (path, params) =>
     fetch(withQuery(`${BASE}${path}`, params), { headers: headers() }),
 }

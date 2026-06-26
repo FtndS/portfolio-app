@@ -737,6 +737,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           user={user}
           onClose={()=>setModal(null)}
           onUserUpdate={onUserUpdate}
+          onLogout={onLogout}
         />
       )}
       {modal==='managePort'&&activePort&&(

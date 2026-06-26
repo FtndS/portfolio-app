@@ -1,16 +1,53 @@
-# React + Vite
+# Port Diary
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Personal portfolio tracker — transactions, investment journal, dividends, charts, AI analysis, and market news.
 
-Currently, two official plugins are available:
+Production: [portdiary.com](https://portdiary.com)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- **Frontend:** React 19 + Vite (static SPA behind nginx)
+- **Backend:** Express 5 + PostgreSQL 16
+- **Deploy:** Docker Compose on VPS (GitHub Actions)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local development
 
-## Expanding the ESLint configuration
+```bash
+# Frontend
+npm ci && npm run dev
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+# Backend (separate terminal)
+cd backend && npm ci && npm run dev
+```
+
+Set environment variables from `.env.example`. Registration requires SMTP for OTP email delivery.
+
+## Database
+
+Migrations run automatically when the backend starts (`backend/src/db/migrate.js`).
+
+To wipe all data and start fresh (irreversible):
+
+```bash
+# Linux / macOS / VPS
+./scripts/reset-db.sh
+
+# Windows
+.\scripts\reset-db.ps1
+```
+
+After reset, only users who complete OTP email verification during registration can log in.
+
+## Account privacy
+
+Users can export all data or delete their account from **Settings** in the dashboard. See `public/privacy.html`.
+
+## Tests
+
+```bash
+cd backend && npm test
+```
+
+## Deployment
+
+See [docs/DEPLOY.md](docs/DEPLOY.md).

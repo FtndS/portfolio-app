@@ -85,6 +85,30 @@ chmod +x scripts/deploy-vps.sh   # once, if Permission denied
 | `Missing VPS_SSH_KEY` | Add secret in GitHub Settings |
 | `BEGIN.*PRIVATE KEY` validation failed | Paste full private key, not `.pub` |
 | `unable to authenticate` | Public key not in VPS `authorized_keys`, or key pair mismatch |
-| `Connection timed out` / port unreachable | VPS stopped, wrong `VPS_HOST`, SSH not on port 22 (set `VPS_PORT`), cloud firewall / `ufw` blocking port 22 from the internet (GitHub Actions uses dynamic IPs — allow `0.0.0.0/0` on port 22 or deploy manually) |
+| `Connection timed out` / port unreachable | Intermittent GitHub runner → VPS routing; workflow retries 4× with 45s TCP timeout (`scripts/github-ssh-retry.sh`). If still failing, deploy manually or use a self-hosted runner on the VPS |
 | `~/portfolio-app not found` | Clone repo on VPS: `git clone https://github.com/FtndS/portfolio-app.git ~/portfolio-app` |
 | `.env not found` | Create `~/portfolio-app/.env` from `.env.example` |
+
+## Reset database (wipe all users/data)
+
+Postgres runs **inside Docker on the VPS** — not on your Windows PC. Do **not** run `reset-db.ps1` locally unless Docker is installed.
+
+**On VPS (recommended):**
+
+```bash
+ssh root@YOUR_VPS_IP
+cd ~/portfolio-app
+git pull origin main
+chmod +x scripts/reset-db.sh
+./scripts/reset-db.sh
+# type: yes
+```
+
+**From Windows (SSH to VPS):**
+
+```powershell
+.\scripts\reset-db-remote.ps1 -VpsHost YOUR_VPS_IP
+# optional: -SshKey "$env:USERPROFILE\.ssh\portfolio-app-deploy"
+```
+
+After reset, deploy latest code first if needed (`git pull` + `docker compose up -d --build`), then restart applies fresh migrations. Only OTP-verified registrations can log in.

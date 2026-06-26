@@ -41,8 +41,15 @@ jobs:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_PORT: ${{ secrets.VPS_PORT }}
+      SSH_RETRIES: 4
+      TCP_TIMEOUT: 45
+      SSH_CONNECT_TIMEOUT: 45
+      RETRY_DELAY: 12
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Validate deploy secrets
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -72,7 +79,7 @@ jobs:
             echo "Docs: docs/DEPLOY.md"
             exit 1
           fi
-          echo "Secrets OK — will deploy to ${VPS_USER}@${VPS_HOST} port ${VPS_PORT:-22}"
+          echo "Secrets OK — will deploy to ${VPS_USER}@${VPS_HOST} port ${VPS_PORT:-22} (up to ${SSH_RETRIES} SSH retries)"
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.10.0
@@ -89,41 +96,7 @@ jobs:
           fi
 
       - name: Test SSH connection
-        run: |
-          PORT="${VPS_PORT:-22}"
-          echo "Target: ${VPS_USER}@${VPS_HOST}:${PORT}"
-
-          echo "Checking TCP reachability (15s)..."
-          if ! timeout 15 bash -c "cat < /dev/null > /dev/tcp/${VPS_HOST}/${PORT}" 2>/dev/null; then
-            echo "::error title=SSH port unreachable::Connection timed out to ${VPS_HOST}:${PORT}. VPS may be off, firewall blocking SSH, wrong VPS_HOST, or SSH on a different port. From your PC run: ssh -p ${PORT} ${VPS_USER}@${VPS_HOST}"
-            exit 255
-          fi
-          echo "TCP port open — testing SSH auth..."
-
-          ssh -p "$PORT" \
-            -o BatchMode=yes \
-            -o ConnectTimeout=30 \
-            -o StrictHostKeyChecking=accept-new \
-            "${VPS_USER}@${VPS_HOST}" \
-            'echo "SSH OK — connected as $(whoami) on $(hostname)"'
+        run: bash scripts/github-ssh-retry.sh test
 
       - name: Deploy on VPS
-        run: |
-          PORT="${VPS_PORT:-22}"
-          ssh -p "$PORT" \
-            -o BatchMode=yes \
-            -o ConnectTimeout=30 \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=10 \
-            -o StrictHostKeyChecking=accept-new \
-            "${VPS_USER}@${VPS_HOST}" \
-            'bash -s' << 'ENDSSH'
-          set -euo pipefail
-          if [ ! -d ~/portfolio-app/.git ]; then
-            echo "ERROR: ~/portfolio-app is missing or not a git repo"
-            exit 1
-          fi
-          cd ~/portfolio-app
-          chmod +x scripts/deploy-vps.sh 2>/dev/null || true
-          bash scripts/deploy-vps.sh
-          ENDSSH
+        run: bash scripts/github-ssh-retry.sh deploy
