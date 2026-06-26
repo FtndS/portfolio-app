@@ -17,6 +17,10 @@ export default function HoldingModal({holding,onClose,onSave,portfolioId}){
   const marketDef=MARKETS.find(m=>m.id===f.market)||MARKETS[0]
   const save=async()=>{
     if(!f.ticker || !f.shares || !f.avg_cost) return
+    const shares = parseFloat(f.shares)
+    const avg = parseFloat(f.avg_cost)
+    if (!Number.isFinite(shares) || shares <= 0) return
+    if (!Number.isFinite(avg) || avg <= 0) return
     setLoading(true)
     const cleanTicker = sanitizeTicker(f.ticker)
     const b={ticker:cleanTicker,name:f.name,shares:parseFloat(f.shares),avg_cost:parseFloat(f.avg_cost),
@@ -43,8 +47,8 @@ export default function HoldingModal({holding,onClose,onSave,portfolioId}){
           {marketDef.currencies.map(c=><button key={c} type="button" onClick={()=>setF({...f,currency:c})} style={{flex:1,minWidth:'70px',padding:'9px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{symFor(c)} {c}</button>)}
         </div>
       </Field>
-      <Field label="จำนวนหุ้น"><AmountInput suffix="shares" placeholder="100" value={f.shares} onChange={e=>setF({...f,shares:e.target.value})}/></Field>
-      <Field label={`ราคาทุนเฉลี่ย (${f.currency})`}><AmountInput prefix={sym} placeholder="0.00" value={f.avg_cost} onChange={e=>setF({...f,avg_cost:e.target.value})}/></Field>
+      <Field label="จำนวนหุ้น"><AmountInput suffix="shares" placeholder="100" value={f.shares} nonNegative onChange={e=>setF({...f,shares:e.target.value})}/></Field>
+      <Field label={`ราคาทุนเฉลี่ย (${f.currency})`}><AmountInput prefix={sym} placeholder="0.00" value={f.avg_cost} nonNegative onChange={e=>setF({...f,avg_cost:e.target.value})}/></Field>
       
       <div style={{display:'flex',gap:'10px',marginTop:'20px'}} className="dash-modal-actions">
         <button type="button" onClick={onClose} style={btnGhost}>ยกเลิก</button>

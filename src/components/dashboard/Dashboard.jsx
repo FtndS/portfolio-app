@@ -19,6 +19,7 @@ import Modal from '../ui/Modal'
 import Field from '../ui/Field'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
 import { symFor, JOURNAL_TAGS as journalTags, CHART_RANGE_DAYS } from '../../lib/constants'
+import { MASKED, fmtPct } from '../../lib/format'
 
 export default function Dashboard({user,onLogout,onUserUpdate}){
   const [portfolios,setPortfolios]=useState([])
@@ -41,6 +42,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const [editT,setEditT]=useState(null)
   const [loadingP,setLoadingP]=useState(false)
   const [displayCurrency,setDisplayCurrency]=useState('USD')
+  const [hideValues, setHideValues] = useState(() => localStorage.getItem('portdiary-hide-values') === '1')
   const [journalFilter,setJournalFilter]=useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -248,6 +250,15 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
   const sym=symFor(displayCurrency)
   const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+  const fmtMoney=(n)=>hideValues?MASKED:fmt(n)
+
+  const toggleHideValues=()=>{
+    setHideValues(v=>{
+      const next=!v
+      localStorage.setItem('portdiary-hide-values',next?'1':'0')
+      return next
+    })
+  }
   const aBtn = (label, onClick, variant = 'accent') => (
     <button
       type="button"
@@ -323,6 +334,14 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
               ))}
             </div>
             <ThemeToggle />
+            <button
+              type="button"
+              className={`dash-privacy-btn${hideValues ? ' dash-privacy-btn--active' : ''}`}
+              onClick={toggleHideValues}
+              title={hideValues ? 'แสดงมูลค่าเงิน' : 'ซ่อนมูลค่า — แสดงแค่ %'}
+            >
+              {hideValues ? '👁️ แสดงมูลค่า' : '🙈 ซ่อนมูลค่า'}
+            </button>
             <button type="button" onClick={()=>setModal('settings')} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ตั้งค่า</button>
             <button type="button" onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออกจากระบบ</button>
           </div>
@@ -346,10 +365,10 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {tab==='overview'&&<>
           <div className="dash-kpi-grid">
             {[
-              ['มูลค่าพอร์ตรวม', fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, ''],
-              ['เงินลงทุนทั้งหมด (ทุกพอร์ต)', fmt(allInvested), `${portfolios.length} พอร์ต · ไม่รวม P&L`, 'accent'],
-              ['กำไร/ขาดทุน (พอร์ตนี้)', fmt(totPnL), `${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`, totPnL>=0?'gain':'loss'],
-              ['USD/THB', loadingP?'กำลังโหลด...':`$1 = ฿${fxRate.toFixed(2)}`, 'Real-time', 'info'],
+              ['มูลค่าพอร์ตรวม', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
+              ['เงินลงทุนทั้งหมด (ทุกพอร์ต)', hideValues ? MASKED : fmt(allInvested), `${portfolios.length} พอร์ต · ไม่รวม P&L`, hideValues ? '' : 'accent'],
+              ['กำไร/ขาดทุน (พอร์ตนี้)', hideValues ? fmtPct(totPct) : fmt(totPnL), hideValues ? 'จากทุน' : `${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`, totPnL>=0?'gain':'loss'],
+              ['USD/THB',loadingP?'กำลังโหลด...':`$1 = ฿${fxRate.toFixed(2)}`,'Real-time','info'],
             ].map(([label,val,sub,tone],i)=>(
               <div key={i} className="dash-kpi-card">
                 <div className="dash-kpi-label">{label}</div>
@@ -368,8 +387,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 onChartRangeChange={setChartRange}
                 benchmarkMode={benchmarkMode}
                 onBenchmarkModeChange={setBenchmarkMode}
-                loading={loadingHistory}
-              />
+              loading={loadingHistory}
+              hideValues={hideValues}
+            />
               <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             </div>
             <SectorAreaChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
@@ -440,10 +460,12 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                     <td data-label="ชื่อ" className="dash-text-muted" style={{padding:'11px 13px'}}>{h.name||'—'}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(h.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'999px',background:h.currency==='USD'?'#1a2a4a':'#1a3a2a',color:h.currency==='USD'?'#74b9ff':'#55efc4'}}>{h.currency}</span></td>
-                    <td data-label="Avg Cost" style={{padding:'11px 13px',color:'#666'}}>{os}{Number(h.avg_cost).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td data-label="ราคาปัจจุบัน" style={{padding:'11px 13px'}}>{os}{Number(cur).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td data-label={`มูลค่า (${displayCurrency})`} style={{padding:'11px 13px'}}>{fmt(val)}</td>
-                    <td data-label={`กำไร/ขาดทุน (${displayCurrency})`} className={pnl>=0?'dash-text-gain':'dash-text-loss'} style={{padding:'11px 13px'}}>{fmt(pnl)}<span style={{fontSize:'11px',marginLeft:'4px'}}>({pct>=0?'+':''}{pct.toFixed(2)}%)</span></td>
+                    <td data-label="Avg Cost" className="dash-text-muted" style={{padding:'11px 13px'}}>{hideValues?MASKED:`${os}${Number(h.avg_cost).toLocaleString('en-US',{minimumFractionDigits:2})}`}</td>
+                    <td data-label="ราคาปัจจุบัน" style={{padding:'11px 13px'}}>{hideValues?MASKED:`${os}${Number(cur).toLocaleString('en-US',{minimumFractionDigits:2})}`}</td>
+                    <td data-label={`มูลค่า (${displayCurrency})`} style={{padding:'11px 13px'}}>{fmtMoney(val)}</td>
+                    <td data-label={`กำไร/ขาดทุน (${displayCurrency})`} className={pnl>=0?'dash-text-gain':'dash-text-loss'} style={{padding:'11px 13px'}}>
+                      {hideValues ? fmtPct(pct) : <>{fmt(pnl)}<span style={{fontSize:'11px',marginLeft:'4px'}}>({pct>=0?'+':''}{pct.toFixed(2)}%)</span></>}
+                    </td>
                     <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
                       {aBtn('แก้ไข',()=>{setEditH(h);setModal('eh')})}
                       {aBtn('ลบ',()=>delH(h.id),'danger')}
@@ -482,8 +504,8 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                     <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
                     <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
-                    <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{Number(t.price).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{Number(t.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                    <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{hideValues?MASKED:Number(t.price).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                    <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{hideValues?MASKED:Number(t.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
                     <td data-label="หมายเหตุ" style={{padding:'11px 13px',color:'#555'}}>{t.note||'—'}</td>
                     <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
                       {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')})}

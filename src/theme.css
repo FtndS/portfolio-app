@@ -585,3 +585,105 @@ body,
 [data-theme='dark'] {
   --surface-inset: #22222c;
 }
+
+.dash-privacy-btn {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.dash-privacy-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.dash-privacy-btn--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.amount-input {
+  display: flex;
+  align-items: center;
+  background: var(--surface-input);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.amount-input-affix {
+  padding: 0 10px;
+  color: var(--text-muted);
+  font-size: 14px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  line-height: 40px;
+}
+
+.amount-input-affix--suffix {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+.amount-input-field {
+  flex: 1;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  font-family: var(--font);
+}
+
+.amount-input-field::placeholder {
+  color: var(--text-faint);
+}
+
+.dash-type-toggle {
+  display: flex;
+  background: var(--surface-input);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  height: 40px;
+}
+
+.dash-type-toggle button {
+  flex: 1;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font);
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.dash-type-toggle button.active-buy {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+
+.dash-type-toggle button.active-sell {
+  background: var(--loss-soft);
+  color: var(--loss);
+}
+
+.dash-tx-total {
+  background: var(--gain-soft);
+  border: 1px solid color-mix(in srgb, var(--gain) 35%, var(--border));
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}

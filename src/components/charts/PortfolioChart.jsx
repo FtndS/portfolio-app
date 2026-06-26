@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { symFor, CHART_RANGES, BENCHMARK_OPTIONS } from '../../lib/constants'
+import { fmtPct } from '../../lib/format'
 
 function dateKey(d) {
   return d?.split?.('T')?.[0] || d
@@ -19,6 +20,7 @@ export default function PortfolioChart({
   benchmarkMode,
   onBenchmarkModeChange,
   loading,
+  hideValues = false,
 }) {
   const sym = symFor(displayCurrency === 'THB' ? 'THB' : 'USD')
 
@@ -134,7 +136,11 @@ export default function PortfolioChart({
           </p>
         </div>
         <div className="dash-chart-stats">
-          <div className="dash-chart-stat-value">{sym}{latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+          <div className="dash-chart-stat-value">
+            {hideValues
+              ? fmtPct(portChg)
+              : `${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+          </div>
           <div className="dash-chart-stat-chg" style={{ color: portChg >= 0 ? 'var(--gain)' : 'var(--loss)' }}>
             {compareMode ? 'ในช่วงนี้ ' : ''}{portChg >= 0 ? '+' : ''}{portChg.toFixed(2)}%
             {hasBenchmark && (
