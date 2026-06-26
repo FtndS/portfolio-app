@@ -1,0 +1,4 @@
+date,ticker,type,shares,price,currency,note
+2024-01-15,VOO,BUY,10,450.25,USD,DCA รายเดือน
+2024-02-01,TISCO,BUY,300,110,THB,ซื้อหุ้นไทย
+2024-03-10,AAPL,SELL,5,175.50,USD,ทำกำไรบางส่วน

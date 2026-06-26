@@ -1,9 +1,10 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { storageTicker, resolveMarket } from '../lib/ticker.js'
+import { storageTicker } from '../lib/ticker.js'
 import { resolvePortfolioId, repairAllPortfolioLinks } from '../lib/portfolio.js'
 import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
+import { parseTransactionCsv } from '../lib/csvImport.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -21,6 +22,92 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('GET transactions error:', err)
     res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/import', async (req, res) => {
+  const { csv, portfolio_id, dry_run } = req.body
+  if (!csv || typeof csv !== 'string') {
+    return res.status(400).json({ error: 'กรุณาส่งไฟล์ CSV' })
+  }
+
+  try {
+    const portfolioId = await resolvePortfolioId(req.userId, portfolio_id)
+    const portfolio = await pool.query(
+      'SELECT currency FROM portfolios WHERE id = $1 AND user_id = $2',
+      [portfolioId, req.userId]
+    )
+    const defaultCurrency = portfolio.rows[0]?.currency || 'USD'
+    const parsed = parseTransactionCsv(csv, { defaultCurrency })
+
+    if (parsed.errors.length && !parsed.validCount) {
+      return res.status(400).json({
+        error: 'ไม่พบรายการที่นำเข้าได้',
+        ...parsed,
+      })
+    }
+
+    if (dry_run) {
+      return res.json(parsed)
+    }
+
+    if (!parsed.validCount) {
+      return res.status(400).json({ error: 'ไม่มีรายการที่ถูกต้อง', ...parsed })
+    }
+
+    const sorted = [...parsed.validRows].sort((a, b) => {
+      const d = a.date.localeCompare(b.date)
+      return d !== 0 ? d : a.line - b.line
+    })
+
+    const client = await pool.connect()
+    const imported = []
+    const tickers = new Set()
+
+    try {
+      await client.query('BEGIN')
+
+      for (const row of sorted) {
+        const total = row.shares * row.price
+        const result = await client.query(
+          `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, note, date)
+           VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9) RETURNING id, ticker, date, type`,
+          [
+            req.userId, portfolioId, row.ticker, row.type,
+            row.shares, row.price, total, row.note, row.date,
+          ]
+        )
+        imported.push(result.rows[0])
+        tickers.add(row.ticker)
+      }
+
+      for (const ticker of tickers) {
+        const holdingRow = await client.query(
+          'SELECT currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3 LIMIT 1',
+          [req.userId, portfolioId, ticker]
+        )
+        const txCurrency = holdingRow.rows[0]?.currency
+          || sorted.find((r) => r.ticker === ticker)?.currency
+          || defaultCurrency
+        await syncHoldingFromTransactions(client, req.userId, portfolioId, ticker, null, txCurrency)
+      }
+
+      await client.query('COMMIT')
+      res.json({
+        imported: imported.length,
+        skipped: parsed.total - parsed.validCount,
+        errors: parsed.errors,
+        tickers: [...tickers],
+      })
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  } catch (err) {
+    console.error('CSV import error:', err)
+    res.status(500).json({ error: err.message || 'นำเข้าไม่สำเร็จ' })
   }
 })
 
