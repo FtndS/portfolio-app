@@ -22,16 +22,27 @@ function clearAuth() {
 }
 
 async function parseResponse(res, path) {
-  let data = {}
+  let data = null
   try {
     data = await res.json()
   } catch {
-    data = {}
+    data = null
   }
+
   if (res.status === 401 && path !== '/auth/login' && path !== '/auth/register') {
     clearAuth()
   }
-  return { ...data, ok: res.ok, status: res.status }
+
+  if (!res.ok) {
+    const err =
+      data && typeof data === 'object' && !Array.isArray(data)
+        ? data
+        : { error: res.statusText || 'Request failed' }
+    return { ...err, ok: false, status: res.status }
+  }
+
+  // Keep backward compatibility: return raw JSON (arrays included)
+  return data
 }
 
 async function request(method, path, body, params) {
