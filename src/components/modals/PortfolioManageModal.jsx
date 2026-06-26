@@ -4,9 +4,12 @@ import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
 import Modal from '../ui/Modal'
 
-import { MARKETS, symFor, sanitizeTicker, SECTOR_COLORS, JOURNAL_TAGS } from '../../lib/constants'
+import { symFor } from '../../lib/constants'
+import { MASKED } from '../../lib/format'
+import { usePrivacy } from '../../lib/privacy'
 
 export default function PortfolioManageModal({portfolio,portfolios,onClose,onUpdated,onDeleted}){
+  const { hideValues } = usePrivacy()
   const [name,setName]=useState(portfolio?.name||'')
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
@@ -34,7 +37,7 @@ export default function PortfolioManageModal({portfolio,portfolios,onClose,onUpd
   return(
     <Modal title="จัดการพอร์ต" onClose={onClose}>
       <div style={{background:'#0f0f0f',border:'1px solid #2a2a2a',borderRadius:'8px',padding:'12px',marginBottom:'16px',fontSize:'13px',color:'#888'}}>
-        <div>{portfolio.holding_count||0} holdings · ทุน {symFor(portfolio.currency||'USD')}{Number(portfolio.total_invested||0).toLocaleString('en-US',{minimumFractionDigits:2})}</div>
+        <div>{portfolio.holding_count||0} holdings · ทุน {hideValues ? MASKED : `${symFor(portfolio.currency||'USD')}${Number(portfolio.total_invested||0).toLocaleString('en-US',{minimumFractionDigits:2})}`}</div>
         {portfolio.is_default&&<div style={{color:'#a29bfe',marginTop:'4px',fontSize:'12px'}}>★ พอร์ตหลัก (Default)</div>}
       </div>
       {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'12px'}}>{error}</p>}

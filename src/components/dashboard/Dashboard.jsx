@@ -20,6 +20,7 @@ import Field from '../ui/Field'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
 import { symFor, JOURNAL_TAGS as journalTags, CHART_RANGE_DAYS } from '../../lib/constants'
 import { MASKED, fmtPct } from '../../lib/format'
+import { usePrivacy } from '../../lib/privacy'
 
 export default function Dashboard({user,onLogout,onUserUpdate}){
   const [portfolios,setPortfolios]=useState([])
@@ -42,7 +43,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const [editT,setEditT]=useState(null)
   const [loadingP,setLoadingP]=useState(false)
   const [displayCurrency,setDisplayCurrency]=useState('USD')
-  const [hideValues, setHideValues] = useState(() => localStorage.getItem('portdiary-hide-values') === '1')
+  const { hideValues, toggleHideValues } = usePrivacy()
   const [journalFilter,setJournalFilter]=useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -252,13 +253,6 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
   const fmtMoney=(n)=>hideValues?MASKED:fmt(n)
 
-  const toggleHideValues=()=>{
-    setHideValues(v=>{
-      const next=!v
-      localStorage.setItem('portdiary-hide-values',next?'1':'0')
-      return next
-    })
-  }
   const aBtn = (label, onClick, variant = 'accent') => (
     <button
       type="button"
@@ -368,7 +362,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
               ['มูลค่าพอร์ตรวม', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
               ['เงินลงทุนทั้งหมด (ทุกพอร์ต)', hideValues ? MASKED : fmt(allInvested), `${portfolios.length} พอร์ต · ไม่รวม P&L`, hideValues ? '' : 'accent'],
               ['กำไร/ขาดทุน (พอร์ตนี้)', hideValues ? fmtPct(totPct) : fmt(totPnL), hideValues ? 'จากทุน' : `${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`, totPnL>=0?'gain':'loss'],
-              ['USD/THB',loadingP?'กำลังโหลด...':`$1 = ฿${fxRate.toFixed(2)}`,'Real-time','info'],
+              ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'Real-time', hideValues ? '' : 'info'],
             ].map(([label,val,sub,tone],i)=>(
               <div key={i} className="dash-kpi-card">
                 <div className="dash-kpi-label">{label}</div>
@@ -387,8 +381,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 onChartRangeChange={setChartRange}
                 benchmarkMode={benchmarkMode}
                 onBenchmarkModeChange={setBenchmarkMode}
-              loading={loadingHistory}
-              hideValues={hideValues}
+                loading={loadingHistory}
             />
               <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             </div>
@@ -437,25 +430,25 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {tab==='holdings'&&<>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
-              <p style={{color:'#444',fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} holdings</p>
+              <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} holdings</p>
               <input type="text" className="dash-search" placeholder="🔍 ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <button onClick={()=>setModal('h')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เพิ่ม Holding ตรงๆ</button>
           </div>
           <div className="dash-table-wrap">
             <table className="dash-table dash-table--holdings">
-              <thead><tr style={{borderBottom:'1px solid #2a2a2a'}}>
+              <thead><tr style={{borderBottom:'1px solid var(--border)'}}>
                 {['Ticker','ชื่อ','Shares','สกุลเงิน','Avg Cost','ราคาปัจจุบัน',`มูลค่า (${displayCurrency})`,`กำไร/ขาดทุน (${displayCurrency})`,''].map((h,i)=>(
-                  <th key={i} style={{padding:'11px 13px',textAlign:'left',color:'#444',fontWeight:400,whiteSpace:'nowrap'}}>{h}</th>
+                  <th key={i} className="dash-text-muted" style={{padding:'11px 13px',textAlign:'left',fontWeight:400,whiteSpace:'nowrap'}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
-                {filteredHoldings.length===0?<tr><td colSpan={9} style={{padding:'28px',textAlign:'center',color:'#333'}}>ไม่พบรายการ holdings</td></tr>
+                {filteredHoldings.length===0?<tr><td colSpan={9} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ holdings</td></tr>
                 :filteredHoldings.map(h=>{
                   const cur=prices[h.ticker]||Number(h.avg_cost)
                   const val=getVal(h),cost=getCost(h),pnl=val-cost,pct=cost>0?(pnl/cost)*100:0
                   const os=symFor(h.currency||'USD')
-                  return(<tr key={h.id} style={{borderBottom:'1px solid #1a1a1a'}}>
+                  return(<tr key={h.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
                     <td data-label="ชื่อ" className="dash-text-muted" style={{padding:'11px 13px'}}>{h.name||'—'}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(h.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
@@ -481,7 +474,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {tab==='transactions'&&<>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
-              <p style={{color:'#444',fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>
+              <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>
               <input type="text" className="dash-search" placeholder="🔍 ค้นหาด้วยชื่อย่อ Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <div className="dash-toolbar-actions">
@@ -491,22 +484,22 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           </div>
           <div className="dash-table-wrap">
             <table className="dash-table dash-table--transactions">
-              <thead><tr style={{borderBottom:'1px solid #2a2a2a'}}>
+              <thead><tr style={{borderBottom:'1px solid var(--border)'}}>
                 {['วันที่','Ticker','ประเภท','Shares','ราคา/หุ้น','มูลค่ารวม','หมายเหตุ',''].map((h,i)=>(
-                  <th key={i} style={{padding:'11px 13px',textAlign:'left',color:'#444',fontWeight:400}}>{h}</th>
+                  <th key={i} className="dash-text-muted" style={{padding:'11px 13px',textAlign:'left',fontWeight:400}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
-                {filteredTransactions.length===0?<tr><td colSpan={8} style={{padding:'28px',textAlign:'center',color:'#333'}}>ไม่พบรายการ transactions</td></tr>
+                {filteredTransactions.length===0?<tr><td colSpan={8} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
                 :filteredTransactions.map(t=>(
-                  <tr key={t.id} style={{borderBottom:'1px solid #1a1a1a'}}>
-                    <td data-label="วันที่" style={{padding:'11px 13px',color:'#555'}}>{t.date?.split('T')[0]||t.date}</td>
+                  <tr key={t.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
+                    <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{t.date?.split('T')[0]||t.date}</td>
                     <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
                     <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{hideValues?MASKED:Number(t.price).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
                     <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{hideValues?MASKED:Number(t.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-                    <td data-label="หมายเหตุ" style={{padding:'11px 13px',color:'#555'}}>{t.note||'—'}</td>
+                    <td data-label="หมายเหตุ" className="dash-text-muted" style={{padding:'11px 13px'}}>{t.note||'—'}</td>
                     <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
                       {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')})}
                       {aBtn('ลบ',()=>delT(t.id),'danger')}
@@ -522,7 +515,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {tab==='journal'&&<>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
-              <p style={{color:'#444',fontSize:'13px'}}>{filteredJournal.length} entries</p>
+              <p className="dash-text-muted" style={{fontSize:'13px'}}>{filteredJournal.length} entries</p>
               <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
                 <button type="button" onClick={()=>setJournalFilter('')} className={`dash-chart-segment-btn${journalFilter===''?' dash-chart-segment-btn--active':''}`} style={{borderRadius:'999px'}}>ทั้งหมด</button>
                 {journalTags.map(tag=>(
@@ -532,7 +525,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             </div>
             <button onClick={()=>setModal('j')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เขียน Journal</button>
           </div>
-          {filteredJournal.length===0?<p style={{color:'#333',fontSize:'13px',textAlign:'center',padding:'40px'}}>ไม่มี entry {journalFilter?`ใน tag "${journalFilter}"`:''}</p>
+          {filteredJournal.length===0?<p className="dash-text-faint" style={{fontSize:'13px',textAlign:'center',padding:'40px'}}>ไม่มี entry {journalFilter?`ใน tag "${journalFilter}"`:''}</p>
           :filteredJournal.map(j=>(
             <div key={j.id} className="dash-journal-card">
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
@@ -609,7 +602,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
       {selectedTicker && (
         <Modal title={`ข่าวสารล่าสุดของหุ้น ${selectedTicker}`} onClose={() => setSelectedTicker(null)}>
           {loadingNews ? <p style={{ color: '#888', fontSize: '13px' }}>กำลังดึงข้อมูลข่าวสารแบบเรียลไทม์...</p>
-          : tickerNews.length === 0 ? <p style={{ color: '#444', fontSize: '13px' }}>ไม่พบข้อมูลข่าวสารของหุ้นตัวนี้ในปัจจุบัน</p>
+          : tickerNews.length === 0 ? <p className="dash-text-muted" style={{ fontSize: '13px' }}>ไม่พบข้อมูลข่าวสารของหุ้นตัวนี้ในปัจจุบัน</p>
           : tickerNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
         </Modal>
       )}

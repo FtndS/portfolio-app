@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from './lib/api'
 import { ThemeProvider } from './lib/theme'
+import { PrivacyProvider } from './lib/privacy'
 import Landing from './components/Landing'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
@@ -62,7 +63,9 @@ export default function App() {
 
   if (user) return (
     <ThemeProvider>
-      <Dashboard user={user} onLogout={logout} onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)) }} />
+      <PrivacyProvider>
+        <Dashboard user={user} onLogout={logout} onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)) }} />
+      </PrivacyProvider>
     </ThemeProvider>
   )
   if (page === 'register') return <ThemeProvider><Register onLogin={setUser} onGoLogin={() => setPage('login')} onGoHome={goHome} /></ThemeProvider>

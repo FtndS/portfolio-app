@@ -1,7 +1,17 @@
+import { MASKED, fmtPct } from '../lib/format'
+import { usePrivacy } from '../lib/privacy'
+
 const SECTOR_COLORS = ['#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e', '#e84393', '#55efc4', '#a29bfe']
 
-function pnlColor(n) {
-  return n >= 0 ? '#27ae60' : '#e74c3c'
+function pnlTone(n) {
+  return n >= 0 ? 'gain' : 'loss'
+}
+
+function kpiToneClass(tone) {
+  if (tone === 'accent') return 'dash-report-kpi-value--accent'
+  if (tone === 'gain') return 'dash-report-kpi-value--gain'
+  if (tone === 'loss') return 'dash-report-kpi-value--loss'
+  return ''
 }
 
 export default function PortfolioReport({
@@ -23,6 +33,9 @@ export default function PortfolioReport({
   totPnL,
   totPct,
 }) {
+  const { hideValues } = usePrivacy()
+  const fmtMoney = (n) => (hideValues ? MASKED : fmt(n))
+
   const reportDate = new Date().toLocaleString('th-TH', {
     dateStyle: 'long',
     timeStyle: 'short',
@@ -87,31 +100,29 @@ export default function PortfolioReport({
     return (
       <div className="dash-report-empty">
         <p style={{ fontSize: '36px', marginBottom: '12px' }}>📋</p>
-        <p style={{ fontSize: '14px', color: '#666' }}>ยังไม่มีข้อมูลพอร์ต — บันทึก transaction เพื่อสร้างรายงาน</p>
+        <p className="dash-text-muted" style={{ fontSize: '14px' }}>ยังไม่มีข้อมูลพอร์ต — บันทึก transaction เพื่อสร้างรายงาน</p>
       </div>
     )
   }
 
+  const kpis = [
+    ['มูลค่าพอร์ตปัจจุบัน', hideValues ? MASKED : fmt(totVal), ''],
+    ['เงินลงทุน (ทุน)', hideValues ? MASKED : fmt(totCost), 'accent'],
+    [
+      'กำไร/ขาดทุน',
+      hideValues ? fmtPct(totPct) : `${fmt(totPnL)} (${fmtPct(totPct)})`,
+      pnlTone(totPnL),
+    ],
+    ['% เปลี่ยนแปลงวันนี้', fmtPct(weightedDayChg), pnlTone(weightedDayChg)],
+  ]
+
   return (
     <div className="dash-report">
       <div className="dash-report-toolbar report-no-print">
-        <p style={{ color: '#666', fontSize: '13px', flex: 1 }}>
+        <p className="dash-text-muted" style={{ fontSize: '13px', flex: 1 }}>
           สรุปภาพรวมการลงทุน · อัปเดต {reportDate}
         </p>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          style={{
-            padding: '8px 18px',
-            background: '#6c5ce7',
-            border: 'none',
-            borderRadius: '8px',
-            color: '#fff',
-            fontSize: '13px',
-            cursor: 'pointer',
-            fontWeight: 500,
-          }}
-        >
+        <button type="button" className="dash-report-print-btn" onClick={() => window.print()}>
           🖨️ พิมพ์ / บันทึก PDF
         </button>
       </div>
@@ -122,22 +133,17 @@ export default function PortfolioReport({
           <h2 className="dash-report-title">{activePort?.name || 'พอร์ต'}</h2>
           <p className="dash-report-meta">
             {user?.name} · สกุลเงินแสดงผล: {displayCurrency}
-            {!loadingP && ` · FX $1 = ฿${Number(fxRate).toFixed(2)}`}
+            {!loadingP && !hideValues && ` · FX $1 = ฿${Number(fxRate).toFixed(2)}`}
           </p>
         </div>
         <div className="dash-report-asof">{reportDate}</div>
       </div>
 
       <div className="dash-report-kpis">
-        {[
-          ['มูลค่าพอร์ตปัจจุบัน', fmt(totVal), null],
-          ['เงินลงทุน (ทุน)', fmt(totCost), '#a29bfe'],
-          ['กำไร/ขาดทุน', `${fmt(totPnL)} (${totPct >= 0 ? '+' : ''}${totPct.toFixed(2)}%)`, pnlColor(totPnL)],
-          ['% เปลี่ยนแปลงวันนี้', `${weightedDayChg >= 0 ? '+' : ''}${weightedDayChg.toFixed(2)}%`, pnlColor(weightedDayChg)],
-        ].map(([label, val, color]) => (
+        {kpis.map(([label, val, tone]) => (
           <div key={label} className="dash-report-kpi">
             <div className="dash-report-kpi-label">{label}</div>
-            <div className="dash-report-kpi-value" style={{ color: color || '#fff' }}>{val}</div>
+            <div className={`dash-report-kpi-value ${kpiToneClass(tone)}`}>{val}</div>
           </div>
         ))}
       </div>
@@ -183,11 +189,13 @@ export default function PortfolioReport({
                     <td className="dash-report-ticker">{h.ticker}</td>
                     <td className="dash-report-muted">{h.name || '—'}</td>
                     <td>{h.weight.toFixed(1)}%</td>
-                    <td>{fmt(h.val)}</td>
-                    <td className="dash-report-muted">{fmt(h.cost)}</td>
-                    <td style={{ color: pnlColor(h.pnl) }}>{fmt(h.pnl)}</td>
-                    <td style={{ color: pnlColor(h.pnl) }}>{h.pnlPct >= 0 ? '+' : ''}{h.pnlPct.toFixed(2)}%</td>
-                    <td style={{ color: pnlColor(h.dayChg) }}>{h.dayChg >= 0 ? '+' : ''}{h.dayChg.toFixed(2)}%</td>
+                    <td>{fmtMoney(h.val)}</td>
+                    <td className="dash-report-muted">{fmtMoney(h.cost)}</td>
+                    <td className={`dash-text-${pnlTone(h.pnl)}`}>
+                      {hideValues ? fmtPct(h.pnlPct) : fmtMoney(h.pnl)}
+                    </td>
+                    <td className={`dash-text-${pnlTone(h.pnl)}`}>{fmtPct(h.pnlPct)}</td>
+                    <td className={`dash-text-${pnlTone(h.dayChg)}`}>{fmtPct(h.dayChg)}</td>
                     <td className="dash-report-muted">{h.sector || 'Other'}</td>
                   </tr>
                 ))}
@@ -203,7 +211,10 @@ export default function PortfolioReport({
               <li key={s.name}>
                 <div className="dash-report-bar-head">
                   <span>{s.name}</span>
-                  <span>{s.pct.toFixed(1)}% · {fmt(s.value)}</span>
+                  <span>
+                    {s.pct.toFixed(1)}%
+                    {!hideValues && ` · ${fmtMoney(s.value)}`}
+                  </span>
                 </div>
                 <div className="dash-report-bar-track">
                   <div
@@ -223,7 +234,10 @@ export default function PortfolioReport({
               <li key={c.ccy}>
                 <div className="dash-report-bar-head">
                   <span>{c.ccy}</span>
-                  <span>{c.pct.toFixed(1)}% · {fmt(c.value)}</span>
+                  <span>
+                    {c.pct.toFixed(1)}%
+                    {!hideValues && ` · ${fmtMoney(c.value)}`}
+                  </span>
                 </div>
                 <div className="dash-report-bar-track">
                   <div className="dash-report-bar-fill" style={{ width: `${c.pct}%`, background: c.ccy === 'THB' ? '#55efc4' : '#74b9ff' }} />
@@ -242,7 +256,7 @@ export default function PortfolioReport({
                 {topGainers.map((h) => (
                   <li key={h.id}>
                     <span>{h.ticker}</span>
-                    <span style={{ color: '#27ae60' }}>+{h.pnlPct.toFixed(2)}%</span>
+                    <span className="dash-text-gain">{fmtPct(h.pnlPct)}</span>
                   </li>
                 ))}
               </ul>
@@ -255,7 +269,7 @@ export default function PortfolioReport({
                 {topLosers.map((h) => (
                   <li key={h.id}>
                     <span>{h.ticker}</span>
-                    <span style={{ color: '#e74c3c' }}>{h.pnlPct.toFixed(2)}%</span>
+                    <span className="dash-text-loss">{fmtPct(h.pnlPct)}</span>
                   </li>
                 ))}
               </ul>
@@ -273,7 +287,10 @@ export default function PortfolioReport({
               {allPortfolios.map((p) => (
                 <li key={p.id}>
                   <span>{p.name}{p.isActive ? ' ★' : ''}</span>
-                  <span className="dash-report-muted">{p.holdings} หลัก · {fmt(p.invested)}</span>
+                  <span className="dash-report-muted">
+                    {p.holdings} หลัก
+                    {!hideValues && ` · ${fmtMoney(p.invested)}`}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -297,10 +314,18 @@ export default function PortfolioReport({
                     <tr key={t.id}>
                       <td className="dash-report-muted">{t.date?.split('T')[0] || t.date}</td>
                       <td className="dash-report-ticker">{t.ticker}</td>
-                      <td style={{ color: t.type === 'BUY' ? '#55efc4' : '#ff7675' }}>{t.type}</td>
+                      <td className={t.type === 'BUY' ? 'dash-text-gain' : 'dash-text-loss'}>{t.type}</td>
                       <td>{Number(t.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })}</td>
-                      <td>{Number(t.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                      <td>{Number(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      <td>
+                        {hideValues
+                          ? MASKED
+                          : Number(t.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td>
+                        {hideValues
+                          ? MASKED
+                          : Number(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </td>
                       <td className="dash-report-muted">{t.note || '—'}</td>
                     </tr>
                   ))}

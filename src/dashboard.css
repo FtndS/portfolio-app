@@ -81,6 +81,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  color: var(--text);
 }
 
 .dash-table--holdings {
@@ -597,6 +598,27 @@
 .dash-report-kpi-value {
   font-size: 18px;
   font-weight: 500;
+  color: var(--text);
+}
+
+.dash-report-kpi-value--accent { color: var(--accent-text); }
+.dash-report-kpi-value--gain { color: var(--gain); }
+.dash-report-kpi-value--loss { color: var(--loss); }
+
+.dash-report-print-btn {
+  padding: 8px 18px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  font-family: var(--font);
+}
+
+.dash-report-print-btn:hover {
+  background: var(--accent-hover);
 }
 
 .dash-report-grid {

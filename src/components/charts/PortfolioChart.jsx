@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { symFor, CHART_RANGES, BENCHMARK_OPTIONS } from '../../lib/constants'
 import { fmtPct } from '../../lib/format'
+import { usePrivacy } from '../../lib/privacy'
 
 function dateKey(d) {
   return d?.split?.('T')?.[0] || d
@@ -20,8 +21,8 @@ export default function PortfolioChart({
   benchmarkMode,
   onBenchmarkModeChange,
   loading,
-  hideValues = false,
 }) {
+  const { hideValues } = usePrivacy()
   const sym = symFor(displayCurrency === 'THB' ? 'THB' : 'USD')
 
   const chartData = useMemo(() => {
