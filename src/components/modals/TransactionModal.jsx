@@ -23,6 +23,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     type: transaction?.type || 'BUY',
     shares: transaction?.shares != null ? String(transaction.shares) : '',
     price: transaction?.price != null ? String(transaction.price) : '',
+    fee: transaction?.fee != null && Number(transaction.fee) > 0 ? String(transaction.fee) : '',
     note: transaction?.note || '',
     date: transaction?.date?.split('T')[0] || today,
     holding_id: transaction?.holding_id ? String(transaction.holding_id) : '',
@@ -43,6 +44,8 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     const price = parseFloat(f.price)
     if (!Number.isFinite(shares) || shares <= 0) return setError('จำนวนหุ้นต้องมากกว่า 0')
     if (!Number.isFinite(price) || price <= 0) return setError('ราคาต้องมากกว่า 0')
+    const fee = f.fee === '' ? 0 : parseFloat(f.fee)
+    if (!Number.isFinite(fee) || fee < 0) return setError('ค่าธรรมเนียมต้องเป็นตัวเลข 0 ขึ้นไป')
     setLoading(true)
     setError('')
     const cleanTicker = sanitizeTicker(f.ticker)
@@ -51,6 +54,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
       type: f.type,
       shares,
       price,
+      fee,
       note: f.note,
       date: f.date,
       holding_id: f.holding_id || null,
@@ -69,6 +73,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
 
   const sym = f.currency === 'THB' ? '฿' : '$'
   const total = f.shares && f.price ? parseFloat(f.shares) * parseFloat(f.price) : 0
+  const feeNum = f.fee === '' ? 0 : parseFloat(f.fee) || 0
 
   return (
     <Modal title={isEdit ? 'แก้ไข Transaction' : 'บันทึก Transaction'} onClose={onClose}>
@@ -154,10 +159,27 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
           </Field>
         </div>
       </div>
+      <Field label="ค่าธรรมเนียม (optional)">
+        <AmountInput
+          prefix={sym}
+          placeholder="0.00"
+          value={f.fee}
+          nonNegative
+          onChange={(e) => setF({ ...f, fee: e.target.value })}
+        />
+        <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '4px', marginBottom: 0 }}>
+          รวมในราคาทุนเฉลี่ยเมื่อซื้อ (BUY) — เว้นว่างได้ถ้าไม่มี
+        </p>
+      </Field>
       {total > 0 && (
         <div className="dash-tx-total">
           <span className="dash-text-gain" style={{ fontSize: '12px' }}>มูลค่ารวม: </span>
           <span style={{ fontSize: '14px', fontWeight: 600 }}>{sym}{total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          {feeNum > 0 && (
+            <span className="dash-text-muted" style={{ fontSize: '12px', marginLeft: '8px' }}>
+              + ค่าธรรมเนียม {sym}{feeNum.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </span>
+          )}
         </div>
       )}
       <Field label="วันที่">

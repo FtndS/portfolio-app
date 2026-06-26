@@ -313,7 +313,7 @@ export default function PortfolioReport({
               <table className="dash-report-table">
                 <thead>
                   <tr>
-                    {['วันที่', 'Ticker', 'ประเภท', 'สกุลเงิน', 'Shares', 'ราคา', 'มูลค่า', 'หมายเหตุ'].map((h) => (
+                    {['วันที่', 'Ticker', 'ประเภท', 'สกุลเงิน', 'Shares', 'ราคา', 'มูลค่า', 'ค่าธรรมเนียม', 'หมายเหตุ'].map((h) => (
                       <th key={h}>{h}</th>
                     ))}
                   </tr>
@@ -335,6 +335,13 @@ export default function PortfolioReport({
                         {hideValues
                           ? MASKED
                           : `${symFor(t.currency || 'USD')}${Number(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                      </td>
+                      <td className="dash-report-muted">
+                        {hideValues
+                          ? MASKED
+                          : Number(t.fee) > 0
+                            ? `${symFor(t.currency || 'USD')}${Number(t.fee).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                            : '—'}
                       </td>
                       <td className="dash-report-muted">{t.note || '—'}</td>
                     </tr>

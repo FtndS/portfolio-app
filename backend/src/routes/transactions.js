@@ -5,6 +5,7 @@ import { storageTicker, defaultCurrency, detectMarket } from '../lib/ticker.js'
 import { resolvePortfolioId, repairAllPortfolioLinks } from '../lib/portfolio.js'
 import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
 import { parseTransactionCsv } from '../lib/csvImport.js'
+import { parseFee } from '../lib/validate.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -69,13 +70,14 @@ router.post('/import', async (req, res) => {
 
       for (const row of sorted) {
         const total = row.shares * row.price
+        const fee = row.fee ?? 0
         const txCurrency = row.currency || defaultCurrency
         const result = await client.query(
-          `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, note, date, currency)
-           VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, ticker, date, type`,
+          `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, fee, note, date, currency)
+           VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, ticker, date, type`,
           [
             req.userId, portfolioId, row.ticker, row.type,
-            row.shares, row.price, total, row.note, row.date, txCurrency,
+            row.shares, row.price, total, fee, row.note, row.date, txCurrency,
           ]
         )
         imported.push(result.rows[0])
@@ -114,7 +116,7 @@ router.post('/import', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { ticker, type, shares, price, note, date, holding_id, portfolio_id, currency } = req.body
+  const { ticker, type, shares, price, fee, note, date, holding_id, portfolio_id, currency } = req.body
   if (!ticker || !type || !shares || !price || !date) {
     return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' })
   }
@@ -125,6 +127,10 @@ router.post('/', async (req, res) => {
   const priceNum = parseFloat(price)
   if (!(shareNum > 0) || !(priceNum > 0)) {
     return res.status(400).json({ error: 'จำนวนหุ้นและราคาต้องมากกว่า 0' })
+  }
+  const feeNum = parseFee(fee)
+  if (feeNum == null) {
+    return res.status(400).json({ error: 'ค่าธรรมเนียมต้องเป็นตัวเลข 0 ขึ้นไป' })
   }
 
   let txCurrency = currency
@@ -146,10 +152,10 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN')
 
     const txResult = await client.query(
-      `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, note, date, currency)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, fee, note, date, currency)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [req.userId, portfolioId, holding_id || null, sanitizedTicker, type,
-        shareNum, priceNum, total, note || null, date, txCurrency]
+        shareNum, priceNum, total, feeNum, note || null, date, txCurrency]
     )
 
     await syncHoldingFromTransactions(client, req.userId, portfolioId, sanitizedTicker, null, txCurrency)
@@ -165,7 +171,7 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { ticker, type, shares, price, note, date, holding_id, currency } = req.body
+  const { ticker, type, shares, price, fee, note, date, holding_id, currency } = req.body
   if (!ticker || !type || !shares || !price || !date) {
     return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' })
   }
@@ -176,6 +182,10 @@ router.put('/:id', async (req, res) => {
   const priceNum = parseFloat(price)
   if (!(shareNum > 0) || !(priceNum > 0)) {
     return res.status(400).json({ error: 'จำนวนหุ้นและราคาต้องมากกว่า 0' })
+  }
+  const feeNum = parseFee(fee)
+  if (feeNum == null) {
+    return res.status(400).json({ error: 'ค่าธรรมเนียมต้องเป็นตัวเลข 0 ขึ้นไป' })
   }
 
   const client = await pool.connect()
@@ -230,12 +240,12 @@ router.put('/:id', async (req, res) => {
 
     const txResult = await client.query(
       `UPDATE transactions
-       SET ticker = $1, type = $2, shares = $3, price = $4, total = $5,
-           note = $6, date = $7, holding_id = $8, currency = $9
-       WHERE id = $10 AND user_id = $11
+       SET ticker = $1, type = $2, shares = $3, price = $4, total = $5, fee = $6,
+           note = $7, date = $8, holding_id = $9, currency = $10
+       WHERE id = $11 AND user_id = $12
        RETURNING *`,
       [
-        sanitizedTicker, type, shareNum, priceNum, total,
+        sanitizedTicker, type, shareNum, priceNum, total, feeNum,
         note || null, date, holding_id || null, txCurrency,
         req.params.id, req.userId,
       ]

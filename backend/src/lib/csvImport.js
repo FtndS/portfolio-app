@@ -8,6 +8,7 @@ const COLUMN_ALIASES = {
   type: ['type', 'side', 'action', 'ประเภท', 'buy/sell'],
   shares: ['shares', 'share', 'quantity', 'qty', 'amount', 'จำนวน', 'จำนวนหุ้น'],
   price: ['price', 'ราคา', 'price per share', 'unit price', 'ราคาต่อหุ้น'],
+  fee: ['fee', 'fees', 'commission', 'ค่าธรรมเนียม', 'comm'],
   currency: ['currency', 'ccy', 'สกุลเงิน', 'curr'],
   note: ['note', 'notes', 'memo', 'หมายเหตุ', 'description', 'remark'],
 }
@@ -122,6 +123,8 @@ function rowFromCells(cells, colMap, lineNo, defaultCurrency) {
   const type = parseType(get('type'))
   const shares = parseNumber(get('shares'))
   const price = parseNumber(get('price'))
+  const feeRaw = get('fee')
+  const feeParsed = feeRaw === '' ? 0 : parseNumber(feeRaw)
   const currencyFromCol = String(get('currency') || '').trim().toUpperCase()
   const currencyRaw = currencyFromCol
     || inferCurrencyFromTicker(ticker)
@@ -134,7 +137,10 @@ function rowFromCells(cells, colMap, lineNo, defaultCurrency) {
   if (!type) errors.push('ประเภทต้องเป็น BUY หรือ SELL')
   if (!(shares > 0)) errors.push('จำนวนหุ้นต้องมากกว่า 0')
   if (!(price > 0)) errors.push('ราคาต้องมากกว่า 0')
+  if (feeRaw !== '' && (feeParsed == null || feeParsed < 0)) errors.push('ค่าธรรมเนียมต้องเป็นตัวเลข 0 ขึ้นไป')
   if (!currency) errors.push('สกุลเงินต้องเป็น USD, THB, HKD หรือ CNY')
+
+  const fee = feeRaw === '' ? 0 : feeParsed
 
   const row = {
     line: lineNo,
@@ -143,6 +149,7 @@ function rowFromCells(cells, colMap, lineNo, defaultCurrency) {
     type,
     shares,
     price,
+    fee,
     currency,
     note,
     total: shares && price ? shares * price : null,
@@ -173,7 +180,7 @@ export function parseTransactionCsv(text, { defaultCurrency = 'USD' } = {}) {
   const hasHeader = looksLikeHeader(firstCells)
   const colMap = hasHeader
     ? mapHeaders(firstCells)
-    : { date: 0, ticker: 1, type: 2, shares: 3, price: 4, currency: 5, note: 6 }
+    : { date: 0, ticker: 1, type: 2, shares: 3, price: 4, currency: 5, fee: 6, note: 7 }
 
   const required = ['date', 'ticker', 'type', 'shares', 'price']
   const missingCols = required.filter((f) => colMap[f] == null)

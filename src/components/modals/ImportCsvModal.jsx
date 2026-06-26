@@ -57,10 +57,10 @@ export default function ImportCsvModal({ portfolioId, onClose, onSave }) {
   return (
     <Modal title="Import CSV" onClose={onClose}>
       <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '16px', lineHeight: 1.6 }}>
-        นำเข้า transaction หลายรายการพร้อมกัน คอลัมน์ที่ต้องมี:{' '}
+        นำเข้า transaction หลายรายการพร้อมกัน         คอลัมน์ที่ต้องมี:{' '}
         <code className="dash-text-accent">date, ticker, type, shares, price</code>
         <br />
-        ไม่บังคับ: <code className="dash-text-accent">currency</code> (ถ้าไม่ใส่ จะเดาจาก ticker เช่น SCB-BK → THB), <code className="dash-text-accent">note</code>
+        ไม่บังคับ: <code className="dash-text-accent">fee</code> (ค่าธรรมเนียม), <code className="dash-text-accent">currency</code> (ถ้าไม่ใส่ จะเดาจาก ticker เช่น SCB-BK → THB), <code className="dash-text-accent">note</code>
       </p>
       <p className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '14px' }}>
         <a href="/import-template.csv" download className="dash-link">ดาวน์โหลดไฟล์ตัวอย่าง</a>
@@ -74,7 +74,7 @@ export default function ImportCsvModal({ portfolioId, onClose, onSave }) {
         <textarea
           value={csvText}
           onChange={(e) => { setCsvText(e.target.value); setPreview(null) }}
-          placeholder={'date,ticker,type,shares,price,currency,note\n15/01/2024,VOO,BUY,10,450.25,USD,'}
+          placeholder={'date,ticker,type,shares,price,fee,currency,note\n15/01/2024,VOO,BUY,10,450.25,1.25,USD,'}
           style={{ ...inp(), height: '120px', resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', marginBottom: 0 }}
         />
       </Field>
@@ -97,7 +97,7 @@ export default function ImportCsvModal({ portfolioId, onClose, onSave }) {
             <table>
               <thead>
                 <tr>
-                  {['วันที่', 'Ticker', 'Type', 'Shares', 'Price', 'CCY'].map((h) => (
+                  {['วันที่', 'Ticker', 'Type', 'Shares', 'Price', 'Fee', 'CCY'].map((h) => (
                     <th key={h}>{h}</th>
                   ))}
                 </tr>
@@ -110,6 +110,7 @@ export default function ImportCsvModal({ portfolioId, onClose, onSave }) {
                     <td>{r.type}</td>
                     <td>{r.shares}</td>
                     <td>{r.price}</td>
+                    <td>{r.fee > 0 ? r.fee : '—'}</td>
                     <td>{r.currency}</td>
                   </tr>
                 ))}

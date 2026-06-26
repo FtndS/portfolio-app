@@ -384,6 +384,15 @@ const migrations = [
       ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
     `,
   },
+  {
+    name: '015_transactions_fee',
+    sql: `
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fee NUMERIC(18, 2) NOT NULL DEFAULT 0;
+    `,
+    async after() {
+      await rebuildHoldingsFromTransactions(pool)
+    },
+  },
 ]
 
 export async function runMigrations() {

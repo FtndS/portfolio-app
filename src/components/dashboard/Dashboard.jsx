@@ -578,12 +578,12 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           <div className="dash-table-wrap">
             <table className="dash-table dash-table--transactions">
               <thead><tr style={{borderBottom:'1px solid var(--border)'}}>
-                {['วันที่','Ticker','ประเภท','สกุลเงิน','Shares','ราคา/หุ้น','มูลค่ารวม','หมายเหตุ',''].map((h,i)=>(
+                {['วันที่','Ticker','ประเภท','สกุลเงิน','Shares','ราคา/หุ้น','มูลค่ารวม','ค่าธรรมเนียม','หมายเหตุ',''].map((h,i)=>(
                   <th key={i} className="dash-text-muted" style={{padding:'11px 13px',textAlign:'left',fontWeight:400}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
-                {filteredTransactions.length===0?<tr><td colSpan={9} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
+                {filteredTransactions.length===0?<tr><td colSpan={10} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
                 :filteredTransactions.map(t=>(
                   <tr key={t.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(t.date)}</td>
@@ -593,6 +593,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{fmtTx(t,t.price)}</td>
                     <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{fmtTx(t,t.total)}</td>
+                    <td data-label="ค่าธรรมเนียม" className="dash-text-muted" style={{padding:'11px 13px'}}>
+                      {Number(t.fee) > 0 ? fmtTx(t, t.fee) : '—'}
+                    </td>
                     <td data-label="หมายเหตุ" className="dash-text-muted" style={{padding:'11px 13px'}}>{t.note||'—'}</td>
                     <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
                       {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')})}

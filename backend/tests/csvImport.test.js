@@ -32,4 +32,17 @@ describe('parseTransactionCsv', () => {
     expect(result.validCount).toBe(1)
     expect(result.validRows[0].ticker).toBe('PTT-BK')
   })
+
+  it('parses optional fee column', () => {
+    const csv = 'date,ticker,type,shares,price,fee,currency,note\n2024-01-15,AAPL,BUY,10,150.5,1.25,USD,'
+    const result = parseTransactionCsv(csv, { defaultCurrency: 'USD' })
+    expect(result.validCount).toBe(1)
+    expect(result.validRows[0].fee).toBe(1.25)
+  })
+
+  it('defaults fee to 0 when column missing', () => {
+    const csv = `${HEADER}2024-01-15,AAPL,BUY,10,150.5,USD,`
+    const result = parseTransactionCsv(csv, { defaultCurrency: 'USD' })
+    expect(result.validRows[0].fee).toBe(0)
+  })
 })
