@@ -1,4 +1,5 @@
 import pool from './index.js'
+import { rebuildHoldingsFromTransactions } from '../lib/holdingSync.js'
 
 const migrations = [
   {
@@ -114,7 +115,61 @@ const migrations = [
         ON users (password_reset_token)
         WHERE password_reset_token IS NOT NULL;
     `
-  }
+  },
+  {
+    name: '007_strict_portfolio_isolation',
+    sql: `
+      -- Backfill any rows still missing portfolio_id
+      UPDATE holdings h SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = h.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NULL AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = h.user_id);
+
+      UPDATE transactions t SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = t.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NULL AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = t.user_id);
+
+      UPDATE journal j SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = j.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NULL AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = j.user_id);
+
+      -- Re-link rows pointing at deleted portfolios
+      UPDATE holdings h SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = h.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM portfolios p WHERE p.id = h.portfolio_id AND p.user_id = h.user_id)
+        AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = h.user_id);
+
+      UPDATE transactions t SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = t.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM portfolios p WHERE p.id = t.portfolio_id AND p.user_id = t.user_id)
+        AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = t.user_id);
+
+      UPDATE journal j SET portfolio_id = (
+        SELECT id FROM portfolios p WHERE p.user_id = j.user_id ORDER BY is_default DESC, id ASC LIMIT 1
+      ) WHERE portfolio_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM portfolios p WHERE p.id = j.portfolio_id AND p.user_id = j.user_id)
+        AND EXISTS (SELECT 1 FROM portfolios p WHERE p.user_id = j.user_id);
+
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'holdings' AND column_name = 'portfolio_id' AND is_nullable = 'YES') THEN
+          ALTER TABLE holdings ALTER COLUMN portfolio_id SET NOT NULL;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'transactions' AND column_name = 'portfolio_id' AND is_nullable = 'YES') THEN
+          ALTER TABLE transactions ALTER COLUMN portfolio_id SET NOT NULL;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'journal' AND column_name = 'portfolio_id' AND is_nullable = 'YES') THEN
+          ALTER TABLE journal ALTER COLUMN portfolio_id SET NOT NULL;
+        END IF;
+      END $$;
+    `,
+    async after() {
+      await rebuildHoldingsFromTransactions(pool)
+    },
+  },
 ]
 
 export async function runMigrations() {
@@ -133,6 +188,7 @@ export async function runMigrations() {
     try {
       await pool.query('BEGIN')
       await pool.query(m.sql)
+      if (m.after) await m.after()
       await pool.query('INSERT INTO schema_migrations (name) VALUES ($1)', [m.name])
       await pool.query('COMMIT')
       console.log(`Migration applied: ${m.name}`)

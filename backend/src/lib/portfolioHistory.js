@@ -1,6 +1,5 @@
 import pool from '../db/index.js'
 import { toYahooTicker } from './ticker.js'
-import { isDefaultPortfolio } from './portfolio.js'
 
 const priceHistoryCache = new Map()
 const PRICE_HIST_TTL = 30 * 60 * 1000
@@ -95,15 +94,10 @@ function buildSampleDates(transactions, days) {
 }
 
 export async function computePortfolioHistory(userId, portfolioId, days = 90) {
-  const isDefault = await isDefaultPortfolio(userId, portfolioId)
-
   const txResult = await pool.query(
-    isDefault
-      ? `SELECT ticker, type, shares, price, date FROM transactions
-         WHERE user_id = $1 ORDER BY date ASC, created_at ASC`
-      : `SELECT ticker, type, shares, price, date FROM transactions
-         WHERE user_id = $1 AND portfolio_id = $2 ORDER BY date ASC, created_at ASC`,
-    isDefault ? [userId] : [userId, portfolioId]
+    `SELECT ticker, type, shares, price, date FROM transactions
+     WHERE user_id = $1 AND portfolio_id = $2 ORDER BY date ASC, created_at ASC`,
+    [userId, portfolioId]
   )
   const transactions = txResult.rows
 

@@ -2,7 +2,7 @@ import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { toYahooTicker, defaultCurrency, detectMarket } from '../lib/ticker.js'
-import { resolvePortfolioId, isDefaultPortfolio } from '../lib/portfolio.js'
+import { resolvePortfolioId } from '../lib/portfolio.js'
 import { fetchCompanyProfile, needsSectorRefresh } from '../lib/profile.js'
 
 const router = express.Router()
@@ -31,12 +31,8 @@ async function refreshStaleSectors(rows) {
 router.get('/', async (req, res) => {
   try {
     const portfolioId = await resolvePortfolioId(req.userId, req.query.portfolio_id)
-    const includeOrphans = await isDefaultPortfolio(req.userId, portfolioId)
     const result = await pool.query(
-      includeOrphans
-        ? `SELECT * FROM holdings WHERE user_id = $1
-           AND (portfolio_id = $2 OR portfolio_id IS NULL) ORDER BY ticker`
-        : `SELECT * FROM holdings WHERE user_id = $1 AND portfolio_id = $2 ORDER BY ticker`,
+      `SELECT * FROM holdings WHERE user_id = $1 AND portfolio_id = $2 ORDER BY ticker`,
       [req.userId, portfolioId]
     )
     await refreshStaleSectors(result.rows)
@@ -93,12 +89,8 @@ router.put('/:id', async (req, res) => {
 router.post('/refresh-sectors', async (req, res) => {
   try {
     const portfolioId = await resolvePortfolioId(req.userId, req.body.portfolio_id)
-    const isDefault = await isDefaultPortfolio(req.userId, portfolioId)
     const result = await pool.query(
-      isDefault
-        ? `SELECT * FROM holdings WHERE user_id = $1
-           AND (portfolio_id = $2 OR portfolio_id IS NULL)`
-        : `SELECT * FROM holdings WHERE user_id = $1 AND portfolio_id = $2`,
+      `SELECT * FROM holdings WHERE user_id = $1 AND portfolio_id = $2`,
       [req.userId, portfolioId]
     )
     await refreshStaleSectors(result.rows)

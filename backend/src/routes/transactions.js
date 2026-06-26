@@ -2,7 +2,7 @@ import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { toYahooTicker } from '../lib/ticker.js'
-import { resolvePortfolioId, isDefaultPortfolio, getDefaultPortfolioId } from '../lib/portfolio.js'
+import { resolvePortfolioId, repairAllPortfolioLinks } from '../lib/portfolio.js'
 import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
 
 const router = express.Router()
@@ -11,20 +11,11 @@ router.use(authMiddleware)
 router.get('/', async (req, res) => {
   try {
     const portfolioId = await resolvePortfolioId(req.userId, req.query.portfolio_id)
-    const isDefault = await isDefaultPortfolio(req.userId, portfolioId)
-
-    // Main Portfolio = แสดง transaction ทั้งหมดของ user (รองรับข้อมูลเก่าที่ portfolio_id ไม่ตรง)
-    const result = isDefault
-      ? await pool.query(
-          `SELECT * FROM transactions WHERE user_id = $1
-           ORDER BY date DESC, created_at DESC`,
-          [req.userId]
-        )
-      : await pool.query(
-          `SELECT * FROM transactions WHERE user_id = $1 AND portfolio_id = $2
-           ORDER BY date DESC, created_at DESC`,
-          [req.userId, portfolioId]
-        )
+    const result = await pool.query(
+      `SELECT * FROM transactions WHERE user_id = $1 AND portfolio_id = $2
+       ORDER BY date DESC, created_at DESC`,
+      [req.userId, portfolioId]
+    )
 
     res.json(result.rows)
   } catch (err) {
@@ -102,7 +93,14 @@ router.put('/:id', async (req, res) => {
     }
 
     const oldTicker = existing.rows[0].ticker
-    const portfolioId = existing.rows[0].portfolio_id || await getDefaultPortfolioId(req.userId)
+    let portfolioId = existing.rows[0].portfolio_id
+    if (!portfolioId) {
+      portfolioId = await repairAllPortfolioLinks(req.userId)
+      await client.query(
+        'UPDATE transactions SET portfolio_id = $1 WHERE id = $2 AND user_id = $3',
+        [portfolioId, req.params.id, req.userId]
+      )
+    }
 
     const txResult = await client.query(
       `UPDATE transactions
@@ -148,7 +146,14 @@ router.delete('/:id', async (req, res) => {
     }
 
     const { ticker, portfolio_id: rawPortfolioId } = tx.rows[0]
-    const portfolioId = rawPortfolioId || await getDefaultPortfolioId(req.userId)
+    let portfolioId = rawPortfolioId
+    if (!portfolioId) {
+      portfolioId = await repairAllPortfolioLinks(req.userId)
+      await client.query(
+        'UPDATE transactions SET portfolio_id = $1 WHERE id = $2 AND user_id = $3',
+        [portfolioId, req.params.id, req.userId]
+      )
+    }
     await client.query('DELETE FROM transactions WHERE id = $1 AND user_id = $2', [req.params.id, req.userId])
     await syncHoldingFromTransactions(client, req.userId, portfolioId, ticker)
 
