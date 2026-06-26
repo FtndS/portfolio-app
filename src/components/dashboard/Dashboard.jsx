@@ -17,13 +17,17 @@ import SettingsModal from '../modals/SettingsModal'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
-import { symFor, JOURNAL_TAGS as journalTags } from '../../lib/constants'
+import { symFor, JOURNAL_TAGS as journalTags, CHART_RANGE_DAYS } from '../../lib/constants'
 
 export default function Dashboard({user,onLogout,onUserUpdate}){
   const [portfolios,setPortfolios]=useState([])
   const [activePortfolioId,setActivePortfolioId]=useState(null)
   const [portfolioHistory,setPortfolioHistory]=useState([])
   const [heatmapMode,setHeatmapMode]=useState('today')
+  const [chartRange, setChartRange] = useState('3m')
+  const [benchmarkMode, setBenchmarkMode] = useState('auto')
+  const [benchmarkData, setBenchmarkData] = useState(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
   const [newPortName,setNewPortName]=useState('')
   const [holdings,setHoldings]=useState([])
   const [journal,setJournal]=useState([])
@@ -74,11 +78,24 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     return hl
   },[activePortfolioId])
 
-  const fetchHistory=useCallback(async(portfolioId)=>{
+  const fetchHistory=useCallback(async(portfolioId, range = chartRange)=>{
     if(!portfolioId) return
-    const h=await api.get(`/portfolios/${portfolioId}/history`,{days:90})
-    setPortfolioHistory(Array.isArray(h)?h:[])
-  },[])
+    setLoadingHistory(true)
+    try {
+      const days = CHART_RANGE_DAYS[range] ?? 90
+      const r = await api.get(`/portfolios/${portfolioId}/history`, { days, benchmark: benchmarkMode })
+      if (Array.isArray(r)) {
+        setPortfolioHistory(r)
+        setBenchmarkData(null)
+      } else {
+        setPortfolioHistory(Array.isArray(r.history) ? r.history : [])
+        setBenchmarkData(r.benchmark || null)
+      }
+    } catch (e) {
+      console.error('History fetch error:', e)
+    }
+    setLoadingHistory(false)
+  },[chartRange, benchmarkMode])
 
   const recordSnapshot=useCallback(async(portfolioId,hl,pricesMap)=>{
     if(!portfolioId||!hl?.length) return
@@ -176,7 +193,6 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     fetchAll(activePortfolioId).then(hl=>{
       fetchPrices(hl,activePortfolioId)
       loadClientNews(hl)
-      fetchHistory(activePortfolioId)
     })
     const priceInterval=setInterval(()=>{
       if(holdings.length>0) fetchPrices(holdings,activePortfolioId)
@@ -186,6 +202,11 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     },15*60*1000)
     return()=>{clearInterval(priceInterval);clearInterval(newsInterval)}
   },[activePortfolioId])
+
+  useEffect(() => {
+    if (!activePortfolioId) return
+    fetchHistory(activePortfolioId, chartRange)
+  }, [activePortfolioId, chartRange, benchmarkMode, fetchHistory])
 
   useEffect(() => {
     if (!user?.id || !dataReady || !activePortfolioId) return
@@ -317,7 +338,16 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             ))}
           </div>
           {holdings.length>0&&<>
-            <PortfolioChart history={portfolioHistory} displayCurrency={displayCurrency}/>
+            <PortfolioChart
+              history={portfolioHistory}
+              benchmark={benchmarkData}
+              displayCurrency={displayCurrency}
+              chartRange={chartRange}
+              onChartRangeChange={setChartRange}
+              benchmarkMode={benchmarkMode}
+              onBenchmarkModeChange={setBenchmarkMode}
+              loading={loadingHistory}
+            />
             <SectorAreaChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px',gap:'6px'}}>

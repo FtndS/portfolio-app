@@ -22,3 +22,23 @@ export const sanitizeTicker = (ticker) => {
   if (!ticker) return ''
   return ticker.trim().toUpperCase().replace(/\s+/g, '-').replace(/\./g, '-')
 }
+
+export const CHART_RANGES = [
+  { id: '1m', label: '1M', days: 30 },
+  { id: '3m', label: '3M', days: 90 },
+  { id: '6m', label: '6M', days: 180 },
+  { id: '1y', label: '1Y', days: 365 },
+  { id: 'ytd', label: 'YTD', days: 'ytd' },
+  { id: 'all', label: 'All', days: 'all' },
+]
+
+export const CHART_RANGE_DAYS = Object.fromEntries(
+  CHART_RANGES.map((r) => [r.id, r.days])
+)
+
+export const BENCHMARK_OPTIONS = [
+  { id: 'auto', label: 'Auto' },
+  { id: 'sp500', label: 'S&P 500' },
+  { id: 'set', label: 'SET' },
+  { id: 'none', label: 'ปิด' },
+]

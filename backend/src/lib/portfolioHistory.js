@@ -4,14 +4,53 @@ import { toYahooTicker, resolveMarket } from './ticker.js'
 const priceHistoryCache = new Map()
 const PRICE_HIST_TTL = 30 * 60 * 1000
 
-async function fetchHistoricalPrices(ticker, range = '6mo', meta = {}) {
-  const yahoo = toYahooTicker(ticker, resolveMarket(ticker, meta.market, meta.currency))
-  const cacheKey = `${yahoo}:${range}`
+export const BENCHMARKS = {
+  sp500: { symbol: '^GSPC', label: 'S&P 500' },
+  set: { symbol: '^SET.BK', label: 'SET Index' },
+}
+
+export function resolveDaysParam(daysParam) {
+  if (daysParam === 'ytd') {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), 0, 1)
+    return Math.max(1, Math.ceil((now - start) / 86400000) + 1)
+  }
+  if (daysParam === 'all') return 3650
+  const n = parseInt(daysParam, 10)
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 3650) : 90
+}
+
+export function daysToYahooRange(days) {
+  const d = typeof days === 'number' ? days : 90
+  if (d > 1825) return '5y'
+  if (d > 730) return '2y'
+  if (d > 365) return '1y'
+  if (d > 180) return '6mo'
+  if (d > 90) return '3mo'
+  return '1mo'
+}
+
+export function resolveBenchmark(holdings, portfolioCurrency, preference = 'auto') {
+  if (preference === 'none') return null
+  if (preference === 'sp500') return BENCHMARKS.sp500
+  if (preference === 'set') return BENCHMARKS.set
+
+  if (!holdings?.length) {
+    return portfolioCurrency === 'THB' ? BENCHMARKS.set : BENCHMARKS.sp500
+  }
+
+  const thbCount = holdings.filter((h) => (h.currency || 'USD') === 'THB').length
+  return thbCount > holdings.length / 2 ? BENCHMARKS.set : BENCHMARKS.sp500
+}
+
+async function fetchYahooDailyCloses(yahooSymbol, days) {
+  const range = daysToYahooRange(days)
+  const cacheKey = `${yahooSymbol}:${range}`
   const cached = priceHistoryCache.get(cacheKey)
   if (cached && Date.now() - cached.ts < PRICE_HIST_TTL) return cached.data
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahoo)}?interval=1d&range=${range}`
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=${range}`
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
       signal: AbortSignal.timeout(10000),
@@ -30,9 +69,14 @@ async function fetchHistoricalPrices(ticker, range = '6mo', meta = {}) {
     priceHistoryCache.set(cacheKey, { data: map, ts: Date.now() })
     return map
   } catch (e) {
-    console.error(`Historical price error for ${yahoo}:`, e.message)
+    console.error(`Historical price error for ${yahooSymbol}:`, e.message)
     return {}
   }
+}
+
+async function fetchHistoricalPrices(ticker, days, meta = {}) {
+  const yahoo = toYahooTicker(ticker, resolveMarket(ticker, meta.market, meta.currency))
+  return fetchYahooDailyCloses(yahoo, days)
 }
 
 function priceOnDate(priceMap, dateStr, fallback = 0) {
@@ -77,11 +121,13 @@ function buildSampleDates(transactions, days) {
     dates.add((tx.date instanceof Date ? tx.date.toISOString() : String(tx.date)).split('T')[0])
   }
 
+  const step = days > 365 ? 14 : days > 180 ? 7 : 1
+
   if (transactions.length) {
     const first = [...dates].sort()[0]
     const start = new Date(first)
     const end = new Date(today)
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 7)) {
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + step)) {
       dates.add(d.toISOString().split('T')[0])
     }
   }
@@ -130,10 +176,9 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   }
 
   const tickers = [...new Set(transactions.map(t => t.ticker))]
-  const range = days <= 90 ? '3mo' : days <= 180 ? '6mo' : '1y'
   const priceMaps = {}
   await Promise.all(tickers.map(async (t) => {
-    priceMaps[t] = await fetchHistoricalPrices(t, range, holdingMeta[t] || {})
+    priceMaps[t] = await fetchHistoricalPrices(t, days, holdingMeta[t] || {})
   }))
 
   const sampleDates = buildSampleDates(transactions, days)
@@ -190,4 +235,40 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   }
 
   return unique.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export async function computeBenchmarkHistory(benchmark, historyDates, days) {
+  if (!benchmark || !historyDates?.length) {
+    return { label: benchmark?.label, symbol: benchmark?.symbol, series: [], changePct: 0 }
+  }
+
+  const priceMap = await fetchYahooDailyCloses(benchmark.symbol, days)
+  const series = historyDates
+    .map((date) => {
+      const dateStr = String(date).split('T')[0]
+      const close = priceOnDate(priceMap, dateStr, null)
+      return close != null ? { date: dateStr, close } : null
+    })
+    .filter(Boolean)
+
+  if (!series.length) {
+    return { label: benchmark.label, symbol: benchmark.symbol, series: [], changePct: 0 }
+  }
+
+  const firstClose = series[0].close
+  const normalized = series.map((p) => ({
+    date: p.date,
+    close: p.close,
+    indexed: firstClose > 0 ? (p.close / firstClose) * 100 : 100,
+  }))
+
+  const last = normalized[normalized.length - 1]
+  const changePct = last.indexed - 100
+
+  return {
+    label: benchmark.label,
+    symbol: benchmark.symbol,
+    series: normalized,
+    changePct: Math.round(changePct * 100) / 100,
+  }
 }

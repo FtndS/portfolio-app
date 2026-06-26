@@ -1,7 +1,7 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { computePortfolioHistory } from '../lib/portfolioHistory.js'
+import { computePortfolioHistory, computeBenchmarkHistory, resolveBenchmark, resolveDaysParam } from '../lib/portfolioHistory.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -121,18 +121,39 @@ router.delete('/:id', async (req, res) => {
 
 // Portfolio value history (Google Finance style)
 router.get('/:id/history', async (req, res) => {
-  const { days = 90 } = req.query
+  const days = resolveDaysParam(req.query.days ?? 90)
+  const benchmarkPref = req.query.benchmark ?? 'auto'
   try {
     const owns = await pool.query(
-      'SELECT id FROM portfolios WHERE id = $1 AND user_id = $2',
+      'SELECT id, currency FROM portfolios WHERE id = $1 AND user_id = $2',
       [req.params.id, req.userId]
     )
     if (!owns.rows.length) return res.status(404).json({ error: 'Not found' })
 
-    const history = await computePortfolioHistory(req.userId, Number(req.params.id), parseInt(days) || 90)
-    res.json(history)
+    const portfolioId = Number(req.params.id)
+    const [history, holdingsResult] = await Promise.all([
+      computePortfolioHistory(req.userId, portfolioId, days),
+      pool.query(
+        'SELECT ticker, market, currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2',
+        [req.userId, portfolioId]
+      ),
+    ])
+
+    let benchmark = null
+    if (benchmarkPref !== 'none' && history.length) {
+      const bm = resolveBenchmark(holdingsResult.rows, owns.rows[0].currency, benchmarkPref)
+      if (bm) {
+        benchmark = await computeBenchmarkHistory(
+          bm,
+          history.map((h) => h.date),
+          days
+        )
+      }
+    }
+
+    res.json({ history, benchmark })
   } catch (err) {
-    console.error('Portfolio history error:', err)
+    console.error('Portfolio history error:', err.message)
     res.status(500).json({ error: err.message })
   }
 })
