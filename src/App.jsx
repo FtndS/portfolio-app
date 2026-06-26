@@ -135,63 +135,268 @@ function Login({onLogin,onGoRegister,onGoForgot,onGoHome}){
   )
 }
 
-function Register({onGoLogin,onGoHome}){
-  const [form,setForm]=useState({name:'',email:'',password:'',confirm:''})
-  const [error,setError]=useState('')
-  const [ok,setOk]=useState(false)
-  const go=async()=>{
-    if(!form.name||!form.email||!form.password) return setError('กรุณากรอกข้อมูลให้ครบ')
-    if(form.password!==form.confirm) return setError('Password ไม่ตรงกัน')
-    if(form.password.length<8) return setError('Password ต้องมีอย่างน้อย 8 ตัว')
-    try{
-      const r=await api.post('/auth/register',{name:form.name,email:form.email,password:form.password})
-      if(r.user) setOk(true); else setError(r.error||'สมัครไม่สำเร็จ')
-    }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้ — ลองใหม่หรือติดต่อ admin')}
+function OtpInput({ value, onChange, onKeyDown }) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      maxLength={6}
+      style={{ ...inp(), letterSpacing: '0.35em', textAlign: 'center', fontSize: '22px', fontWeight: 600 }}
+      placeholder="000000"
+      value={value}
+      onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
+      onKeyDown={onKeyDown}
+    />
+  )
+}
+
+function Register({ onGoLogin, onGoHome, onLogin }) {
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
+  const [otp, setOtp] = useState('')
+  const [step, setStep] = useState('form')
+  const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [resendIn, setResendIn] = useState(0)
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [resendIn])
+
+  const validateForm = () => {
+    if (!form.name || !form.email || !form.password) return 'กรุณากรอกข้อมูลให้ครบ'
+    if (form.password !== form.confirm) return 'Password ไม่ตรงกัน'
+    if (form.password.length < 8) return 'Password ต้องมีอย่างน้อย 8 ตัว'
+    return null
   }
-  const onKeyDown=e=>{ if(e.key==='Enter') go() }
-  if(ok) return <div className="auth-wrap"><div className="auth-card" style={{textAlign:'center'}}><div style={{fontSize:'48px',marginBottom:'16px'}}>🎉</div><h2 style={{color:'#fff',marginBottom:'8px'}}>สมัครสำเร็จ!</h2><button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button></div></div>
-  return(
+
+  const sendOtp = async () => {
+    setError('')
+    setInfo('')
+    const err = validateForm()
+    if (err) return setError(err)
+    setLoading(true)
+    try {
+      const r = await api.post('/auth/register/send-otp', {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+      })
+      if (r.message) {
+        setStep('otp')
+        setInfo(r.message)
+        setResendIn(r.retryAfter || 60)
+        if (r.devOtp) setInfo(`${r.message} (dev OTP: ${r.devOtp})`)
+      } else setError(r.error || 'ส่ง OTP ไม่สำเร็จ')
+    } catch (e) {
+      setError('เชื่อมต่อเซิร์verไม่ได้ — ลองใหม่หรือติดต่อ admin')
+    }
+    setLoading(false)
+  }
+
+  const resendOtp = async () => {
+    if (resendIn > 0) return
+    setError('')
+    setLoading(true)
+    try {
+      const r = await api.post('/auth/resend-otp', {
+        email: form.email,
+        purpose: 'register',
+        name: form.name,
+        password: form.password,
+      })
+      if (r.message) {
+        setInfo(r.message)
+        setResendIn(r.retryAfter || 60)
+        if (r.devOtp) setInfo(`${r.message} (dev OTP: ${r.devOtp})`)
+      } else setError(r.error || 'ส่ง OTP ไม่สำเร็จ')
+    } catch (e) {
+      setError('เชื่อมต่อเซิร์verไม่ได้')
+    }
+    setLoading(false)
+  }
+
+  const verifyOtp = async () => {
+    setError('')
+    setInfo('')
+    if (otp.length !== 6) return setError('กรุณาใส่รหัส OTP 6 หลัก')
+    setLoading(true)
+    try {
+      const r = await api.post('/auth/register/verify', {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        otp,
+      })
+      if (r.token) {
+        localStorage.setItem('token', r.token)
+        localStorage.setItem('user', JSON.stringify(r.user))
+        if (onLogin) onLogin(r.user)
+        else setStep('done')
+      } else setError(r.error || 'ยืนยัน OTP ไม่สำเร็จ')
+    } catch (e) {
+      setError('เชื่อมต่อเซิร์verไม่ได้')
+    }
+    setLoading(false)
+  }
+
+  const onKeyDown = (e) => { if (e.key === 'Enter') step === 'form' ? sendOtp() : verifyOtp() }
+
+  if (step === 'done') {
+    return (
+      <div className="auth-wrap"><div className="auth-card" style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+        <h2 style={{ color: '#fff', marginBottom: '8px' }}>สมัครสำเร็จ!</h2>
+        <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>ยืนยันอีเมลเรียบร้อยแล้ว</p>
+        <button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button>
+      </div></div>
+    )
+  }
+
+  if (step === 'otp') {
+    return (
+      <div className="auth-wrap"><div className="auth-card">
+        <h1 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>ยืนยันอีเมล</h1>
+        <p style={{ color: '#555', fontSize: '13px', marginBottom: '20px' }}>
+          ส่งรหัส OTP 6 หลักไปที่ <strong style={{ color: '#aaa' }}>{form.email}</strong>
+        </p>
+        {error && <p style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
+        {info && <p style={{ color: '#55efc4', fontSize: '13px', marginBottom: '16px' }}>{info}</p>}
+        <Field label="รหัส OTP">
+          <OtpInput value={otp} onChange={setOtp} onKeyDown={onKeyDown} />
+        </Field>
+        <button onClick={verifyOtp} style={{ ...btnPrimary, marginTop: '8px' }} disabled={loading}>
+          {loading ? 'กำลังยืนยัน...' : 'ยืนยันและสมัครสมาชิก'}
+        </button>
+        <p style={{ textAlign: 'center', marginTop: '14px', fontSize: '12px', color: '#555' }}>
+          {resendIn > 0 ? `ขอรหัสใหม่ได้ใน ${resendIn} วินาที` : (
+            <span onClick={resendOtp} style={{ color: '#a29bfe', cursor: 'pointer' }}>ส่งรหัส OTP อีกครั้ง</span>
+          )}
+        </p>
+        <p style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#444' }}>
+          <span onClick={() => { setStep('form'); setOtp(''); setError('') }} style={{ cursor: 'pointer' }}>← แก้ไขข้อมูลสมัคร</span>
+        </p>
+      </div></div>
+    )
+  }
+
+  return (
     <div className="auth-wrap"><div className="auth-card">
-      <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'24px'}}>สมัครสมาชิก</h1>
-      {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
-      <Field label="ชื่อ"><input type="text" style={inp()} placeholder="ชื่อของคุณ" onChange={e=>setForm({...form,name:e.target.value})} onKeyDown={onKeyDown}/></Field>
-      <Field label="Email"><input type="email" style={inp()} placeholder="you@email.com" onChange={e=>setForm({...form,email:e.target.value})} onKeyDown={onKeyDown}/></Field>
-      <Field label="Password"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" onChange={e=>setForm({...form,password:e.target.value})} onKeyDown={onKeyDown}/></Field>
-      <Field label="ยืนยัน Password"><input type="password" style={inp({marginBottom:0})} placeholder="พิมพ์อีกครั้ง" onChange={e=>setForm({...form,confirm:e.target.value})} onKeyDown={onKeyDown}/></Field>
-      <button onClick={go} style={{...btnPrimary,marginTop:'20px'}}>สมัครสมาชิก</button>
-      <p style={{textAlign:'center',marginTop:'16px',fontSize:'12px',color:'#555'}}>
-        การสมัครถือว่ายอมรับ <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{color:'#a29bfe'}}>ข้อกำหนด</a> และ <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{color:'#a29bfe'}}>นโยบายความเป็นส่วนตัว</a>
+      <h1 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>สมัครสมาชิก</h1>
+      <p style={{ color: '#555', fontSize: '13px', marginBottom: '20px' }}>ใช้อีเมลจริง — เราจะส่งรหัส OTP เพื่อยืนยันก่อนเปิดบัญชี</p>
+      {error && <p style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
+      {info && <p style={{ color: '#55efc4', fontSize: '13px', marginBottom: '16px' }}>{info}</p>}
+      <Field label="ชื่อ"><input type="text" style={inp()} placeholder="ชื่อของคุณ" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onKeyDown={onKeyDown} /></Field>
+      <Field label="Email"><input type="email" style={inp()} placeholder="you@gmail.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} onKeyDown={onKeyDown} /></Field>
+      <Field label="Password"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} onKeyDown={onKeyDown} /></Field>
+      <Field label="ยืนยัน Password"><input type="password" style={inp({ marginBottom: 0 })} placeholder="พิมพ์อีกครั้ง" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} onKeyDown={onKeyDown} /></Field>
+      <button onClick={sendOtp} style={{ ...btnPrimary, marginTop: '20px' }} disabled={loading}>{loading ? 'กำลังส่ง OTP...' : 'ส่งรหัส OTP ยืนยันอีเมล'}</button>
+      <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '12px', color: '#555' }}>
+        การสมัครถือว่ายอมรับ <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: '#a29bfe' }}>ข้อกำหนด</a> และ <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#a29bfe' }}>นโยบายความเป็นส่วนตัว</a>
       </p>
-      <p style={{textAlign:'center',marginTop:'12px',fontSize:'13px',color:'#555'}}>มีบัญชีแล้ว? <span onClick={onGoLogin} style={{color:'#a29bfe',cursor:'pointer'}}>เข้าสู่ระบบ</span></p>
-      {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
+      <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: '#555' }}>มีบัญชีแล้ว? <span onClick={onGoLogin} style={{ color: '#a29bfe', cursor: 'pointer' }}>เข้าสู่ระบบ</span></p>
+      {onGoHome && <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: '#444' }}><span onClick={onGoHome} style={{ cursor: 'pointer' }}>← กลับหน้าแรก</span></p>}
     </div></div>
   )
 }
 
 function ForgotPassword({onGoLogin,onGoHome}){
   const [email,setEmail]=useState('')
+  const [otp,setOtp]=useState('')
+  const [password,setPassword]=useState('')
+  const [confirm,setConfirm]=useState('')
+  const [step,setStep]=useState('email')
   const [error,setError]=useState('')
   const [message,setMessage]=useState('')
   const [loading,setLoading]=useState(false)
-  const go=async()=>{
+  const [resendIn,setResendIn]=useState(0)
+
+  useEffect(()=>{
+    if(resendIn<=0) return undefined
+    const t=setTimeout(()=>setResendIn(s=>s-1),1000)
+    return ()=>clearTimeout(t)
+  },[resendIn])
+
+  const sendOtp=async()=>{
     setError('');setMessage('')
     if(!email.trim()) return setError('กรุณาระบุอีเมล')
     setLoading(true)
     try{
       const r=await api.post('/auth/forgot-password',{email:email.trim()})
-      if(r.message) setMessage(r.message)
-      else setError(r.error||'ส่งอีเมลไม่สำเร็จ')
+      if(r.message){
+        setMessage(r.message)
+        setStep('otp')
+        setResendIn(r.retryAfter||60)
+      } else setError(r.error||'ส่ง OTP ไม่สำเร็จ')
     }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้')}
     setLoading(false)
   }
+
+  const resendOtp=async()=>{
+    if(resendIn>0) return
+    setError('')
+    setLoading(true)
+    try{
+      const r=await api.post('/auth/resend-otp',{email:email.trim(),purpose:'reset_password'})
+      if(r.message){
+        setMessage(r.message)
+        setResendIn(r.retryAfter||60)
+        if(r.devOtp) setMessage(`${r.message} (dev OTP: ${r.devOtp})`)
+      } else setError(r.error||'ส่ง OTP ไม่สำเร็จ')
+    }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้')}
+    setLoading(false)
+  }
+
+  const resetWithOtp=async()=>{
+    setError('');setMessage('')
+    if(otp.length!==6) return setError('กรุณาใส่รหัส OTP 6 หลัก')
+    if(password.length<8) return setError('รหัสผ่านต้องมีอย่างน้อย 8 ตัว')
+    if(password!==confirm) return setError('รหัสผ่านไม่ตรงกัน')
+    setLoading(true)
+    try{
+      const r=await api.post('/auth/reset-password',{email:email.trim(),otp,password})
+      if(r.message) setStep('done')
+      else setError(r.error||'ตั้งรหัสผ่านไม่สำเร็จ')
+    }catch(e){setError('เชื่อมต่อเซิร์verไม่ได้')}
+    setLoading(false)
+  }
+
+  if(step==='done') return (
+    <div className="auth-wrap"><div className="auth-card" style={{textAlign:'center'}}>
+      <div style={{fontSize:'48px',marginBottom:'16px'}}>✅</div>
+      <p style={{color:'#55efc4',marginBottom:'20px'}}>ตั้งรหัสผ่านใหม่สำเร็จ กรุณาเข้าสู่ระบบ</p>
+      <button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button>
+    </div></div>
+  )
+
+  if(step==='otp') return (
+    <div className="auth-wrap"><div className="auth-card">
+      <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'8px'}}>ตั้งรหัสผ่านใหม่</h1>
+      <p style={{color:'#555',fontSize:'13px',marginBottom:'20px'}}>ใส่รหัส OTP ที่ส่งไปที่ <strong style={{color:'#aaa'}}>{email}</strong></p>
+      {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
+      {message&&<p style={{color:'#55efc4',fontSize:'13px',marginBottom:'16px'}}>{message}</p>}
+      <Field label="รหัส OTP"><OtpInput value={otp} onChange={setOtp} onKeyDown={e=>e.key==='Enter'&&resetWithOtp()}/></Field>
+      <Field label="รหัสผ่านใหม่"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" value={password} onChange={e=>setPassword(e.target.value)}/></Field>
+      <Field label="ยืนยันรหัสผ่าน"><input type="password" style={inp({marginBottom:0})} placeholder="พิมพ์อีกครั้ง" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==='Enter'&&resetWithOtp()}/></Field>
+      <button onClick={resetWithOtp} style={{...btnPrimary,marginTop:'20px'}} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึกรหัสผ่านใหม่'}</button>
+      <p style={{textAlign:'center',marginTop:'14px',fontSize:'12px',color:'#555'}}>
+        {resendIn>0?`ขอรหัสใหม่ได้ใน ${resendIn} วินาที`:<span onClick={resendOtp} style={{color:'#a29bfe',cursor:'pointer'}}>ส่งรหัส OTP อีกครั้ง</span>}
+      </p>
+      <p style={{textAlign:'center',marginTop:'10px',fontSize:'13px',color:'#555'}}><span onClick={()=>{setStep('email');setOtp('');setPassword('');setConfirm('')}} style={{color:'#a29bfe',cursor:'pointer'}}>← เปลี่ยนอีเมล</span></p>
+    </div></div>
+  )
+
   return(
     <div className="auth-wrap"><div className="auth-card">
       <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'8px'}}>ลืมรหัสผ่าน</h1>
-      <p style={{color:'#555',fontSize:'13px',marginBottom:'20px'}}>ใส่อีเมลที่ใช้สมัคร เราจะส่งลิงก์ตั้งรหัสผ่านใหม่</p>
+      <p style={{color:'#555',fontSize:'13px',marginBottom:'20px'}}>ใส่อีเมลที่ใช้สมัคร เราจะส่งรหัส OTP 6 หลักไปให้</p>
       {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
       {message&&<p style={{color:'#55efc4',fontSize:'13px',marginBottom:'16px'}}>{message}</p>}
-      <Field label="Email"><input type="email" style={inp({marginBottom:0})} placeholder="you@email.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()}/></Field>
-      <button onClick={go} style={{...btnPrimary,marginTop:'20px'}} disabled={loading}>{loading?'กำลังส่ง...':'ส่งลิงก์รีเซ็ต'}</button>
+      <Field label="Email"><input type="email" style={inp({marginBottom:0})} placeholder="you@gmail.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&sendOtp()}/></Field>
+      <button onClick={sendOtp} style={{...btnPrimary,marginTop:'20px'}} disabled={loading}>{loading?'กำลังส่ง...':'ส่งรหัส OTP'}</button>
       <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'#555'}}><span onClick={onGoLogin} style={{color:'#a29bfe',cursor:'pointer'}}>← กลับหน้า Login</span></p>
       {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
     </div></div>
@@ -1682,7 +1887,7 @@ export default function App(){
   )
 
   if(user) return <Dashboard user={user} onLogout={logout} onUserUpdate={u=>{setUser(u);localStorage.setItem('user',JSON.stringify(u))}}/>
-  if(page==='register') return <Register onGoLogin={()=>setPage('login')} onGoHome={goHome}/>
+  if(page==='register') return <Register onLogin={setUser} onGoLogin={()=>setPage('login')} onGoHome={goHome}/>
   if(page==='login') return <Login onLogin={setUser} onGoRegister={()=>setPage('register')} onGoForgot={()=>setPage('forgot')} onGoHome={goHome}/>
   if(page==='forgot') return <ForgotPassword onGoLogin={()=>setPage('login')} onGoHome={goHome}/>
   if(page==='reset') return <ResetPassword token={resetToken} onGoLogin={()=>{clearResetUrl();setPage('login')}} onGoHome={()=>{clearResetUrl();goHome()}}/>

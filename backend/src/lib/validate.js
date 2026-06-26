@@ -1,8 +1,26 @@
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import { isDisposableEmail } from './disposableDomains.js'
+
+const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
 
 export function validateEmail(email) {
   if (!email || typeof email !== 'string') return 'กรุณาระบุอีเมล'
-  if (!EMAIL_RE.test(email.trim())) return 'รูปแบบอีเมลไม่ถูกต้อง'
+  const trimmed = email.trim().toLowerCase()
+  if (!EMAIL_RE.test(trimmed)) return 'รูปแบบอีเมลไม่ถูกต้อง'
+  if (trimmed.length > 254) return 'อีเมลยาวเกินไป'
+  const [local, domain] = trimmed.split('@')
+  if (!local || !domain || local.length > 64) return 'รูปแบบอีเมลไม่ถูกต้อง'
+  if (isDisposableEmail(trimmed)) return 'กรุณาใช้อีเมลจริง ไม่รองรับอีเมลชั่วคราว'
+  return null
+}
+
+export function normalizeEmail(email) {
+  return email.trim().toLowerCase()
+}
+
+export function validateOtpCode(code) {
+  if (!code || typeof code !== 'string') return 'กรุณาระบุรหัส OTP'
+  const digits = code.trim().replace(/\s/g, '')
+  if (!/^\d{6}$/.test(digits)) return 'รหัส OTP ต้องเป็นตัวเลข 6 หลัก'
   return null
 }
 

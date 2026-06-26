@@ -16,6 +16,22 @@ export const forgotPasswordLimiter = rateLimit({
   message: { error: 'ขอรีเซ็ตรหัสผ่านบ่อยเกินไป กรุณาลองใหม่ใน 1 ชั่วโมง' },
 })
 
+export const otpSendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'ขอรหัส OTP บ่อยเกินไป กรุณาลองใหม่ใน 1 ชั่วโมง' },
+})
+
+export const otpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'ลองยืนยัน OTP บ่อยเกินไป กรุณารอสักครู่' },
+})
+
 export const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 30,

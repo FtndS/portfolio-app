@@ -33,6 +33,29 @@ export async function sendEmail({ to, subject, html, text }) {
   return true
 }
 
+export function buildOtpEmail({ code, purpose }) {
+  const isRegister = purpose === 'register'
+  const subject = isRegister
+    ? 'รหัสยืนยันการสมัคร Port Diary'
+    : 'รหัสยืนยันรีเซ็ตรหัสผ่าน Port Diary'
+  const action = isRegister ? 'ยืนยันการสมัครสมาชิก' : 'รีเซ็ตรหัสผ่าน'
+  const text = `รหัส OTP สำหรับ${action} Port Diary: ${code}\n\nรหัสหมดอายุใน 10 นาที\nถ้าคุณไม่ได้ขอรหัสนี้ ให้ละเว้นอีเมลนี้`
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#222">
+      <h2 style="color:#6c5ce7">📓 Port Diary</h2>
+      <p>รหัส OTP สำหรับ${action}</p>
+      <p style="font-size:32px;font-weight:700;letter-spacing:8px;color:#6c5ce7;margin:24px 0">${code}</p>
+      <p style="font-size:13px;color:#666">รหัสหมดอายุใน <strong>10 นาที</strong></p>
+      <p style="font-size:12px;color:#999;margin-top:24px">ถ้าคุณไม่ได้ขอรหัสนี้ ให้ละเว้นอีเมลนี้</p>
+    </div>
+  `
+  return { subject, text, html }
+}
+
+export function isSmtpConfigured() {
+  return !!process.env.SMTP_HOST
+}
+
 export function buildPasswordResetEmail(resetUrl) {
   const subject = 'รีเซ็ตรหัสผ่าน Port Diary'
   const text = `คลิกลิงก์นี้เพื่อตั้งรหัสผ่านใหม่ (หมดอายุใน 1 ชั่วโมง):\n\n${resetUrl}\n\nถ้าคุณไม่ได้ขอรีเซ็ต ให้ละเว้นอีเมลนี้`

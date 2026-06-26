@@ -190,6 +190,27 @@ const migrations = [
       WHERE name ~ '^[0-9]+$';
     `,
   },
+  {
+    name: '010_email_otp',
+    sql: `
+      CREATE TABLE IF NOT EXISTS email_otps (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        purpose VARCHAR(32) NOT NULL,
+        otp_hash VARCHAR(64) NOT NULL,
+        meta JSONB DEFAULT '{}',
+        attempts INTEGER NOT NULL DEFAULT 0,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS email_otps_email_purpose_idx
+        ON email_otps (email, purpose);
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT true;
+      UPDATE users SET email_verified = true WHERE email_verified IS NULL;
+    `,
+  },
 ]
 
 export async function runMigrations() {
