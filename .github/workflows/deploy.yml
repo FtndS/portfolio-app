@@ -72,9 +72,12 @@ jobs:
               echo "WARN: scripts/backup-db.sh not found"
             fi
 
+            echo "==> Deployed commit: $(git rev-parse --short HEAD)"
+
             echo "==> Build & restart containers"
-            docker compose build
-            docker compose up -d
+            docker compose build --no-cache frontend
+            docker compose build backend
+            docker compose up -d --force-recreate
             docker compose restart nginx
 
             echo "==> Wait for backend"
