@@ -281,17 +281,17 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const renderNewsGrid = () => (
     <div className="dash-news-grid">
       <div>
-        <h3 className="dash-settings-section-title" style={{ marginBottom: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '6px' }}>
+        <h3 className="dash-section-title">
           🔥 Real-Time News (เฉพาะกลุ่ม Sector ที่ถือ)
         </h3>
-        {!inSectorNews.length ? <p style={{ color: '#444', fontSize: '13px' }}>กำลังอัปเดตข่าวสารจากระบบ...</p>
+        {!inSectorNews.length ? <p className="dash-text-faint" style={{ fontSize: '13px' }}>กำลังอัปเดตข่าวสารจากระบบ...</p>
         : inSectorNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
       </div>
       <div>
-        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#666', marginBottom: '14px', borderBottom: '1px solid #2a2a2a', paddingBottom: '6px' }}>
+        <h3 className="dash-section-title dash-section-title--muted">
           🌐 Market Insights (ข่าวน่าสนใจเกี่ยวกับหุ้นอื่นๆ)
         </h3>
-        {!outSectorNews.length ? <p style={{ color: '#444', fontSize: '13px' }}>ไม่มีข้อมูลข่าวสารธุรกิจในขณะนี้</p>
+        {!outSectorNews.length ? <p className="dash-text-faint" style={{ fontSize: '13px' }}>ไม่มีข้อมูลข่าวสารธุรกิจในขณะนี้</p>
         : outSectorNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
       </div>
     </div>
@@ -324,7 +324,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             </div>
             <ThemeToggle />
             <button type="button" onClick={()=>setModal('settings')} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ตั้งค่า</button>
-            <button type="button" onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออก</button>
+            <button type="button" onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออกจากระบบ</button>
           </div>
         </div>
 

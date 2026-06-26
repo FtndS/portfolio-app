@@ -58,7 +58,7 @@ export default function Treemap({holdings,prices,displayCurrency,fxRate,heatmapM
   }
   return(
     <div style={{marginBottom:'16px'}}>
-      <p style={{color:'#444',fontSize:'12px',marginBottom:'8px'}}>
+      <p className="dash-card-sub" style={{ marginBottom: '8px' }}>
         ขนาด = มูลค่า · สี = {heatmapMode==='today'?'% เปลี่ยนแปลงวันนี้':'% จากราคาทุนเฉลี่ย'}
       </p>
       <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',borderRadius:'10px',display:'block'}}>

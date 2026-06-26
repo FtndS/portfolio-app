@@ -159,8 +159,8 @@
 }
 
 .landing-stat-card {
-  background: #0f0f0f;
-  border: 1px solid #222;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px;
 }
@@ -180,8 +180,8 @@
 .landing-stat-value.purple { color: var(--accent-text); }
 
 .landing-preview-chart {
-  background: #0f0f0f;
-  border: 1px solid #222;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px;
   margin-bottom: 12px;
@@ -204,7 +204,7 @@
   gap: 10px;
   font-size: 12px;
   padding: 8px 10px;
-  background: #0f0f0f;
+  background: var(--surface-subtle);
   border-radius: 8px;
   border: 1px solid var(--border-subtle);
 }
@@ -218,7 +218,7 @@
 .landing-holding-bar {
   flex: 1;
   height: 4px;
-  background: #222;
+  background: var(--surface-inset, var(--border-subtle));
   border-radius: 999px;
   overflow: hidden;
 }

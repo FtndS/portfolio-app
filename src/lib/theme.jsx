@@ -14,7 +14,7 @@ export function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme)
   localStorage.setItem(STORAGE_KEY, theme)
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.content = theme === 'light' ? '#f8f7f4' : '#0f0f12'
+  if (meta) meta.content = theme === 'light' ? '#f3ede4' : '#0f0f12'
 }
 
 export function ThemeProvider({ children }) {
