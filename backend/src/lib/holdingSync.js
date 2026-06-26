@@ -1,7 +1,7 @@
 import { resolveMarket, defaultCurrency, storageTicker } from './ticker.js'
 import { fetchCompanyProfile, needsSectorRefresh } from './profile.js'
 
-export async function syncHoldingFromTransactions(client, userId, portfolioId, ticker, profile = null, currency) {
+export async function syncHoldingFromTransactions(client, userId, portfolioId, ticker, profile = null, txCurrency) {
   const allTx = await client.query(
     `SELECT type, shares, price FROM transactions
      WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3`,
@@ -50,7 +50,7 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
   const market = resolveMarket(
     ticker,
     existing.rows[0]?.market,
-    existing.rows[0]?.currency || currency
+    existing.rows[0]?.currency || txCurrency
   )
   if (!profile && (existing.rows.length === 0 || needsSectorRefresh(existing.rows[0]?.sector))) {
     profile = await fetchCompanyProfile(ticker, market)
@@ -63,7 +63,7 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
   if (needsSectorRefresh(sector) && profile?.sector && profile.sector !== 'Other') {
     sector = profile.sector
   }
-  const currency = existing.rows[0]?.currency || defaultCurrency(market)
+  const holdingCurrency = existing.rows[0]?.currency || txCurrency || defaultCurrency(market)
 
   if (existing.rows.length > 0) {
     await client.query(
@@ -75,7 +75,7 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
     await client.query(
       `INSERT INTO holdings (user_id, portfolio_id, ticker, name, shares, avg_cost, sector, currency, market)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [userId, portfolioId, ticker, name, netShares, avgCost, sector, currency, market]
+      [userId, portfolioId, ticker, name, netShares, avgCost, sector, holdingCurrency, market]
     )
   }
 
