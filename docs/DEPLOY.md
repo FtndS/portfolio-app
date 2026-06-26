@@ -73,7 +73,9 @@ Push to `main` or run **Deploy to VPS** manually.
 ssh root@YOUR_VPS_IP
 cd ~/portfolio-app
 git pull origin main
+chmod +x scripts/deploy-vps.sh   # once, if Permission denied
 ./scripts/deploy-vps.sh
+# or: bash scripts/deploy-vps.sh
 ```
 
 ## Troubleshooting
@@ -83,5 +85,6 @@ git pull origin main
 | `Missing VPS_SSH_KEY` | Add secret in GitHub Settings |
 | `BEGIN.*PRIVATE KEY` validation failed | Paste full private key, not `.pub` |
 | `unable to authenticate` | Public key not in VPS `authorized_keys`, or key pair mismatch |
+| `Connection timed out` / port unreachable | VPS stopped, wrong `VPS_HOST`, SSH not on port 22 (set `VPS_PORT`), cloud firewall / `ufw` blocking port 22 from the internet (GitHub Actions uses dynamic IPs — allow `0.0.0.0/0` on port 22 or deploy manually) |
 | `~/portfolio-app not found` | Clone repo on VPS: `git clone https://github.com/FtndS/portfolio-app.git ~/portfolio-app` |
 | `.env not found` | Create `~/portfolio-app/.env` from `.env.example` |

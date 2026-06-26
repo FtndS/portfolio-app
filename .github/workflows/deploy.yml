@@ -91,6 +91,15 @@ jobs:
       - name: Test SSH connection
         run: |
           PORT="${VPS_PORT:-22}"
+          echo "Target: ${VPS_USER}@${VPS_HOST}:${PORT}"
+
+          echo "Checking TCP reachability (15s)..."
+          if ! timeout 15 bash -c "cat < /dev/null > /dev/tcp/${VPS_HOST}/${PORT}" 2>/dev/null; then
+            echo "::error title=SSH port unreachable::Connection timed out to ${VPS_HOST}:${PORT}. VPS may be off, firewall blocking SSH, wrong VPS_HOST, or SSH on a different port. From your PC run: ssh -p ${PORT} ${VPS_USER}@${VPS_HOST}"
+            exit 255
+          fi
+          echo "TCP port open — testing SSH auth..."
+
           ssh -p "$PORT" \
             -o BatchMode=yes \
             -o ConnectTimeout=30 \
@@ -115,6 +124,6 @@ jobs:
             exit 1
           fi
           cd ~/portfolio-app
-          chmod +x scripts/deploy-vps.sh
-          ./scripts/deploy-vps.sh
+          chmod +x scripts/deploy-vps.sh 2>/dev/null || true
+          bash scripts/deploy-vps.sh
           ENDSSH
