@@ -33,6 +33,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [newPortName,setNewPortName]=useState('')
   const [holdings,setHoldings]=useState([])
+  const [allHoldings,setAllHoldings]=useState([])
   const [journal,setJournal]=useState([])
   const [transactions,setTransactions]=useState([])
   const [prices,setPrices]=useState({})
@@ -62,6 +63,14 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     const p=await api.get('/portfolios')
     const list=Array.isArray(p)?p:[]
     setPortfolios(list)
+    if(list.length){
+      const batches=await Promise.all(list.map((port)=>(
+        api.get('/holdings',{portfolio_id:port.id}).then((h)=>(
+          (Array.isArray(h)?h:[]).map((x)=>({...x,portfolio_id:port.id}))
+        ))
+      )))
+      setAllHoldings(batches.flat())
+    }else setAllHoldings([])
     if(list.length&&!activePortfolioId){
       const def=list.find(x=>x.is_default)||list[0]
       setActivePortfolioId(Number(def.id))
@@ -78,6 +87,10 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     ])
     const hl=Array.isArray(h)?h:[]
     setHoldings(hl);setJournal(Array.isArray(j)?j:[]);setTransactions(Array.isArray(t)?t:[])
+    setAllHoldings(prev=>{
+      const others=prev.filter(x=>Number(x.portfolio_id)!==Number(id))
+      return [...others,...hl.map(x=>({...x,portfolio_id:Number(id)}))]
+    })
     setDataReady(true)
     return hl
   },[activePortfolioId])
@@ -122,23 +135,39 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     fetchHistory(portfolioId)
   },[fetchHistory])
 
-  const fetchPrices=useCallback(async(hl,portfolioId)=>{
+  const fetchPricesForHoldings=useCallback(async(hl,portList,portfolioIdForSnapshot)=>{
     if(!hl?.length) return
-    const portCur=portfolios.find(p=>Number(p.id)===Number(portfolioId))?.currency||'USD'
     setLoadingP(true)
     try{
       const params=new URLSearchParams()
       params.set('tickers',hl.map(h=>h.ticker).join(','))
       params.set('markets',hl.map(h=>h.market||'').join(','))
       params.set('currencies',hl.map(h=>h.currency||'').join(','))
-      params.set('portfolio_currencies',hl.map(()=>portCur).join(','))
+      params.set('portfolio_currencies',hl.map(h=>{
+        const port=portList.find(x=>Number(x.id)===Number(h.portfolio_id))
+        return port?.currency||'USD'
+      }).join(','))
       const r=await fetch(`/api/prices?${params}`)
       const p=await r.json()
-      setPrices(p)
-      if(portfolioId) await recordSnapshot(portfolioId,hl,p)
+      setPrices(prev=>({...prev,...p}))
+      if(portfolioIdForSnapshot){
+        const snapHl=hl.filter(h=>Number(h.portfolio_id)===Number(portfolioIdForSnapshot))
+        if(snapHl.length) await recordSnapshot(portfolioIdForSnapshot,snapHl,p)
+      }
     }catch(e){}
     setLoadingP(false)
-  },[recordSnapshot, portfolios])
+  },[recordSnapshot])
+
+  const fetchPrices=useCallback(async(hl,portfolioId)=>{
+    if(!hl?.length) return
+    const tagged=hl.map(h=>({...h,portfolio_id:h.portfolio_id||portfolioId}))
+    await fetchPricesForHoldings(tagged,portfolios,portfolioId)
+  },[fetchPricesForHoldings, portfolios])
+
+  useEffect(()=>{
+    if(!allHoldings.length||!portfolios.length) return
+    fetchPricesForHoldings(allHoldings,portfolios,null)
+  },[allHoldings.length, portfolios.length])
 
   const loadClientNews = useCallback(async (hl) => {
     if (!hl?.length) return
@@ -255,6 +284,10 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const totPct=totCost>0?(totPnL/totCost)*100:0
 
   const allInvested=portfolios.reduce((s,p)=>s+portfolioInvested(p),0)
+  const allPortValue=allHoldings.reduce((s,h)=>{
+    const p=prices[h.ticker]||Number(h.avg_cost)
+    return s+convertToDisplay(Number(h.shares)*p,h.currency||'USD')
+  },0)
   const activePort=portfolios.find(p=>p.id===activePortfolioId)
 
   const sym=symFor(displayCurrency)
@@ -367,8 +400,8 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {tab==='overview'&&<>
           <div className="dash-kpi-grid">
             {[
-              ['มูลค่าพอร์ตรวม', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
-              ['เงินลงทุนทั้งหมด (ทุกพอร์ต)', hideValues ? MASKED : fmt(allInvested), `${portfolios.length} พอร์ต · ไม่รวม P&L`, hideValues ? '' : 'accent'],
+              ['มูลค่าพอร์ตนี้', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
+              [portfolios.length>1?'มูลค่ารวมทุกพอร์ต':'ทุนรวม (พอร์ตนี้)', hideValues ? MASKED : fmt(portfolios.length>1?allPortValue:totCost), portfolios.length>1?(hideValues?`${portfolios.length} พอร์ต`:`ทุนรวม ${fmt(allInvested)} · ${portfolios.length} พอร์ต`):'ราคาซื้อเฉลี่ย · ไม่รวมกำไร', hideValues?'':'accent'],
               ['กำไร/ขาดทุน (พอร์ตนี้)', hideValues ? fmtPct(totPct) : fmt(totPnL), hideValues ? 'จากทุน' : `${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`, totPnL>=0?'gain':'loss'],
               ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'Real-time', hideValues ? '' : 'info'],
             ].map(([label,val,sub,tone],i)=>(
