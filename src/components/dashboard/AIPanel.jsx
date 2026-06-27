@@ -1,5 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../lib/api'
+
+function formatQuotaHint(quota, key) {
+  if (!quota || quota.isOwner) return null
+  const slot = quota[key]
+  if (!slot) return 'ใช้ได้ 1 ครั้งต่อสัปดาห์'
+  if (slot.allowed) return 'ใช้ได้ 1 ครั้งต่อสัปดาห์'
+  if (!slot.nextAvailableAt) return 'ใช้ครบโควต้าสัปดาห์นี้แล้ว'
+  const when = new Date(slot.nextAvailableAt).toLocaleString('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+  return `ใช้ได้อีกครั้งหลัง ${when}`
+}
 
 export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
   const [analysis, setAnalysis] = useState(null)
@@ -7,15 +20,31 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
   const [loading, setLoading] = useState(false)
   const [loadingNews, setLoadingNews] = useState(false)
   const [error, setError] = useState('')
+  const [newsError, setNewsError] = useState('')
+  const [quota, setQuota] = useState(null)
+
+  const loadQuota = useCallback(async () => {
+    const q = await api.get('/ai/quota')
+    if (!q?.error) setQuota(q)
+  }, [])
+
+  useEffect(() => {
+    loadQuota()
+  }, [loadQuota])
 
   const analyze = async () => {
-    if (!holdings.length) return
+    if (!holdings.length || quota?.analyze?.allowed === false) return
     setLoading(true)
     setError('')
     try {
       const res = await api.post('/ai/analyze', { holdings, prices, displayCurrency, fxRate })
-      if (res.error) setError(res.error)
-      else setAnalysis(res)
+      if (res.error) {
+        setError(res.error)
+        if (res.code === 'AI_QUOTA_EXCEEDED') await loadQuota()
+      } else {
+        setAnalysis(res)
+        await loadQuota()
+      }
     } catch {
       setError('เกิดข้อผิดพลาด กรุณาลองใหม่')
     }
@@ -23,14 +52,28 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
   }
 
   const summarizeNews = async () => {
-    if (!inSectorNews.length) return
+    if (!inSectorNews.length || quota?.newsSummary?.allowed === false) return
     setLoadingNews(true)
+    setNewsError('')
     try {
       const res = await api.post('/ai/news-summary', { holdings, news: inSectorNews })
-      setNewsSummary(res)
-    } catch {}
+      if (res.error) {
+        setNewsError(res.error)
+        if (res.code === 'AI_QUOTA_EXCEEDED') await loadQuota()
+      } else {
+        setNewsSummary(res)
+        await loadQuota()
+      }
+    } catch {
+      setNewsError('เกิดข้อผิดพลาด กรุณาลองใหม่')
+    }
     setLoadingNews(false)
   }
+
+  const analyzeHint = formatQuotaHint(quota, 'analyze')
+  const newsHint = formatQuotaHint(quota, 'newsSummary')
+  const analyzeBlocked = quota?.analyze?.allowed === false
+  const newsBlocked = quota?.newsSummary?.allowed === false
 
   const scoreColor = (s) => (s >= 8 ? 'var(--gain)' : s >= 6 ? 'var(--warn)' : 'var(--loss)')
   const impactColor = (i) => (i === 'positive' ? 'var(--gain)' : i === 'negative' ? 'var(--loss)' : 'var(--warn)')
@@ -52,15 +95,24 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
           <div>
             <h3 className="dash-card-title">🤖 AI วิเคราะห์พอร์ต</h3>
             <p className="dash-card-sub" style={{ marginBottom: '4px' }}>Claude วิเคราะห์ risk, concentration และแนะนำ rebalancing</p>
+            {analyzeHint && (
+              <p className="dash-text-faint" style={{ fontSize: '11px', margin: '0 0 4px' }}>{analyzeHint}</p>
+            )}
             <p className="dash-text-faint" style={{ fontSize: '11px', margin: 0 }}>⚠️ ไม่ใช่คำแนะนำการลงทุน — ใช้เพื่อการศึกษาและบันทึกส่วนตัวเท่านั้น</p>
           </div>
-          <button type="button" onClick={analyze} disabled={loading || !holdings.length} className="dash-ai-btn dash-ai-btn--primary">
-            {loading ? '⏳ กำลังวิเคราะห์...' : '✨ วิเคราะห์พอร์ต'}
+          <button
+            type="button"
+            onClick={analyze}
+            disabled={loading || !holdings.length || analyzeBlocked}
+            className="dash-ai-btn dash-ai-btn--primary"
+            title={analyzeBlocked ? analyzeHint : undefined}
+          >
+            {loading ? '⏳ กำลังวิเคราะห์...' : analyzeBlocked ? 'ใช้ครบโควต้าแล้ว' : '✨ วิเคราะห์พอร์ต'}
           </button>
         </div>
 
         {error && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
-        {!analysis && !loading && emptyState('🧠', 'กด "วิเคราะห์พอร์ต" เพื่อให้ Claude ช่วยวิเคราะห์')}
+        {!analysis && !loading && emptyState('🧠', analyzeBlocked ? (analyzeHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'กด "วิเคราะห์พอร์ต" เพื่อให้ Claude ช่วยวิเคราะห์')}
         {loading && emptyState('⏳', 'Claude กำลังวิเคราะห์พอร์ตของคุณ...')}
 
         {analysis && (
@@ -128,14 +180,24 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
         <div className="dash-ai-header">
           <div>
             <h3 className="dash-card-title">📰 AI สรุปข่าวกระทบพอร์ต</h3>
-            <p className="dash-card-sub" style={{ marginBottom: 0 }}>Claude วิเคราะห์ข่าวล่าสุดและผลกระทบต่อ holdings</p>
+            <p className="dash-card-sub" style={{ marginBottom: newsHint ? '4px' : 0 }}>Claude วิเคราะห์ข่าวล่าสุดและผลกระทบต่อ holdings</p>
+            {newsHint && (
+              <p className="dash-text-faint" style={{ fontSize: '11px', margin: 0 }}>{newsHint}</p>
+            )}
           </div>
-          <button type="button" onClick={summarizeNews} disabled={loadingNews || !inSectorNews.length} className="dash-ai-btn dash-ai-btn--news">
-            {loadingNews ? '⏳ กำลังสรุป...' : '📋 สรุปข่าว'}
+          <button
+            type="button"
+            onClick={summarizeNews}
+            disabled={loadingNews || !inSectorNews.length || newsBlocked}
+            className="dash-ai-btn dash-ai-btn--news"
+            title={newsBlocked ? newsHint : undefined}
+          >
+            {loadingNews ? '⏳ กำลังสรุป...' : newsBlocked ? 'ใช้ครบโควต้าแล้ว' : '📋 สรุปข่าว'}
           </button>
         </div>
 
-        {!newsSummary && !loadingNews && emptyState('📰', 'กด "สรุปข่าว" เพื่อให้ Claude วิเคราะห์ข่าวที่กระทบพอร์ต')}
+        {newsError && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{newsError}</p>}
+        {!newsSummary && !loadingNews && emptyState('📰', newsBlocked ? (newsHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'กด "สรุปข่าว" เพื่อให้ Claude วิเคราะห์ข่าวที่กระทบพอร์ต')}
         {loadingNews && emptyState('⏳', 'Claude กำลังอ่านข่าวและวิเคราะห์ผลกระทบ...')}
 
         {newsSummary && (

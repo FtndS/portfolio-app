@@ -8,7 +8,7 @@ export const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     const result = await pool.query(
-      'SELECT id, email_verified FROM users WHERE id = $1',
+      'SELECT id, email, email_verified FROM users WHERE id = $1',
       [decoded.userId]
     )
     const user = result.rows[0]
@@ -17,6 +17,7 @@ export const authMiddleware = async (req, res, next) => {
       return res.status(403).json({ error: 'กรุณายืนยันอีเมลก่อนใช้งาน' })
     }
     req.userId = user.id
+    req.userEmail = user.email
     next()
   } catch {
     res.status(401).json({ error: 'Invalid token' })

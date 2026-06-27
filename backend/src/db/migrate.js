@@ -413,6 +413,20 @@ const migrations = [
         ON investment_thesis (portfolio_id, ticker);
     `,
   },
+  {
+    name: '017_ai_usage',
+    sql: `
+      CREATE TABLE IF NOT EXISTS ai_usage (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        feature VARCHAR(32) NOT NULL,
+        used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS ai_usage_user_feature_used_idx
+        ON ai_usage (user_id, feature, used_at DESC);
+    `,
+  },
 ]
 
 export async function runMigrations() {

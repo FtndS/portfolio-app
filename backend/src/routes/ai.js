@@ -1,10 +1,26 @@
 import express from 'express'
 import { authMiddleware } from '../middleware/auth.js'
 import { aiLimiter } from '../middleware/rateLimit.js'
+import { requireAiQuota } from '../middleware/aiQuota.js'
+import {
+  AI_FEATURES,
+  getAiQuota,
+  recordAiUsage,
+} from '../lib/aiQuota.js'
 
 const router = express.Router()
 router.use(authMiddleware)
 router.use(aiLimiter)
+
+router.get('/quota', async (req, res) => {
+  try {
+    const quota = await getAiQuota(req.userId, req.userEmail)
+    res.json(quota)
+  } catch (err) {
+    console.error('AI quota fetch error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
 
 function parseClaudeJson(text) {
   let raw = text.replace(/^```(?:json)?\s*\n?|\n?```\s*$/gm, '').trim()
@@ -62,7 +78,7 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 4096) {
 }
 
 // วิเคราะห์พอร์ตและแนะนำ rebalancing
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', requireAiQuota(AI_FEATURES.ANALYZE), async (req, res) => {
   try {
     const { holdings, prices, displayCurrency, fxRate } = req.body
     if (!holdings?.length) return res.status(400).json({ error: 'ไม่มี holdings' })
@@ -143,6 +159,7 @@ ${JSON.stringify(sectorAlloc, null, 2)}
 
     const text = await callClaude(systemPrompt, userMessage)
     const analysis = parseClaudeJson(text)
+    await recordAiUsage(req.userId, AI_FEATURES.ANALYZE)
     res.json(analysis)
   } catch (err) {
     console.error('AI analyze error:', err)
@@ -151,7 +168,7 @@ ${JSON.stringify(sectorAlloc, null, 2)}
 })
 
 // สรุปข่าวกระทบพอร์ต
-router.post('/news-summary', async (req, res) => {
+router.post('/news-summary', requireAiQuota(AI_FEATURES.NEWS_SUMMARY), async (req, res) => {
   try {
     const { holdings, news } = req.body
     if (!holdings?.length || !news?.length) {
@@ -180,6 +197,7 @@ ${newsText}
 
     const text = await callClaude(systemPrompt, userMessage, 2048)
     const result = parseClaudeJson(text)
+    await recordAiUsage(req.userId, AI_FEATURES.NEWS_SUMMARY)
     res.json(result)
   } catch (err) {
     console.error('News summary error:', err)
