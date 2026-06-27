@@ -52,6 +52,40 @@ export function buildOtpEmail({ code, purpose }) {
   return { subject, text, html }
 }
 
+const CATEGORY_LABELS = {
+  bug: 'แจ้งปัญหา / Bug',
+  question: 'คำถามการใช้งาน',
+  feature: 'ขอฟีเจอร์',
+  other: 'อื่นๆ',
+}
+
+export function buildSupportTicketEmail({ ticket, user }) {
+  const appUrl = process.env.APP_URL || 'https://portdiary.com'
+  const category = CATEGORY_LABELS[ticket.category] || ticket.category
+  const subject = `[Port Diary] คำร้องใหม่ #${ticket.id}: ${ticket.subject}`
+  const text = [
+    `มีคำร้องใหม่จาก ${user.name} (${user.email})`,
+    '',
+    `ประเภท: ${category}`,
+    `หัวข้อ: ${ticket.subject}`,
+    '',
+    ticket.message,
+    '',
+    `ดูใน Admin: ${appUrl}/admin`,
+  ].join('\n')
+  const html = `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#222">
+      <h2 style="color:#6c5ce7">📓 Port Diary — คำร้องใหม่</h2>
+      <p><strong>จาก:</strong> ${user.name} (${user.email})</p>
+      <p><strong>ประเภท:</strong> ${category}</p>
+      <p><strong>หัวข้อ:</strong> ${ticket.subject}</p>
+      <div style="background:#f5f5f5;padding:14px;border-radius:8px;margin:16px 0;white-space:pre-wrap;font-size:14px;line-height:1.6">${ticket.message.replace(/</g, '&lt;')}</div>
+      <p><a href="${appUrl}/admin" style="color:#6c5ce7">เปิดหน้า Admin</a></p>
+    </div>
+  `
+  return { subject, text, html }
+}
+
 export function isSmtpConfigured() {
   return !!process.env.SMTP_HOST
 }

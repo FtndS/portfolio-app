@@ -26,7 +26,7 @@ import { journalDraftFromTransaction } from '../../lib/workflow'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../../lib/pnl'
 import WorkflowGuide from './WorkflowGuide'
 
-export default function Dashboard({user,onLogout,onUserUpdate}){
+export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const [portfolios,setPortfolios]=useState([])
   const [activePortfolioId,setActivePortfolioId]=useState(null)
   const [portfolioHistory,setPortfolioHistory]=useState([])
@@ -422,6 +422,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 {hideValues ? 'แสดงมูลค่า' : 'ซ่อนมูลค่า'}
               </button>
               <button type="button" className="dash-util-btn" onClick={()=>setModal('settings')} title="ตั้งค่าบัญชี" aria-label="ตั้งค่าบัญชี">ตั้งค่า</button>
+              {onOpenAdmin && (
+                <button type="button" className="dash-util-btn dash-util-btn--admin" onClick={onOpenAdmin} title="Admin" aria-label="Admin">Admin</button>
+              )}
               <button type="button" className="dash-util-btn dash-util-btn--logout" onClick={onLogout} title="ออกจากระบบ" aria-label="ออกจากระบบ">ออก</button>
             </div>
           </div>

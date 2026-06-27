@@ -12,6 +12,8 @@ import dividendsRoutes from './routes/dividends.js'
 import newsRoutes from './routes/news.js'
 import aiRoutes from './routes/ai.js'
 import thesisRoutes from './routes/thesis.js'
+import supportRoutes from './routes/support.js'
+import adminRoutes from './routes/admin.js'
 import portfoliosRoutes from './routes/portfolios.js'
 import { fetchHoldingQuote, fetchLiveQuote } from './lib/yahooPrices.js'
 import { pricesLimiter } from './middleware/rateLimit.js'
@@ -146,6 +148,8 @@ app.use('/api/dividends', dividendsRoutes)
 app.use('/api/news', newsRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/thesis', thesisRoutes)
+app.use('/api/support', supportRoutes)
+app.use('/api/admin', adminRoutes)
 
 runMigrations()
   .then((errors) => {

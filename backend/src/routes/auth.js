@@ -37,7 +37,12 @@ const router = express.Router()
 const OTP_LEGACY_MESSAGE = 'ลิงก์รีเซ็ตหมดอายุหรือไม่ถูกต้อง กรุณาขอรหัส OTP ใหม่จากหน้าลืมรหัสผ่าน'
 
 function publicUser(row) {
-  return { id: row.id, email: row.email, name: row.name }
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role || 'user',
+  }
 }
 
 function requireSmtpOrFail(res) {
@@ -80,7 +85,7 @@ async function verifyStoredOtp({ email, purpose, otp }) {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, name FROM users WHERE id = $1',
+      'SELECT id, email, name, role FROM users WHERE id = $1',
       [req.userId]
     )
     const user = result.rows[0]

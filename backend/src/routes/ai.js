@@ -14,7 +14,7 @@ router.use(aiLimiter)
 
 router.get('/quota', async (req, res) => {
   try {
-    const quota = await getAiQuota(req.userId, req.userEmail)
+    const quota = await getAiQuota(req.userId, req.userEmail, req.userRole)
     res.json(quota)
   } catch (err) {
     console.error('AI quota fetch error:', err)

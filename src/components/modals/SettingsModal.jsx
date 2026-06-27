@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import ThemeToggle from '../ThemeToggle'
@@ -25,6 +25,62 @@ export default function SettingsModal({ user, onClose, onUserUpdate, onLogout })
   const [exportMsg, setExportMsg] = useState('')
   const [exportErr, setExportErr] = useState('')
   const [loadingExport, setLoadingExport] = useState(false)
+
+  const [supportCategory, setSupportCategory] = useState('bug')
+  const [supportSubject, setSupportSubject] = useState('')
+  const [supportMessage, setSupportMessage] = useState('')
+  const [supportErr, setSupportErr] = useState('')
+  const [supportMsg, setSupportMsg] = useState('')
+  const [loadingSupport, setLoadingSupport] = useState(false)
+  const [myTickets, setMyTickets] = useState([])
+  const [loadingTickets, setLoadingTickets] = useState(false)
+
+  const SUPPORT_CATEGORIES = [
+    ['bug', 'แจ้งปัญหา / Bug'],
+    ['question', 'คำถามการใช้งาน'],
+    ['feature', 'ขอฟีเจอร์'],
+    ['other', 'อื่นๆ'],
+  ]
+
+  const TICKET_STATUS = {
+    open: 'เปิดใหม่',
+    in_progress: 'กำลังดำเนินการ',
+    resolved: 'แก้ไขแล้ว',
+    closed: 'ปิด',
+  }
+
+  const loadMyTickets = async () => {
+    setLoadingTickets(true)
+    const rows = await api.get('/support/mine')
+    setMyTickets(Array.isArray(rows) ? rows : [])
+    setLoadingTickets(false)
+  }
+
+  useEffect(() => {
+    loadMyTickets()
+  }, [])
+
+  const submitSupport = async () => {
+    setSupportErr('')
+    setSupportMsg('')
+    if (!supportSubject.trim()) return setSupportErr('กรุณาระบุหัวข้อ')
+    if (supportMessage.trim().length < 10) return setSupportErr('รายละเอียดต้องมีอย่างน้อย 10 ตัวอักษร')
+    setLoadingSupport(true)
+    const r = await api.post('/support', {
+      category: supportCategory,
+      subject: supportSubject.trim(),
+      message: supportMessage.trim(),
+    })
+    setLoadingSupport(false)
+    if (r.error) {
+      setSupportErr(r.error)
+      return
+    }
+    setSupportMsg('ส่งคำร้องแล้ว — ทีมงานจะติดต่อกลับทางอีเมล')
+    setSupportSubject('')
+    setSupportMessage('')
+    loadMyTickets()
+  }
 
   const saveProfile = async () => {
     setProfileErr('')
@@ -159,6 +215,53 @@ export default function SettingsModal({ user, onClose, onUserUpdate, onLogout })
         <button type="button" onClick={exportData} style={btnGhost} disabled={loadingExport}>
           {loadingExport ? 'กำลังส่งออก...' : 'ดาวน์โหลดข้อมูลของฉัน'}
         </button>
+      </div>
+
+      <div className="dash-settings-divider" style={{ marginTop: '20px' }}>
+        <h3 className="dash-settings-section-title">แจ้งปัญหา / ติดต่อทีมงาน</h3>
+        <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
+          แจ้ง bug, คำถาม หรือขอฟีเจอร์ — ทีมงานจะได้รับแจ้งทางอีเมล
+        </p>
+        {supportErr && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{supportErr}</p>}
+        {supportMsg && <p className="dash-text-gain" style={{ fontSize: '13px', marginBottom: '12px' }}>{supportMsg}</p>}
+        <Field label="ประเภท">
+          <select style={inp()} value={supportCategory} onChange={(e) => setSupportCategory(e.target.value)}>
+            {SUPPORT_CATEGORIES.map(([v, label]) => (
+              <option key={v} value={v}>{label}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="หัวข้อ">
+          <input style={inp()} value={supportSubject} onChange={(e) => setSupportSubject(e.target.value)} placeholder="สรุปปัญหาสั้นๆ" maxLength={200} />
+        </Field>
+        <Field label="รายละเอียด">
+          <textarea
+            style={{ ...inp(), height: '100px', resize: 'vertical', marginBottom: 0 }}
+            value={supportMessage}
+            onChange={(e) => setSupportMessage(e.target.value)}
+            placeholder="อธิบายปัญหา ขั้นตอนที่ทำให้เกิด หรือสิ่งที่ต้องการ..."
+            maxLength={5000}
+          />
+        </Field>
+        <button type="button" onClick={submitSupport} style={{ ...btnPrimary, marginTop: '12px' }} disabled={loadingSupport}>
+          {loadingSupport ? 'กำลังส่ง...' : 'ส่งคำร้อง'}
+        </button>
+        {loadingTickets ? (
+          <p className="dash-text-faint" style={{ fontSize: '12px', marginTop: '16px' }}>กำลังโหลดคำร้องของคุณ...</p>
+        ) : myTickets.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <p className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '8px' }}>คำร้องล่าสุดของคุณ</p>
+            {myTickets.slice(0, 5).map((t) => (
+              <div key={t.id} className="dash-inset" style={{ padding: '10px 12px', marginBottom: '8px', fontSize: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                  <strong>{t.subject}</strong>
+                  <span className="dash-text-faint">{TICKET_STATUS[t.status] || t.status}</span>
+                </div>
+                <span className="dash-text-faint">{new Date(t.created_at).toLocaleDateString('th-TH')}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="dash-settings-divider" style={{ marginTop: '20px' }}>

@@ -32,8 +32,8 @@ async function getLastUsage(userId, feature) {
   return result.rows[0]?.used_at || null
 }
 
-export async function getFeatureQuota(userId, email, feature) {
-  if (isAiOwner(email)) {
+export async function getFeatureQuota(userId, email, feature, role) {
+  if (role === 'admin' || isAiOwner(email)) {
     return { allowed: true, isOwner: true, nextAvailableAt: null, lastUsedAt: null }
   }
 
@@ -50,11 +50,11 @@ export async function getFeatureQuota(userId, email, feature) {
   }
 }
 
-export async function getAiQuota(userId, email) {
-  const owner = isAiOwner(email)
+export async function getAiQuota(userId, email, role) {
+  const owner = role === 'admin' || isAiOwner(email)
   const [analyze, newsSummary] = await Promise.all([
-    getFeatureQuota(userId, email, AI_FEATURES.ANALYZE),
-    getFeatureQuota(userId, email, AI_FEATURES.NEWS_SUMMARY),
+    getFeatureQuota(userId, email, AI_FEATURES.ANALYZE, role),
+    getFeatureQuota(userId, email, AI_FEATURES.NEWS_SUMMARY, role),
   ])
 
   return {

@@ -823,6 +823,89 @@ body,
   color: var(--loss);
 }
 
+.dash-util-btn--admin {
+  color: var(--warn);
+}
+
+.dash-util-btn--admin:hover {
+  color: var(--accent-text);
+}
+
+/* Admin support tickets */
+.dash-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .dash-admin-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dash-admin-list {
+  padding: 0;
+  overflow: hidden;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.dash-admin-detail {
+  min-height: 320px;
+}
+
+.dash-admin-ticket-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  padding: 14px 16px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.dash-admin-ticket-row:hover {
+  background: var(--surface-subtle);
+}
+
+.dash-admin-ticket-row--active {
+  background: var(--accent-soft);
+}
+
+.dash-admin-ticket-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dash-admin-ticket-subject {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.dash-admin-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dash-admin-status--open { background: var(--accent-soft); color: var(--accent-text); }
+.dash-admin-status--in_progress { background: rgba(255, 193, 7, 0.15); color: var(--warn); }
+.dash-admin-status--resolved { background: rgba(46, 204, 113, 0.12); color: var(--gain); }
+.dash-admin-status--closed { background: var(--surface-subtle); color: var(--text-faint); }
+
 /* Ticker story — thesis + timeline */
 .dash-story-section {
   margin-bottom: 20px;

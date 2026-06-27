@@ -8,24 +8,42 @@ import Register from './components/auth/Register'
 import ForgotPassword from './components/auth/ForgotPassword'
 import ResetPassword from './components/auth/ResetPassword'
 import Dashboard from './components/dashboard/Dashboard'
+import AdminPage from './components/admin/AdminPage'
 import './dashboard.css'
+
+function readPath() {
+  return window.location.pathname.replace(/\/+$/, '') || '/'
+}
 
 export default function App() {
   const [user, setUser] = useState(null)
   const [authChecking, setAuthChecking] = useState(() => !!localStorage.getItem('token'))
+  const [path, setPath] = useState(readPath)
   const [page, setPage] = useState(() => {
     if (new URLSearchParams(window.location.search).get('reset')) return 'reset'
     return 'landing'
   })
   const [resetToken] = useState(() => new URLSearchParams(window.location.search).get('reset') || '')
 
-  const goHome = () => setPage('landing')
+  const navigate = (nextPath) => {
+    const normalized = nextPath.replace(/\/+$/, '') || '/'
+    window.history.pushState({}, '', normalized === '/' ? '/' : nextPath)
+    setPath(normalized)
+  }
+
+  const goHome = () => {
+    setPage('landing')
+    navigate('/')
+  }
+
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setUser(null)
     setPage('landing')
+    navigate('/')
   }
+
   const clearResetUrl = () => { if (window.location.search) window.history.replaceState({}, '', '/') }
 
   useEffect(() => {
@@ -48,10 +66,22 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const onLogout = () => { setUser(null); setPage('landing') }
+    const onPop = () => setPath(readPath())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  useEffect(() => {
+    const onLogout = () => { setUser(null); setPage('landing'); navigate('/') }
     window.addEventListener('auth:logout', onLogout)
     return () => window.removeEventListener('auth:logout', onLogout)
   }, [])
+
+  useEffect(() => {
+    if (user && path === '/admin' && user.role !== 'admin') {
+      navigate('/')
+    }
+  }, [user, path])
 
   if (authChecking) return (
     <ThemeProvider>
@@ -61,13 +91,29 @@ export default function App() {
     </ThemeProvider>
   )
 
-  if (user) return (
-    <ThemeProvider>
-      <PrivacyProvider>
-        <Dashboard user={user} onLogout={logout} onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)) }} />
-      </PrivacyProvider>
-    </ThemeProvider>
-  )
+  if (user) {
+    if (path === '/admin' && user.role === 'admin') {
+      return (
+        <ThemeProvider>
+          <AdminPage user={user} onBack={() => navigate('/')} onLogout={logout} />
+        </ThemeProvider>
+      )
+    }
+
+    return (
+      <ThemeProvider>
+        <PrivacyProvider>
+          <Dashboard
+            user={user}
+            onLogout={logout}
+            onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)) }}
+            onOpenAdmin={user.role === 'admin' ? () => navigate('/admin') : undefined}
+          />
+        </PrivacyProvider>
+      </ThemeProvider>
+    )
+  }
+
   if (page === 'register') return <ThemeProvider><Register onLogin={setUser} onGoLogin={() => setPage('login')} onGoHome={goHome} /></ThemeProvider>
   if (page === 'login') return <ThemeProvider><Login onLogin={setUser} onGoRegister={() => setPage('register')} onGoForgot={() => setPage('forgot')} onGoHome={goHome} /></ThemeProvider>
   if (page === 'forgot') return <ThemeProvider><ForgotPassword onGoLogin={() => setPage('login')} onGoHome={goHome} /></ThemeProvider>

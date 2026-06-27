@@ -34,7 +34,14 @@ describe('aiQuota', () => {
   })
 
   it('allows owner without checking database', async () => {
-    const status = await getFeatureQuota(1, 'tanadon.sangkhatorn@gmail.com', AI_FEATURES.ANALYZE)
+    const status = await getFeatureQuota(1, 'tanadon.sangkhatorn@gmail.com', AI_FEATURES.ANALYZE, 'user')
+    expect(status.allowed).toBe(true)
+    expect(status.isOwner).toBe(true)
+    expect(pool.query).not.toHaveBeenCalled()
+  })
+
+  it('allows admin role without checking database', async () => {
+    const status = await getFeatureQuota(2, 'other@test.com', AI_FEATURES.ANALYZE, 'admin')
     expect(status.allowed).toBe(true)
     expect(status.isOwner).toBe(true)
     expect(pool.query).not.toHaveBeenCalled()
@@ -44,7 +51,7 @@ describe('aiQuota', () => {
     const usedAt = new Date('2026-06-20T10:00:00Z')
     pool.query.mockResolvedValueOnce({ rows: [{ used_at: usedAt }] })
 
-    const status = await getFeatureQuota(2, 'user@test.com', AI_FEATURES.NEWS_SUMMARY)
+    const status = await getFeatureQuota(2, 'user@test.com', AI_FEATURES.NEWS_SUMMARY, 'user')
     expect(status.allowed).toBe(false)
     expect(status.nextAvailableAt).toBe(new Date(usedAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString())
   })
@@ -52,7 +59,7 @@ describe('aiQuota', () => {
   it('allows when no recent usage', async () => {
     pool.query.mockResolvedValueOnce({ rows: [] })
 
-    const status = await getFeatureQuota(2, 'user@test.com', AI_FEATURES.ANALYZE)
+    const status = await getFeatureQuota(2, 'user@test.com', AI_FEATURES.ANALYZE, 'user')
     expect(status.allowed).toBe(true)
     expect(status.nextAvailableAt).toBeNull()
   })

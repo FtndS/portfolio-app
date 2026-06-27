@@ -6,7 +6,7 @@ import {
 export function requireAiQuota(feature) {
   return async (req, res, next) => {
     try {
-      const status = await getFeatureQuota(req.userId, req.userEmail, feature)
+      const status = await getFeatureQuota(req.userId, req.userEmail, feature, req.userRole)
       if (!status.allowed) {
         return res.status(429).json({
           error: quotaExceededMessage(feature, status.nextAvailableAt),

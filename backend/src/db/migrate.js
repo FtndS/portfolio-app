@@ -427,6 +427,38 @@ const migrations = [
         ON ai_usage (user_id, feature, used_at DESC);
     `,
   },
+  {
+    name: '018_user_role_support_tickets',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user';
+
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        category VARCHAR(32) NOT NULL,
+        subject VARCHAR(200) NOT NULL,
+        message TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        admin_notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS support_tickets_status_created_idx
+        ON support_tickets (status, created_at DESC);
+
+      CREATE INDEX IF NOT EXISTS support_tickets_user_created_idx
+        ON support_tickets (user_id, created_at DESC);
+    `,
+    async after() {
+      const { getBootstrapAdminEmail } = await import('../lib/admin.js')
+      const adminEmail = getBootstrapAdminEmail()
+      await pool.query(
+        `UPDATE users SET role = 'admin' WHERE LOWER(email) = LOWER($1)`,
+        [adminEmail]
+      )
+    },
+  },
 ]
 
 export async function runMigrations() {
