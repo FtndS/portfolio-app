@@ -15,6 +15,7 @@ import DividendModal from '../modals/DividendModal'
 import ImportCsvModal from '../modals/ImportCsvModal'
 import PortfolioManageModal from '../modals/PortfolioManageModal'
 import SettingsModal from '../modals/SettingsModal'
+import TickerStoryModal from '../modals/TickerStoryModal'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
@@ -56,9 +57,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
   const [inSectorNews, setInSectorNews] = useState([])
   const [outSectorNews, setOutSectorNews] = useState([])
-  const [tickerNews, setTickerNews] = useState([])
   const [selectedTicker, setSelectedTicker] = useState(null)
-  const [loadingNews, setLoadingNews] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [dataReady, setDataReady] = useState(false)
 
@@ -190,21 +189,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     }
   }, [])
 
-  const handleOpenTickerNews = async (ticker) => {
-    setSelectedTicker(ticker)
-    setLoadingNews(true)
-    setTickerNews([])
-    try {
-      const res = await api.fetch(`/news/ticker/${ticker}`)
-      if (res.ok) {
-        const data = await res.json()
-        setTickerNews(Array.isArray(data) ? data : [])
-      }
-    } catch (e) {
-      console.error('Ticker news error:', e)
-    }
-    setLoadingNews(false)
-  }
+  const handleOpenTickerStory = (ticker) => setSelectedTicker(ticker)
 
   const createPortfolio=async()=>{
     if(!newPortName.trim()) return
@@ -538,7 +523,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {/* Holdings */}
         {tab==='holdings'&&<>
           <p className="dash-holdings-hint">
-            <strong>ส่วนใหญ่ไม่ต้องใช้แท็บนี้</strong> — ยอดหุ้นและราคาทุนอัปเดตจาก <button type="button" className="dash-link" onClick={()=>setTab('transactions')}>Transactions</button> อัตโนมัติ ใช้ Holdings เฉพาะแก้ไขยอดตรงๆ
+            กดที่ <strong>Ticker</strong> เพื่อดู Investment Thesis และ timeline ของหุ้น — ส่วนใหญ่ไม่ต้องใช้แท็บนี้ ยอดหุ้นอัปเดตจาก <button type="button" className="dash-link" onClick={()=>setTab('transactions')}>Transactions</button> อัตโนมัติ
           </p>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
@@ -561,7 +546,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                   const val=getVal(h),cost=getCost(h),pnl=val-cost,pct=cost>0?(pnl/cost)*100:0
                   const os=symFor(h.currency||'USD')
                   return(<tr key={h.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
-                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
+                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerStory(h.ticker)} title="ดู Thesis & Timeline">{h.ticker}</td>
                     <td data-label="ชื่อ" className="dash-text-muted" style={{padding:'11px 13px'}}>{h.name||'—'}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(h.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'999px',background:h.currency==='USD'?'#1a2a4a':'#1a3a2a',color:h.currency==='USD'?'#74b9ff':'#55efc4'}}>{h.currency}</span></td>
@@ -611,7 +596,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 :filteredTransactions.map(t=>(
                   <tr key={t.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(t.date)}</td>
-                    <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
+                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerStory(t.ticker)} title="ดู Thesis & Timeline">{t.ticker}</td>
                     <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(t.currency)}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
@@ -665,7 +650,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 :dividends.map(d=>(
                   <tr key={d.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="วันที่รับ" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(d.pay_date)}</td>
-                    <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{d.ticker}</td>
+                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerStory(d.ticker)} title="ดู Thesis & Timeline">{d.ticker}</td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(d.currency)}</td>
                     <td data-label="จำนวนเงิน" className="dash-text-gain" style={{padding:'11px 13px',fontWeight:500}}>{fmtDiv(d)}</td>
                     <td data-label="หุ้น ณ วันจ่าย" style={{padding:'11px 13px'}}>{d.shares_held?Number(d.shares_held).toLocaleString('en-US',{maximumFractionDigits:4}):'—'}</td>
@@ -702,7 +687,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 <div className="dash-journal-meta">
                   <span className="dash-text-faint" style={{fontSize:'12px'}}>{fmtDate(j.date)}</span>
                   {j.tag&&<span className="dash-tag">{j.tag}</span>}
-                  {j.tickers&&j.tickers.split(',').map(t=><span key={t} className="dash-ticker-chip">{t.trim()}</span>)}
+                  {j.tickers&&j.tickers.split(',').map(t=>(
+                    <button key={t} type="button" className="dash-ticker-chip dash-ticker-chip--link" onClick={()=>handleOpenTickerStory(t.trim())}>{t.trim()}</button>
+                  ))}
                 </div>
                 <div style={{flexShrink:0}}>
                   {aBtn('แก้ไข',()=>{setEditJ(j);setModal('ej')})}
@@ -779,13 +766,17 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         />
       )}
 
-      {/* Modal ดูข่าวสารรายหุ้นเจาะจง */}
       {selectedTicker && (
-        <Modal title={`ข่าวสารล่าสุดของหุ้น ${selectedTicker}`} onClose={() => setSelectedTicker(null)}>
-          {loadingNews ? <p style={{ color: '#888', fontSize: '13px' }}>กำลังดึงข้อมูลข่าวสารแบบเรียลไทม์...</p>
-          : tickerNews.length === 0 ? <p className="dash-text-muted" style={{ fontSize: '13px' }}>ไม่พบข้อมูลข่าวสารของหุ้นตัวนี้ในปัจจุบัน</p>
-          : tickerNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
-        </Modal>
+        <TickerStoryModal
+          ticker={selectedTicker}
+          portfolioId={activePortfolioId}
+          holding={holdings.find((h) => h.ticker === selectedTicker) || allHoldings.find((h) => h.ticker === selectedTicker)}
+          transactions={transactions}
+          journal={journal}
+          dividends={dividends}
+          fmtTx={fmtTx}
+          onClose={() => setSelectedTicker(null)}
+        />
       )}
     </div>
   )

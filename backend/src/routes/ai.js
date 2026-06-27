@@ -187,4 +187,45 @@ ${newsText}
   }
 })
 
+router.post('/ticker-journal', async (req, res) => {
+  try {
+    const { ticker, thesis = {}, journal = [] } = req.body
+    if (!ticker) return res.status(400).json({ error: 'ต้องระบุ ticker' })
+    if (!journal.length && !thesis.thesis) {
+      return res.json({ summary: 'ยังไม่มี journal หรือ thesis สำหรับหุ้นนี้ — ลองเขียนเหตุผลถือหุ้นก่อน' })
+    }
+
+    const journalText = journal.slice(0, 12).map((j, i) => {
+      const d = j.date?.split?.('T')?.[0] || j.date || ''
+      return `${i + 1}. [${d}] ${j.title || '—'} (${j.tag || 'ไม่มี tag'}): ${String(j.content || '').slice(0, 400)}`
+    }).join('\n')
+
+    const systemPrompt = `คุณคือผู้ช่วยนักลงทุนระยะยาวที่สรุปบันทึกส่วนตัว
+ตอบเป็นภาษาไทย กระชับ 2-4 ประโยค อ้างอิงเฉพาะข้อมูลที่ให้
+ไม่ใช่คำแนะนำซื้อขาย — เป็นการช่วยทบทวนความคิดของ user เท่านั้น
+ตอบ plain text ไม่ใช่ JSON`
+
+    const userMessage = `หุ้น: ${ticker}
+
+Thesis (เหตุผลถือ):
+${thesis.thesis || '— ยังไม่ได้บันทึก'}
+
+เงื่อนไขเปลี่ยนใจ:
+${thesis.invalidation || '—'}
+
+ระยะเวลาที่ตั้งใจถือ: ${thesis.horizon || '—'}
+
+Journal ที่เกี่ยวข้อง:
+${journalText || '— ไม่มี'}
+
+สรุปให้ user ทบทวน: เขาเคยคิดอะไร thesis กับ journal สอดคล้องกันไหม มีอะไรที่ควรจดจำหรือทบทวน`
+
+    const text = await callClaude(systemPrompt, userMessage, 1024)
+    res.json({ summary: text.trim() })
+  } catch (err) {
+    console.error('Ticker journal summary error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 export default router

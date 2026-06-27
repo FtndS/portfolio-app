@@ -4,6 +4,11 @@ import './Landing.css'
 
 const FEATURES = [
   {
+    icon: '🎯',
+    title: 'Investment Thesis + Timeline',
+    desc: 'บันทึกเหตุผลถือหุ้น เงื่อนไขเปลี่ยนใจ และดู timeline รวม transaction, journal และปันผลต่อตัว',
+  },
+  {
     icon: '📋',
     title: 'Portfolio Report',
     desc: 'สรุปภาพรวมการลงทุน สัดส่วน sector กำไร/ขาดทุน — พิมพ์หรือบันทึกเป็น PDF ได้',
@@ -74,8 +79,8 @@ export default function Landing({ onLogin, onRegister }) {
             <span>อย่างมีระบบ</span>
           </h1>
           <p>
-            Port Diary คือเครื่องมือบันทึกและวิเคราะห์พอร์ตการลงทุนส่วนตัว
-            รวม transaction, journal, กราฟ และ AI ไว้ในที่เดียว
+            Port Diary ช่วยจดจำการตัดสินใจลงทุน — thesis, journal, timeline ต่อหุ้น
+            รวม transaction, กราฟ และ AI ไว้ในที่เดียว
           </p>
           <div className="landing-hero-cta">
             <button type="button" className="landing-btn-primary lg" onClick={onRegister}>

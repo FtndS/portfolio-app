@@ -151,6 +151,10 @@
   overflow-y: auto;
 }
 
+.modal-panel--wide {
+  width: 560px;
+}
+
 .auth-wrap {
   min-height: 100vh;
   display: flex;

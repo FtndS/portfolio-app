@@ -393,6 +393,26 @@ const migrations = [
       await rebuildHoldingsFromTransactions(pool)
     },
   },
+  {
+    name: '016_investment_thesis',
+    sql: `
+      CREATE TABLE IF NOT EXISTS investment_thesis (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        ticker VARCHAR(32) NOT NULL,
+        thesis TEXT NOT NULL DEFAULT '',
+        invalidation TEXT NOT NULL DEFAULT '',
+        horizon VARCHAR(64) NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (user_id, portfolio_id, ticker)
+      );
+
+      CREATE INDEX IF NOT EXISTS investment_thesis_portfolio_idx
+        ON investment_thesis (portfolio_id, ticker);
+    `,
+  },
 ]
 
 export async function runMigrations() {
