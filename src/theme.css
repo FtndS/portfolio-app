@@ -831,6 +831,10 @@ body,
   color: var(--accent-text);
 }
 
+.dash-util-btn--help {
+  color: var(--accent-text);
+}
+
 /* Admin support tickets */
 .dash-admin-layout {
   display: grid;

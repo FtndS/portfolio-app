@@ -15,6 +15,7 @@ import DividendModal from '../modals/DividendModal'
 import ImportCsvModal from '../modals/ImportCsvModal'
 import PortfolioManageModal from '../modals/PortfolioManageModal'
 import SettingsModal from '../modals/SettingsModal'
+import SupportModal from '../modals/SupportModal'
 import TickerStoryModal from '../modals/TickerStoryModal'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
@@ -421,6 +422,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
               >
                 {hideValues ? 'แสดงมูลค่า' : 'ซ่อนมูลค่า'}
               </button>
+              <button type="button" className="dash-util-btn dash-util-btn--help" onClick={()=>setModal('support')} title="ช่วยเหลือ / แจ้งปัญหา" aria-label="ช่วยเหลือ">ช่วยเหลือ</button>
               <button type="button" className="dash-util-btn" onClick={()=>setModal('settings')} title="ตั้งค่าบัญชี" aria-label="ตั้งค่าบัญชี">ตั้งค่า</button>
               {onOpenAdmin && (
                 <button type="button" className="dash-util-btn dash-util-btn--admin" onClick={onOpenAdmin} title="Admin" aria-label="Admin">Admin</button>
@@ -751,12 +753,16 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           <button onClick={createPortfolio} style={{...btnPrimary,marginTop:'8px'}}>สร้างพอร์ต</button>
         </Modal>
       )}
+      {modal==='support'&&(
+        <SupportModal onClose={()=>setModal(null)} />
+      )}
       {modal==='settings'&&(
         <SettingsModal
           user={user}
           onClose={()=>setModal(null)}
           onUserUpdate={onUserUpdate}
           onLogout={onLogout}
+          onOpenSupport={()=>setModal('support')}
         />
       )}
       {modal==='managePort'&&activePort&&(
