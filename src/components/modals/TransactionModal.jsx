@@ -5,7 +5,7 @@ import Field from '../ui/Field'
 import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
 import DateInput from '../ui/DateInput'
-import { sanitizeTicker } from '../../lib/constants'
+import { sanitizeTicker, MARKETS } from '../../lib/constants'
 import { todayIso, fmtShares, SHARES_EPS } from '../../lib/format'
 
 const SELL_PCT_PRESETS = [25, 50, 75, 100]
@@ -24,6 +24,18 @@ function inferTxCurrency(ticker, holdings) {
   return 'USD'
 }
 
+function inferTxMarket(ticker, holdings) {
+  const h = holdings.find((x) => x.ticker === ticker)
+  if (h?.market) return h.market
+  const t = (ticker || '').toUpperCase()
+  if (t.endsWith('-BK') || t.endsWith('.BK')) return 'SET'
+  if (t.endsWith('-HK') || t.endsWith('.HK')) return 'HK'
+  if (t.endsWith('-SS') || t.endsWith('.SS')) return 'CN'
+  if (t.endsWith('-SZ') || t.endsWith('.SZ')) return 'SZ'
+  if (/-USD$|-(USDT|THB|BTC|ETH)$/.test(t)) return 'CRYPTO'
+  return 'US'
+}
+
 export default function TransactionModal({ holdings, transaction, onClose, onSave, portfolioId }) {
   const today = todayIso()
   const isEdit = !!transaction
@@ -37,6 +49,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     date: transaction?.date?.split('T')[0] || today,
     holding_id: transaction?.holding_id ? String(transaction.holding_id) : '',
     currency: transaction?.currency || inferTxCurrency(transaction?.ticker, holdings),
+    market: inferTxMarket(transaction?.ticker, holdings),
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -80,7 +93,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     const h = holdings.find((h) => String(h.id) === e.target.value)
     if (h) {
       setSellPctActive(null)
-      setF({ ...f, holding_id: e.target.value, ticker: h.ticker, currency: h.currency || 'USD' })
+      setF({ ...f, holding_id: e.target.value, ticker: h.ticker, currency: h.currency || 'USD', market: h.market || 'US' })
     } else setF({ ...f, holding_id: '' })
   }
 
@@ -111,6 +124,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
       holding_id: f.holding_id || null,
       portfolio_id: portfolioId,
       currency: f.currency,
+      market: f.market,
     }
     const r = isEdit
       ? await api.put(`/transactions/${transaction.id}`, body)
@@ -125,6 +139,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
   const sym = f.currency === 'THB' ? '฿' : '$'
   const total = f.shares && f.price ? parseFloat(f.shares) * parseFloat(f.price) : 0
   const feeNum = f.fee === '' ? 0 : parseFloat(f.fee) || 0
+  const marketDef = MARKETS.find((m) => m.id === f.market) || MARKETS[0]
 
   return (
     <Modal title={isEdit ? 'แก้ไข Transaction' : 'บันทึก Transaction'} onClose={onClose}>
@@ -133,8 +148,24 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
         <select style={inp()} value={f.holding_id} onChange={selHolding}>
           <option value="">-- หรือพิมพ์ Ticker เองด้านล่าง --</option>
           {holdings.map((h) => (
-            <option key={h.id} value={h.id}>{h.ticker} — {h.name || h.ticker}</option>
+            <option key={h.id} value={h.id}>
+              {h.ticker} [{h.market || 'US'}] — {h.name || h.ticker}
+            </option>
           ))}
+        </select>
+      </Field>
+      <Field label="หมวดตลาด">
+        <select
+          style={inp()}
+          value={f.market}
+          onChange={(e) => {
+            const nextMarket = e.target.value
+            const nextDef = MARKETS.find((m) => m.id === nextMarket) || MARKETS[0]
+            setF({ ...f, market: nextMarket, currency: nextDef.currencies[0] || 'USD' })
+          }}
+          disabled={isEdit}
+        >
+          {MARKETS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
         </select>
       </Field>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }} className="dash-modal-row">
@@ -148,7 +179,11 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
                 const ticker = e.target.value
                 const next = { ...f, ticker }
                 setSellPctActive(null)
-                if (!isEdit && !f.holding_id) next.currency = inferTxCurrency(sanitizeTicker(ticker), holdings)
+                if (!isEdit && !f.holding_id) {
+                  next.market = inferTxMarket(sanitizeTicker(ticker), holdings)
+                  const inferredMarket = MARKETS.find((m) => m.id === next.market) || MARKETS[0]
+                  next.currency = inferredMarket.currencies[0] || inferTxCurrency(sanitizeTicker(ticker), holdings)
+                }
                 setF(next)
               }}
               disabled={isEdit}
@@ -177,7 +212,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
       </div>
       <Field label="สกุลเงิน">
         <div className="dash-segment" style={{ width: '100%' }}>
-          {['USD', 'THB'].map((c) => (
+          {marketDef.currencies.map((c) => (
             <button
               key={c}
               type="button"
@@ -185,7 +220,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
               style={{ flex: 1 }}
               onClick={() => setF({ ...f, currency: c })}
             >
-              {c === 'USD' ? '$ USD' : '฿ THB'}
+              {c === 'USD' ? '$ USD' : c === 'THB' ? '฿ THB' : c}
             </button>
           ))}
         </div>

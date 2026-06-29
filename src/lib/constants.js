@@ -1,6 +1,7 @@
 export const MARKETS = [
   { id: 'US', label: 'US / Global', currencies: ['USD'] },
   { id: 'SET', label: 'Thailand (SET)', currencies: ['THB'] },
+  { id: 'CRYPTO', label: 'Crypto', currencies: ['USD'] },
   { id: 'HK', label: 'Hong Kong', currencies: ['HKD'] },
   { id: 'CN', label: 'China (Shanghai)', currencies: ['CNY'] },
   { id: 'SZ', label: 'China (Shenzhen)', currencies: ['CNY'] },

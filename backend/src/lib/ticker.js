@@ -1,6 +1,7 @@
 export const MARKETS = {
   US: { label: 'US', suffix: '', currencies: ['USD'] },
   SET: { label: 'Thailand (SET)', suffix: '.BK', currencies: ['THB'] },
+  CRYPTO: { label: 'Crypto', suffix: '', currencies: ['USD'] },
   HK: { label: 'Hong Kong', suffix: '.HK', currencies: ['HKD'] },
   CN: { label: 'China (Shanghai)', suffix: '.SS', currencies: ['CNY'] },
   SZ: { label: 'China (Shenzhen)', suffix: '.SZ', currencies: ['CNY'] },
@@ -14,6 +15,11 @@ export function sanitizeTicker(ticker) {
 export function toYahooTicker(ticker, market = 'US') {
   const base = sanitizeTicker(ticker)
   if (!base) return ''
+  if (market === 'CRYPTO') {
+    // Store/quote crypto as quote-pairs on Yahoo (e.g. BTC-USD).
+    if (/^[A-Z0-9]+-[A-Z0-9]{3,5}$/.test(base)) return base
+    return `${base}-USD`
+  }
   if (base.includes('-')) {
     const parts = base.split('-')
     const suffix = parts[parts.length - 1]
@@ -38,6 +44,8 @@ export function defaultCurrency(market = 'US') {
 
 /** Infer exchange from ticker suffix and/or trading currency. */
 export function detectMarket(ticker, currency) {
+  const raw = sanitizeTicker(ticker)
+  if (/^[A-Z0-9]+-(USD|USDT|THB|BTC|ETH)$/.test(raw)) return 'CRYPTO'
   const yahoo = toYahooTicker(ticker)
   if (yahoo.endsWith('.BK')) return 'SET'
   if (yahoo.endsWith('.HK')) return 'HK'

@@ -116,7 +116,7 @@ router.post('/import', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { ticker, type, shares, price, fee, note, date, holding_id, portfolio_id, currency } = req.body
+  const { ticker, type, shares, price, fee, note, date, holding_id, portfolio_id, currency, market } = req.body
   if (!ticker || !type || !shares || !price || !date) {
     return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' })
   }
@@ -141,10 +141,11 @@ router.post('/', async (req, res) => {
     )
     txCurrency = holdingRow.rows[0]?.currency
   }
+  if (!txCurrency && market) txCurrency = defaultCurrency(market)
   if (!txCurrency) txCurrency = defaultCurrency(detectMarket(ticker, null))
   if (!txCurrency) txCurrency = 'USD'
 
-  const sanitizedTicker = storageTicker(ticker, null, txCurrency)
+  const sanitizedTicker = storageTicker(ticker, market || null, txCurrency)
   const total = shareNum * priceNum
   const client = await pool.connect()
   try {
@@ -171,7 +172,7 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { ticker, type, shares, price, fee, note, date, holding_id, currency } = req.body
+  const { ticker, type, shares, price, fee, note, date, holding_id, currency, market } = req.body
   if (!ticker || !type || !shares || !price || !date) {
     return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' })
   }
@@ -226,6 +227,9 @@ router.put('/:id', async (req, res) => {
       )
       txCurrency = holdingRow.rows[0]?.currency
     }
+    if (!txCurrency && market) {
+      txCurrency = defaultCurrency(market)
+    }
     if (!txCurrency) {
       txCurrency = (await client.query(
         'SELECT currency FROM transactions WHERE id = $1 AND user_id = $2',
@@ -235,7 +239,7 @@ router.put('/:id', async (req, res) => {
     if (!txCurrency) txCurrency = defaultCurrency(detectMarket(ticker, null))
     txCurrency = txCurrency || 'USD'
 
-    const sanitizedTicker = storageTicker(ticker, null, txCurrency)
+    const sanitizedTicker = storageTicker(ticker, market || null, txCurrency)
     const total = shareNum * priceNum
 
     const txResult = await client.query(

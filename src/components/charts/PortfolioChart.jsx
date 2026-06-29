@@ -184,17 +184,14 @@ export default function PortfolioChart({
     if (hideValues) return '••'
     if (compareMode) {
       const n = Number(v)
-      const sign = n > 0 ? '+' : ''
-      return `${sign}${n.toFixed(n >= 100 || n <= -100 ? 0 : 1)}%`
+      return `${n.toFixed(Math.abs(n) >= 100 ? 0 : 1)}%`
     }
     return fmtChartAxis(v, sym, { hideValues })
   }
 
   const yTicks = (() => {
-    const mid = min + range / 2
-    const ticks = compareMode
-      ? [min, min + range * 0.25, min + range * 0.5, min + range * 0.75, max]
-      : [min, mid, max]
+    const tickCount = compareMode ? 4 : 3
+    const ticks = Array.from({ length: tickCount }, (_, i) => min + (range * i) / (tickCount - 1))
     const uniq = [...new Set(ticks.map((t) => Number(t.toFixed(4))))]
     return uniq.sort((a, b) => a - b)
   })()
