@@ -155,20 +155,15 @@ router.get('/:id/history', async (req, res) => {
               if (!bm) return []
               if (bm.symbol === BENCHMARKS.sp500.symbol) return ['sp500']
               if (bm.symbol === BENCHMARKS.set.symbol) return ['set']
-              if (bm.symbol === BENCHMARKS.set100.symbol) return ['set100']
               return []
             })()
-          : raw.split(',').map((s) => s.trim().toLowerCase()).filter((k) => k === 'sp500' || k === 'set' || k === 'set100')
+          : raw.split(',').map((s) => s.trim().toLowerCase()).filter((k) => k === 'sp500' || k === 'set')
 
         const dates = history.map((h) => h.date)
         benchmarks = (
           await Promise.all(
             keys.map(async (key) => {
-              const bm = key === 'sp500'
-                ? BENCHMARKS.sp500
-                : key === 'set100'
-                  ? BENCHMARKS.set100
-                  : BENCHMARKS.set
+              const bm = key === 'sp500' ? BENCHMARKS.sp500 : BENCHMARKS.set
               const result = await computeBenchmarkHistory(bm, dates, days)
               return { ...result, id: key }
             })

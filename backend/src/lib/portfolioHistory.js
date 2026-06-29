@@ -9,16 +9,9 @@ const PRICE_HIST_TTL = 30 * 60 * 1000
 export const BENCHMARKS = {
   sp500: { symbol: '^GSPC', label: 'S&P 500' },
   set: {
-    symbol: '^SET50.BK',
-    fallbackSymbol: '^SET.BK',
-    altSymbols: ['SET50.BK', '^SET'],
-    label: 'SET50',
-  },
-  set100: {
-    symbol: '^SET100.BK',
-    fallbackSymbol: '^SET50.BK',
-    altSymbols: ['SET100.BK', '^SET.BK'],
-    label: 'SET100',
+    symbol: '^SET.BK',
+    altSymbols: ['^SET', 'SET.BK'],
+    label: 'SET',
   },
 }
 
