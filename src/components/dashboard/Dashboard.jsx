@@ -27,6 +27,7 @@ import { journalDraftFromTransaction } from '../../lib/workflow'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../../lib/pnl'
 import WorkflowGuide from './WorkflowGuide'
 import DashboardSidebar, { tabLabel } from './DashboardSidebar'
+import ThemeToggle from '../ThemeToggle'
 
 export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const [portfolios,setPortfolios]=useState([])
