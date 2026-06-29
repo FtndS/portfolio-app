@@ -24,6 +24,7 @@ import { MASKED, fmtPct, fmtDate, isoDate } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 import { journalDraftFromTransaction } from '../../lib/workflow'
 import WorkflowGuide from './WorkflowGuide'
+import DashboardSidebar, { tabLabel } from './DashboardSidebar'
 
 export default function Dashboard({user,onLogout,onUserUpdate}){
   const [portfolios,setPortfolios]=useState([])
@@ -61,6 +62,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const [loadingNews, setLoadingNews] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [dataReady, setDataReady] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const fxRate=prices['USDTHB=X']||35
   const pid=activePortfolioId
@@ -376,28 +378,66 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     </div>
   )
 
+  const selectTab = (k) => {
+    setTab(k)
+    setSearchQuery('')
+    setSidebarOpen(false)
+  }
+
+  const openAddTransaction = () => {
+    setTab('transactions')
+    setModal('tx')
+    setSidebarOpen(false)
+  }
+
   return(
     <div className="dash-shell">
-      <div className="dash-inner">
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="dash-sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="ปิดเมนู"
+        />
+      )}
 
-        {/* Header */}
-        <div className="dash-header">
-          <div>
-            <h1>📓 Port Diary</h1>
-            <p className="dash-header-sub">สวัสดี, {user.name}</p>
+      <DashboardSidebar
+        user={user}
+        portfolios={portfolios}
+        activePortfolioId={activePortfolioId}
+        onPortfolioChange={setActivePortfolioId}
+        tab={tab}
+        onTabChange={selectTab}
+        onManagePort={() => { setModal('managePort'); setSidebarOpen(false) }}
+        onNewPort={() => { setModal('newPort'); setSidebarOpen(false) }}
+        onAddTransaction={openAddTransaction}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <div className="dash-main">
+        <header className="dash-topbar">
+          <div className="dash-topbar-left">
+            <button
+              type="button"
+              className="dash-menu-btn"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="เปิดเมนู"
+            >
+              ☰
+            </button>
+            <h2 className="dash-topbar-title">{tabLabel(tab)}</h2>
           </div>
-          <div className="dash-header-actions">
-            <div className="dash-portfolio-select">
-              <select className="dash-select" value={activePortfolioId||''} onChange={e=>setActivePortfolioId(Number(e.target.value))}>
-                {portfolios.map(p=><option key={p.id} value={p.id}>{p.name}{p.is_default?' ★':''}</option>)}
-              </select>
-              <button type="button" className="dash-icon-btn" onClick={()=>setModal('managePort')} title="จัดการพอร์ต">⚙️</button>
-              <button type="button" className="dash-icon-btn dash-icon-btn--accent" onClick={()=>setModal('newPort')} title="สร้างพอร์ตใหม่">+</button>
-            </div>
+          <div className="dash-topbar-actions">
             <div className="dash-segment dash-currency-toggle">
-              {['USD','THB'].map(c=>(
-                <button key={c} type="button" className={`dash-segment-btn${displayCurrency===c?' dash-segment-btn--active':''}`} onClick={()=>setDisplayCurrency(c)}>
-                  {c==='USD'?'$ USD':'฿ THB'}
+              {['USD', 'THB'].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`dash-segment-btn${displayCurrency === c ? ' dash-segment-btn--active' : ''}`}
+                  onClick={() => setDisplayCurrency(c)}
+                >
+                  {c === 'USD' ? '$ USD' : '฿ THB'}
                 </button>
               ))}
             </div>
@@ -408,35 +448,25 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
               onClick={toggleHideValues}
               title={hideValues ? 'แสดงมูลค่าเงิน' : 'ซ่อนมูลค่า — แสดงแค่ %'}
             >
-              {hideValues ? '👁️ แสดงมูลค่า' : '🙈 ซ่อนมูลค่า'}
+              {hideValues ? '👁️' : '🙈'}
             </button>
-            <button type="button" onClick={()=>setModal('settings')} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ตั้งค่า</button>
-            <button type="button" onClick={onLogout} style={{...btnGhost,width:'auto',padding:'7px 14px',fontSize:'13px'}}>ออกจากระบบ</button>
+            <button type="button" onClick={() => setModal('settings')} style={{ ...btnGhost, width: 'auto', padding: '7px 14px', fontSize: '13px' }}>
+              ตั้งค่า
+            </button>
+            <button type="button" onClick={onLogout} style={{ ...btnGhost, width: 'auto', padding: '7px 14px', fontSize: '13px' }}>
+              ออก
+            </button>
           </div>
-        </div>
+        </header>
 
-        {/* Tabs */}
-        <div className="dash-tabs">
-          {[
-            ['overview','Overview'],
-            ['report','Report'],
-            ['holdings','Holdings'],
-            ['transactions','Transactions'],
-            ['dividends','ปันผล'],
-            ['journal','Journal'],
-            ['news','News']
-          ].map(([k,l])=>(
-            <button key={k} type="button" className={`dash-tab-btn${tab===k?' dash-tab-btn--active':''}`} onClick={() => { setTab(k); setSearchQuery(''); }}>{l}</button>
-          ))}
-        </div>
-
+        <div className="dash-inner">
         {/* Overview */}
         {tab==='overview'&&<>
           <WorkflowGuide
             activeTab={tab}
             compact
-            onGoTab={setTab}
-            onAddTransaction={() => { setTab('transactions'); setModal('tx') }}
+            onGoTab={selectTab}
+            onAddTransaction={openAddTransaction}
           />
           <div className="dash-kpi-grid">
             {[
@@ -482,7 +512,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           {holdings.length===0&&<div className="dash-empty-state">
             <p style={{fontSize:'36px',marginBottom:'12px'}}>📊</p>
             <p style={{fontSize:'14px',marginBottom:'20px'}}>เริ่มบันทึก Transaction แรกเพื่อสร้าง portfolio</p>
-            <button type="button" onClick={()=>{setTab('transactions');setModal('tx')}} style={{...btnPrimary,width:'auto',padding:'10px 24px'}}>+ บันทึก Transaction แรก</button>
+            <button type="button" onClick={openAddTransaction} style={{...btnPrimary,width:'auto',padding:'10px 24px'}}>+ บันทึก Transaction แรก</button>
           </div>}
         </>}
 
@@ -512,7 +542,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {/* Holdings */}
         {tab==='holdings'&&<>
           <p className="dash-holdings-hint">
-            <strong>ส่วนใหญ่ไม่ต้องใช้แท็บนี้</strong> — ยอดหุ้นและราคาทุนอัปเดตจาก <button type="button" className="dash-link" onClick={()=>setTab('transactions')}>Transactions</button> อัตโนมัติ ใช้ Holdings เฉพาะแก้ไขยอดตรงๆ
+            <strong>ส่วนใหญ่ไม่ต้องใช้แท็บนี้</strong> — ยอดหุ้นและราคาทุนอัปเดตจาก <button type="button" className="dash-link" onClick={()=>selectTab('transactions')}>Transactions</button> อัตโนมัติ ใช้ Holdings เฉพาะแก้ไขยอดตรงๆ
           </p>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
@@ -689,6 +719,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {/* News Tab Section */}
         {tab==='news' && renderNewsGrid()}
 
+        </div>
       </div>
 
       {showOnboarding && (
@@ -697,9 +728,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           activePort={activePort}
           onClose={() => setShowOnboarding(false)}
           onRename={() => fetchPortfolios()}
-          onAddTransaction={() => { setTab('transactions'); setModal('tx') }}
-          onImportCsv={() => { setTab('transactions'); setModal('import') }}
-          onSetTab={setTab}
+          onAddTransaction={openAddTransaction}
+          onImportCsv={() => { selectTab('transactions'); setModal('import') }}
+          onSetTab={selectTab}
         />
       )}
 
