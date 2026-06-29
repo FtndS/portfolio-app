@@ -13,9 +13,12 @@ function leadingZeroEnd(values) {
 }
 
 /** % change from first point in the trimmed series */
-function periodReturnSeries(values) {
-  const first = values.find((v) => v > 0) || values[0] || 1
-  return values.map((v) => (first > 0 ? ((v / first) - 1) * 100 : 0))
+function periodReturnSeries(values, baselineIdx = 0) {
+  const base = values[baselineIdx] > 0 ? values[baselineIdx] : (values.find((v) => v > 0) || values[0] || 1)
+  return values.map((v, i) => {
+    if (i < baselineIdx) return 0
+    return base > 0 ? ((v / base) - 1) * 100 : 0
+  })
 }
 
 /** indexed (base 100) → % change from period start */
@@ -70,10 +73,27 @@ function alignBenchmarkSeries(dates, benchmark) {
   return vals.map((v) => (Number.isFinite(v) ? v : firstFinite))
 }
 
-function rebaseIndexedSeries(indexedVals) {
-  const first = indexedVals.find((v) => Number.isFinite(v))
-  if (!(first > 0)) return indexedVals.map(() => null)
-  return indexedVals.map((v) => (Number.isFinite(v) ? ((v / first) - 1) * 100 : null))
+function rebaseIndexedSeries(indexedVals, baselineIdx = 0) {
+  const baseCandidate = indexedVals[baselineIdx]
+  const base = Number.isFinite(baseCandidate) && baseCandidate > 0
+    ? baseCandidate
+    : indexedVals.find((v) => Number.isFinite(v) && v > 0)
+  if (!(base > 0)) return indexedVals.map(() => null)
+  return indexedVals.map((v, i) => {
+    if (i < baselineIdx) return 0
+    return Number.isFinite(v) ? ((v / base) - 1) * 100 : null
+  })
+}
+
+function compareBaselineIndex(vals, costs) {
+  if (!vals.length) return 0
+  const latestVal = vals[vals.length - 1] || 0
+  const latestCost = costs[costs.length - 1] || 0
+  const minVal = Math.max(1, latestVal * 0.05)
+  const minCost = Math.max(1, latestCost * 0.05)
+  const idx = vals.findIndex((v, i) => v >= minVal || (costs[i] || 0) >= minCost)
+  if (idx >= 0) return idx
+  return vals.findIndex((v) => v > 0)
 }
 
 export default function PortfolioChart({
@@ -105,14 +125,15 @@ export default function PortfolioChart({
     const costs = allCosts.slice(trimFrom)
     const dates = allDates.slice(trimFrom)
 
-    const portReturn = periodReturnSeries(vals)
+    const baselineIdx = Math.max(0, compareBaselineIndex(vals, costs))
+    const portReturn = periodReturnSeries(vals, baselineIdx)
     const latest = vals[vals.length - 1] ?? 0
     const firstPositive = vals.find((v) => v > 0) ?? vals[0] ?? 0
     const portChg = firstPositive > 0 ? ((latest - firstPositive) / firstPositive) * 100 : 0
 
     const benchmarkLines = benchmarks.map((bm) => {
       const indexedVals = alignBenchmarkSeries(dates, bm)
-      const bmVals = rebaseIndexedSeries(indexedVals)
+      const bmVals = rebaseIndexedSeries(indexedVals, baselineIdx)
       const last = [...bmVals].reverse().find((v) => Number.isFinite(v)) ?? 0
       return {
         ...bm,
@@ -121,6 +142,7 @@ export default function PortfolioChart({
         changePct: last,
       }
     })
+    const comparePortChg = [...portReturn].reverse().find((v) => Number.isFinite(v)) ?? 0
 
     return {
       vals,
@@ -130,6 +152,7 @@ export default function PortfolioChart({
       benchmarkLines,
       latest,
       portChg,
+      comparePortChg,
       trimFrom,
       fullRangeStart: allDates[0],
       fullRangeEnd: allDates[allDates.length - 1],
@@ -158,6 +181,7 @@ export default function PortfolioChart({
     benchmarkLines,
     latest,
     portChg,
+    comparePortChg,
     trimFrom,
     fullRangeStart,
     fullRangeEnd,
@@ -262,7 +286,7 @@ export default function PortfolioChart({
             {hideValues
               ? fmtPct(portChg)
               : compareMode
-                ? `${portChg >= 0 ? '+' : ''}${portChg.toFixed(2)}%`
+                ? `${comparePortChg >= 0 ? '+' : ''}${comparePortChg.toFixed(2)}%`
                 : `${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
           </div>
           <div className="dash-chart-stat-chg" style={{ color: portChg >= 0 ? 'var(--gain)' : 'var(--loss)' }}>

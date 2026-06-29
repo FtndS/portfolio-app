@@ -9,6 +9,7 @@ const PRICE_HIST_TTL = 30 * 60 * 1000
 export const BENCHMARKS = {
   sp500: { symbol: '^GSPC', label: 'S&P 500' },
   set: { symbol: '^SET50.BK', fallbackSymbol: '^SET.BK', label: 'SET50' },
+  set100: { symbol: '^SET100.BK', fallbackSymbol: '^SET50.BK', label: 'SET100' },
 }
 
 export function resolveDaysParam(daysParam) {

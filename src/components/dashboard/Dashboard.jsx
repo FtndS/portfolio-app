@@ -36,7 +36,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const [portfolioHistory,setPortfolioHistory]=useState([])
   const [heatmapMode,setHeatmapMode]=useState('today')
   const [chartRange, setChartRange] = useState('3m')
-  const [benchmarkToggles, setBenchmarkToggles] = useState({ sp500: false, set: false })
+  const [benchmarkToggles, setBenchmarkToggles] = useState({ sp500: false, set: false, set100: false })
   const [benchmarksData, setBenchmarksData] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [newPortName,setNewPortName]=useState('')
