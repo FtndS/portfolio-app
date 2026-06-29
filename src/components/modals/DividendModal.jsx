@@ -4,7 +4,9 @@ import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
 import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
+import DateInput from '../ui/DateInput'
 import { sanitizeTicker, symFor } from '../../lib/constants'
+import { todayIso, parseDateInput } from '../../lib/format'
 
 function inferCurrency(ticker, holdings) {
   const h = holdings.find((x) => x.ticker === ticker)
@@ -16,7 +18,7 @@ function inferCurrency(ticker, holdings) {
 }
 
 export default function DividendModal({ holdings, dividend, onClose, onSave, portfolioId }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIso()
   const isEdit = !!dividend
   const [f, setF] = useState(() => ({
     ticker: dividend?.ticker || '',
@@ -45,6 +47,8 @@ export default function DividendModal({ holdings, dividend, onClose, onSave, por
 
   const save = async () => {
     if (!f.ticker || !f.amount || !f.pay_date) return setError('กรุณากรอกข้อมูลให้ครบ')
+    const payDateIso = parseDateInput(f.pay_date)
+    if (!payDateIso) return setError('วันที่ไม่ถูกต้อง — ใช้รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025')
     const amount = parseFloat(f.amount)
     if (!Number.isFinite(amount) || amount <= 0) return setError('จำนวนเงินปันผลต้องมากกว่า 0')
     setLoading(true)
@@ -54,7 +58,7 @@ export default function DividendModal({ holdings, dividend, onClose, onSave, por
       amount,
       currency: f.currency,
       shares_held: f.shares_held ? parseFloat(f.shares_held) : null,
-      pay_date: f.pay_date,
+      pay_date: payDateIso,
       note: f.note,
       portfolio_id: portfolioId,
     }
@@ -134,7 +138,8 @@ export default function DividendModal({ holdings, dividend, onClose, onSave, por
         </div>
       </div>
       <Field label="วันที่รับปันผล *">
-        <input type="date" style={inp()} value={f.pay_date} onChange={(e) => setF({ ...f, pay_date: e.target.value })} />
+        <DateInput style={inp()} value={f.pay_date} onChange={(pay_date) => setF({ ...f, pay_date })} />
+        <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '4px', marginBottom: 0 }}>รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025</p>
       </Field>
       <Field label="หมายเหตุ (optional)">
         <input style={inp({ marginBottom: 0 })} placeholder="เช่น ปันผล Q1/2026" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />

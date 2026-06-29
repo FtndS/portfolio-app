@@ -3,7 +3,9 @@ import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
 import Modal from '../ui/Modal'
+import DateInput from '../ui/DateInput'
 import { JOURNAL_TAGS as journalTags } from '../../lib/constants'
+import { todayIso, parseDateInput } from '../../lib/format'
 
 export default function JournalModal({
   entry,
@@ -13,7 +15,7 @@ export default function JournalModal({
   onSave,
   portfolioId,
 }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIso()
   const isEdit = !!entry
   const [f, setF] = useState(() => ({
     title: entry?.title || initial?.title || '',
@@ -30,11 +32,16 @@ export default function JournalModal({
       setError('กรุณาเขียนบันทึกสั้นๆ ว่าทำไมซื้อ/ขาย — หรือกดยกเลิกเพื่อข้าม')
       return
     }
+    const dateIso = parseDateInput(f.date)
+    if (!dateIso) {
+      setError('วันที่ไม่ถูกต้อง — ใช้รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025')
+      return
+    }
     setLoading(true)
     setError('')
     const r = isEdit
-      ? await api.put(`/journal/${entry.id}`, f)
-      : await api.post('/journal', { ...f, portfolio_id: portfolioId })
+      ? await api.put(`/journal/${entry.id}`, { ...f, date: dateIso })
+      : await api.post('/journal', { ...f, date: dateIso, portfolio_id: portfolioId })
     setLoading(false)
     if (r.id) {
       onSave()
@@ -84,7 +91,7 @@ export default function JournalModal({
         </div>
         <div style={{ flex: 1 }}>
           <Field label="วันที่">
-            <input type="date" style={inp({ marginBottom: 0 })} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
+            <DateInput style={inp({ marginBottom: 0 })} value={f.date} onChange={(date) => setF({ ...f, date })} />
           </Field>
         </div>
       </div>

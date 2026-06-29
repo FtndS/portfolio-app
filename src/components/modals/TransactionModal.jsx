@@ -4,7 +4,9 @@ import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
 import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
+import DateInput from '../ui/DateInput'
 import { sanitizeTicker } from '../../lib/constants'
+import { todayIso, parseDateInput } from '../../lib/format'
 
 function inferTxCurrency(ticker, holdings) {
   const h = holdings.find((x) => x.ticker === ticker)
@@ -16,7 +18,7 @@ function inferTxCurrency(ticker, holdings) {
 }
 
 export default function TransactionModal({ holdings, transaction, onClose, onSave, portfolioId }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayIso()
   const isEdit = !!transaction
   const [f, setF] = useState(() => ({
     ticker: transaction?.ticker || '',
@@ -40,6 +42,8 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
 
   const save = async () => {
     if (!f.ticker || !f.shares || !f.price || !f.date) return setError('กรุณากรอกข้อมูลให้ครบ')
+    const dateIso = parseDateInput(f.date)
+    if (!dateIso) return setError('วันที่ไม่ถูกต้อง — ใช้รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025')
     const shares = parseFloat(f.shares)
     const price = parseFloat(f.price)
     if (!Number.isFinite(shares) || shares <= 0) return setError('จำนวนหุ้นต้องมากกว่า 0')
@@ -56,7 +60,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
       price,
       fee,
       note: f.note,
-      date: f.date,
+      date: dateIso,
       holding_id: f.holding_id || null,
       portfolio_id: portfolioId,
       currency: f.currency,
@@ -183,7 +187,8 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
         </div>
       )}
       <Field label="วันที่">
-        <input type="date" style={inp()} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
+        <DateInput style={inp()} value={f.date} onChange={(date) => setF({ ...f, date })} />
+        <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '4px', marginBottom: 0 }}>รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025</p>
       </Field>
       <Field label="หมายเหตุ (optional)">
         <input style={inp({ marginBottom: 0 })} placeholder="เช่น DCA รายเดือน" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
