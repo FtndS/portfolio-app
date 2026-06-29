@@ -5,7 +5,8 @@ import { requireAiQuota } from '../middleware/aiQuota.js'
 import {
   AI_FEATURES,
   getAiQuota,
-  recordAiUsage,
+  quotaExceededMessage,
+  reserveAiQuota,
 } from '../lib/aiQuota.js'
 import { getPlanConfigForUser } from '../lib/aiPlan.js'
 import { buildAnalyzePayload } from '../lib/aiAnalyzeContext.js'
@@ -133,7 +134,6 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
 คำถาม: ${resolved.question}`
 
     const text = await callClaude(systemPrompt, userMessage, planConfig.copilot.maxTokens)
-    await recordAiUsage(req.userId, AI_FEATURES.COPILOT)
     res.json({
       answer: text.trim(),
       preset: resolved.preset,
@@ -241,7 +241,6 @@ ${JSON.stringify(journalSummary.entries, null, 2)}
 
     const text = await callClaude(systemPrompt, userMessage, maxTokens)
     const analysis = parseClaudeJson(text)
-    await recordAiUsage(req.userId, AI_FEATURES.ANALYZE)
     res.json({ ...analysis, dataScope })
   } catch (err) {
     console.error('AI analyze error:', err)
@@ -279,7 +278,6 @@ ${newsText}
 
     const text = await callClaude(systemPrompt, userMessage, 2048)
     const result = parseClaudeJson(text)
-    await recordAiUsage(req.userId, AI_FEATURES.NEWS_SUMMARY)
     res.json(result)
   } catch (err) {
     console.error('News summary error:', err)
@@ -293,6 +291,23 @@ router.post('/ticker-journal', async (req, res) => {
     if (!ticker) return res.status(400).json({ error: 'ต้องระบุ ticker' })
     if (!journal.length && !thesis.thesis) {
       return res.json({ summary: 'ยังไม่มี journal หรือ thesis สำหรับหุ้นนี้ — ลองเขียนเหตุผลถือหุ้นก่อน' })
+    }
+
+    const status = await reserveAiQuota(
+      req.userId,
+      req.userEmail,
+      AI_FEATURES.TICKER_JOURNAL,
+      req.userRole,
+      req.userPlan,
+      req.userPlanExpiresAt
+    )
+    if (!status.allowed) {
+      return res.status(429).json({
+        error: quotaExceededMessage(AI_FEATURES.TICKER_JOURNAL, status.nextAvailableAt, { limit: status.limit }),
+        code: 'AI_QUOTA_EXCEEDED',
+        feature: AI_FEATURES.TICKER_JOURNAL,
+        nextAvailableAt: status.nextAvailableAt,
+      })
     }
 
     const journalText = journal.slice(0, 12).map((j, i) => {

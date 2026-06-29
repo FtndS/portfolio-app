@@ -9,11 +9,24 @@ import {
 vi.mock('../src/db/index.js', () => ({
   default: {
     query: vi.fn(),
+    connect: vi.fn(),
   },
 }))
 
 import pool from '../src/db/index.js'
-import { getFeatureQuota } from '../src/lib/aiQuota.js'
+import { getFeatureQuota, reserveAiQuota } from '../src/lib/aiQuota.js'
+
+function mockTxClient(usages = []) {
+  const client = {
+    query: vi.fn(),
+    release: vi.fn(),
+  }
+  client.query
+    .mockResolvedValueOnce({}) // BEGIN
+    .mockResolvedValueOnce({}) // advisory lock
+    .mockResolvedValueOnce({ rows: usages.map((used_at) => ({ used_at })) }) // SELECT
+  return client
+}
 
 describe('aiQuota', () => {
   beforeEach(() => {
@@ -102,5 +115,46 @@ describe('aiQuota', () => {
     const msg = quotaExceededMessage(AI_FEATURES.ANALYZE, '2026-06-27T10:00:00.000Z', { limit: 1 })
     expect(msg).toContain('วิเคราะห์พอร์ต')
     expect(msg).toContain('ใช้ได้อีกครั้งหลัง')
+  })
+
+  it('reserveAiQuota inserts usage when under limit', async () => {
+    const client = mockTxClient()
+    client.query
+      .mockResolvedValueOnce({}) // INSERT
+      .mockResolvedValueOnce({}) // COMMIT
+    pool.connect.mockResolvedValueOnce(client)
+
+    const status = await reserveAiQuota(2, 'user@test.com', AI_FEATURES.COPILOT, 'user', 'free', null)
+    expect(status.allowed).toBe(true)
+    expect(status.used).toBe(1)
+    expect(status.remaining).toBe(1)
+    expect(client.query).toHaveBeenCalledWith(
+      'INSERT INTO ai_usage (user_id, feature) VALUES ($1, $2)',
+      [2, AI_FEATURES.COPILOT]
+    )
+    expect(client.release).toHaveBeenCalled()
+  })
+
+  it('reserveAiQuota blocks when weekly limit reached', async () => {
+    const usedAt = new Date('2026-06-20T10:00:00Z')
+    const client = mockTxClient([usedAt, new Date('2026-06-21T10:00:00Z')])
+    client.query.mockResolvedValueOnce({}) // ROLLBACK
+    pool.connect.mockResolvedValueOnce(client)
+
+    const status = await reserveAiQuota(2, 'user@test.com', AI_FEATURES.COPILOT, 'user', 'free', null)
+    expect(status.allowed).toBe(false)
+    expect(status.used).toBe(2)
+    expect(status.limit).toBe(2)
+    expect(client.query).not.toHaveBeenCalledWith(
+      'INSERT INTO ai_usage (user_id, feature) VALUES ($1, $2)',
+      expect.anything()
+    )
+  })
+
+  it('reserveAiQuota skips database for owner', async () => {
+    const status = await reserveAiQuota(1, 'tanadon.sangkhatorn@gmail.com', AI_FEATURES.TICKER_JOURNAL, 'user', 'free', null)
+    expect(status.allowed).toBe(true)
+    expect(status.isOwner).toBe(true)
+    expect(pool.connect).not.toHaveBeenCalled()
   })
 })

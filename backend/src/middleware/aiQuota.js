@@ -1,12 +1,13 @@
 import {
   getFeatureQuota,
   quotaExceededMessage,
+  reserveAiQuota,
 } from '../lib/aiQuota.js'
 
 export function requireAiQuota(feature) {
   return async (req, res, next) => {
     try {
-      const status = await getFeatureQuota(
+      const status = await reserveAiQuota(
         req.userId,
         req.userEmail,
         feature,

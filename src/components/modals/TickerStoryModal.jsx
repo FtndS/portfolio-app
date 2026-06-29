@@ -101,6 +101,7 @@ export default function TickerStoryModal({
         journal: journalEntries.slice(0, 12),
       })
       if (r.summary) setAiSummary(r.summary)
+      else if (r.code === 'AI_QUOTA_EXCEEDED') setAiErr(r.error || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว')
       else setAiErr(r.error || 'สรุปไม่สำเร็จ')
     } catch {
       setAiErr('เกิดข้อผิดพลาด กรุณาลองใหม่')

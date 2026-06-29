@@ -36,10 +36,16 @@ const WEAK_JWT_SECRETS = new Set([
   'change-this-to-a-long-random-string',
 ])
 
-if (
+const jwtSecretWeak =
   WEAK_JWT_SECRETS.has(process.env.JWT_SECRET) ||
   process.env.JWT_SECRET.length < 32
-) {
+
+if (jwtSecretWeak) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('FATAL: JWT_SECRET is weak or too short (min 32 characters)')
+    console.error('FATAL: Generate one with: ./scripts/generate-jwt-secret.sh')
+    process.exit(1)
+  }
   console.warn('WARNING: JWT_SECRET is weak or too short')
   console.warn('WARNING: Generate a new one with: ./scripts/generate-jwt-secret.sh')
 }

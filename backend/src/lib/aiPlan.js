@@ -18,6 +18,7 @@ export const AI_PLANS = {
       analyze: 1,
       'news-summary': 1,
       copilot: 2,
+      'ticker-journal': 2,
     },
     analyze: {
       maxTransactions: 30,
@@ -42,6 +43,7 @@ export const AI_PLANS = {
       analyze: 8,
       'news-summary': 4,
       copilot: 6,
+      'ticker-journal': 6,
     },
     analyze: {
       maxTransactions: 120,
@@ -106,5 +108,5 @@ export function nextAvailableFromOldest(oldestUsedAt) {
 export function estimateWeeklyAiCalls(plan, planExpiresAt) {
   const cfg = getPlanConfig(plan, planExpiresAt)
   const w = cfg.weeklyLimit
-  return (w.analyze || 0) + (w['news-summary'] || 0) + (w.copilot || 0)
+  return (w.analyze || 0) + (w['news-summary'] || 0) + (w.copilot || 0) + (w['ticker-journal'] || 0)
 }
