@@ -286,7 +286,7 @@
 .dash-inner {
   flex: 1;
   width: 100%;
-  max-width: 1400px;
+  max-width: none;
   margin: 0;
   padding: 24px;
   box-sizing: border-box;
@@ -1070,6 +1070,26 @@
   flex-wrap: wrap;
 }
 
+.dash-report-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dash-report-scope-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dash-report-scope-select {
+  min-width: 160px;
+  max-width: 220px;
+  font-size: 13px;
+}
+
 .dash-report-header {
   display: flex;
   justify-content: space-between;
@@ -1345,25 +1365,28 @@
 
 .dash-report-donut {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .dash-report-donut-svg {
-  width: 132px;
-  height: 132px;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  aspect-ratio: 1;
   flex-shrink: 0;
 }
 
 .dash-report-donut-center-label {
-  font-size: 10px;
+  font-size: 13px;
   fill: #7a7268;
   font-family: var(--font);
 }
 
 .dash-report-donut-center-value {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   fill: #3d3832;
   font-family: var(--font);
 }
@@ -1372,19 +1395,18 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .dash-report-donut-legend li {
   display: grid;
   grid-template-columns: 10px 1fr auto auto;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .dash-report-donut-legend-label {
@@ -1680,6 +1702,7 @@
   .dash-header,
   .dash-tabs,
   .dash-report-toolbar,
+  .dash-report-scope,
   .report-no-print {
     display: none !important;
   }
@@ -1722,15 +1745,18 @@
   }
 
   .dash-report-donut-svg {
-    width: 110px;
-    height: 110px;
+    width: 180px;
+    height: 180px;
+    max-width: none;
   }
 
   .dash-report-donut-center-label {
+    font-size: 11px !important;
     fill: #666 !important;
   }
 
   .dash-report-donut-center-value {
+    font-size: 16px !important;
     fill: #111 !important;
   }
 

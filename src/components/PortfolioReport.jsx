@@ -1,7 +1,15 @@
+import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
 import { MASKED, fmtPct, fmtDate, fmtShares } from '../lib/format'
 import { symFor } from '../lib/constants'
 import { usePrivacy } from '../lib/privacy'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../lib/pnl'
+import {
+  aggregateHoldingsByTicker,
+  mergePortfolioHistories,
+  normalizeHistoryResponse,
+  portfolioNameById,
+} from '../lib/reportScope'
 import ReportDonut from './report/ReportDonut'
 import ReportBarChart, { shouldUseBarChart } from './report/ReportBarChart'
 import ReportLineChart from './report/ReportLineChart'
@@ -28,8 +36,10 @@ function kpiToneClass(tone) {
 export default function PortfolioReport({
   user,
   activePort,
+  activePortfolioId,
   portfolios,
   holdings,
+  allHoldings = [],
   transactions,
   dividends = [],
   prices,
@@ -40,19 +50,122 @@ export default function PortfolioReport({
   getVal,
   getCost,
   convertToDisplay,
-  totVal,
-  totCost,
   portfolioHistory = [],
 }) {
   const { hideValues } = usePrivacy()
   const fmtMoney = (n) => (hideValues ? MASKED : fmt(n))
+  const [scope, setScope] = useState('active')
+  const [scoped, setScoped] = useState(null)
+  const [loadingScope, setLoadingScope] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (scope === 'active') {
+      setScoped({
+        holdings,
+        transactions,
+        dividends,
+        portfolioHistory,
+        title: activePort?.name || 'พอร์ต',
+        subtitle: null,
+        showAllPortsSummary: portfolios.length > 1,
+      })
+      setLoadingScope(false)
+      return () => { cancelled = true }
+    }
+
+    setLoadingScope(true)
+    ;(async () => {
+      try {
+        if (scope === 'all') {
+          const [txRes, divRes, histRes] = await Promise.all([
+            Promise.all(portfolios.map((p) => api.get('/transactions', { portfolio_id: p.id }))),
+            Promise.all(portfolios.map((p) => api.get('/dividends', { portfolio_id: p.id }))),
+            Promise.all(portfolios.map((p) => api.get(`/portfolios/${p.id}/history`, { days: 3650, benchmark: 'none' }))),
+          ])
+          if (cancelled) return
+          const aggHoldings = aggregateHoldingsByTicker(allHoldings)
+          const allTx = txRes
+            .flatMap((r) => (Array.isArray(r) ? r : []))
+            .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+          const allDiv = divRes.flatMap((r) => (Array.isArray(r) ? r : []))
+          setScoped({
+            holdings: aggHoldings,
+            transactions: allTx,
+            dividends: allDiv,
+            portfolioHistory: mergePortfolioHistories(histRes),
+            title: 'ทุกพอร์ตรวม',
+            subtitle: `${portfolios.length} พอร์ต · ${aggHoldings.length} หลักทรัพย์`,
+            showAllPortsSummary: false,
+          })
+        } else {
+          const portId = Number(scope)
+          const [h, t, d, hist] = await Promise.all([
+            api.get('/holdings', { portfolio_id: portId }),
+            api.get('/transactions', { portfolio_id: portId }),
+            api.get('/dividends', { portfolio_id: portId }),
+            api.get(`/portfolios/${portId}/history`, { days: 3650, benchmark: 'none' }),
+          ])
+          if (cancelled) return
+          const hl = Array.isArray(h) ? h : []
+          setScoped({
+            holdings: hl,
+            transactions: Array.isArray(t) ? t : [],
+            dividends: Array.isArray(d) ? d : [],
+            portfolioHistory: normalizeHistoryResponse(hist),
+            title: portfolioNameById(portfolios, portId),
+            subtitle: null,
+            showAllPortsSummary: portfolios.length > 1,
+          })
+        }
+      } catch (err) {
+        console.error('Report scope load error:', err)
+        if (!cancelled) {
+          setScoped({
+            holdings: [],
+            transactions: [],
+            dividends: [],
+            portfolioHistory: [],
+            title: scope === 'all' ? 'ทุกพอร์ตรวม' : portfolioNameById(portfolios, scope),
+            subtitle: null,
+            showAllPortsSummary: false,
+          })
+        }
+      } finally {
+        if (!cancelled) setLoadingScope(false)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [
+    scope,
+    holdings,
+    transactions,
+    dividends,
+    portfolioHistory,
+    activePort,
+    portfolios,
+    allHoldings,
+  ])
+
+  const reportHoldings = scoped?.holdings ?? holdings
+  const reportTransactions = scoped?.transactions ?? transactions
+  const reportDividends = scoped?.dividends ?? dividends
+  const reportHistory = scoped?.portfolioHistory ?? portfolioHistory
+  const reportTitle = scoped?.title ?? activePort?.name ?? 'พอร์ต'
+  const reportSubtitle = scoped?.subtitle
+  const showAllPortsSummary = scoped?.showAllPortsSummary ?? portfolios.length > 1
 
   const reportDate = new Date().toLocaleString('th-TH', {
     dateStyle: 'long',
     timeStyle: 'short',
   })
 
-  const allocation = [...holdings]
+  const totVal = reportHoldings.reduce((s, h) => s + getVal(h), 0)
+  const totCost = reportHoldings.reduce((s, h) => s + getCost(h), 0)
+
+  const allocation = [...reportHoldings]
     .map((h) => {
       const val = getVal(h)
       const cost = getCost(h)
@@ -65,7 +178,7 @@ export default function PortfolioReport({
     .sort((a, b) => b.val - a.val)
 
   const sectors = {}
-  holdings.forEach((h) => {
+  reportHoldings.forEach((h) => {
     const s = h.sector || 'Other'
     sectors[s] = (sectors[s] || 0) + getVal(h)
   })
@@ -78,7 +191,7 @@ export default function PortfolioReport({
     .sort((a, b) => b.value - a.value)
 
   const currencies = {}
-  holdings.forEach((h) => {
+  reportHoldings.forEach((h) => {
     const c = h.currency || 'USD'
     currencies[c] = (currencies[c] || 0) + getVal(h)
   })
@@ -95,12 +208,12 @@ export default function PortfolioReport({
     : 0
 
   const { total: totalPnL } = computePortfolioPnL({
-    transactions,
-    holdings,
+    transactions: reportTransactions,
+    holdings: reportHoldings,
     prices,
     convert: convertToDisplay,
   })
-  const dividendAll = sumDividends(dividends, convertToDisplay)
+  const dividendAll = sumDividends(reportDividends, convertToDisplay)
   const { totalReturn, hasDividends } = computeTotalReturn(totalPnL, dividendAll)
   const displayPnL = hasDividends ? totalReturn : totalPnL
   const totalPct = totCost > 0 ? (displayPnL / totCost) * 100 : 0
@@ -108,7 +221,7 @@ export default function PortfolioReport({
   const topGainers = [...allocation].filter((h) => h.pnl > 0).sort((a, b) => b.pnlPct - a.pnlPct).slice(0, 3)
   const topLosers = [...allocation].filter((h) => h.pnl < 0).sort((a, b) => a.pnlPct - b.pnlPct).slice(0, 3)
 
-  const recentTx = [...transactions].slice(0, 10)
+  const recentTx = [...reportTransactions].slice(0, 10)
 
   const allPortfolios = portfolios.map((p) => ({
     id: p.id,
@@ -120,11 +233,50 @@ export default function PortfolioReport({
     isActive: Number(p.id) === Number(activePort?.id),
   }))
 
-  if (!holdings.length) {
+  if (scope === 'active' && !holdings.length && portfolios.length <= 1) {
     return (
       <div className="dash-report-empty">
         <p style={{ fontSize: '36px', marginBottom: '12px' }}>📋</p>
         <p className="dash-text-muted" style={{ fontSize: '14px' }}>ยังไม่มีข้อมูลพอร์ต — บันทึก transaction เพื่อสร้างรายงาน</p>
+      </div>
+    )
+  }
+
+  if (loadingScope) {
+    return (
+      <div className="dash-report-empty">
+        <p className="dash-text-muted" style={{ fontSize: '14px' }}>กำลังโหลดรายงาน...</p>
+      </div>
+    )
+  }
+
+  if (!reportHoldings.length) {
+    return (
+      <div className="dash-report">
+        <div className="dash-report-toolbar report-no-print">
+          {portfolios.length > 0 && (
+            <label className="dash-report-scope">
+              <span className="dash-report-scope-label">รายงาน</span>
+              <select
+                className="dash-select dash-report-scope-select"
+                value={scope}
+                onChange={(e) => setScope(e.target.value)}
+              >
+                <option value="active">{activePort?.name || 'พอร์ตปัจจุบัน'} (กำลังดู)</option>
+                {portfolios
+                  .filter((p) => Number(p.id) !== Number(activePortfolioId))
+                  .map((p) => (
+                    <option key={p.id} value={String(p.id)}>{p.name}</option>
+                  ))}
+                {portfolios.length > 1 && <option value="all">ทุกพอร์ตรวม</option>}
+              </select>
+            </label>
+          )}
+        </div>
+        <div className="dash-report-empty">
+          <p style={{ fontSize: '36px', marginBottom: '12px' }}>📋</p>
+          <p className="dash-text-muted" style={{ fontSize: '14px' }}>ไม่มี holdings ในขอบเขตรายงานนี้</p>
+        </div>
       </div>
     )
   }
@@ -164,10 +316,34 @@ export default function PortfolioReport({
   return (
     <div className="dash-report">
       <div className="dash-report-toolbar report-no-print">
-        <p className="dash-text-muted" style={{ fontSize: '13px', flex: 1 }}>
+        <p className="dash-text-muted" style={{ fontSize: '13px', flex: 1, minWidth: '140px' }}>
           สรุปภาพรวมการลงทุน · อัปเดต {reportDate}
         </p>
-        <button type="button" className="dash-report-print-btn" onClick={() => window.print()}>
+        {portfolios.length > 0 && (
+          <label className="dash-report-scope">
+            <span className="dash-report-scope-label">รายงาน</span>
+            <select
+              className="dash-select dash-report-scope-select"
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              disabled={loadingScope}
+            >
+              <option value="active">{activePort?.name || 'พอร์ตปัจจุบัน'} (กำลังดู)</option>
+              {portfolios
+                .filter((p) => Number(p.id) !== Number(activePortfolioId))
+                .map((p) => (
+                  <option key={p.id} value={String(p.id)}>{p.name}</option>
+                ))}
+              {portfolios.length > 1 && <option value="all">ทุกพอร์ตรวม</option>}
+            </select>
+          </label>
+        )}
+        <button
+          type="button"
+          className="dash-report-print-btn"
+          onClick={() => window.print()}
+          disabled={loadingScope}
+        >
           🖨️ พิมพ์ / บันทึก PDF
         </button>
       </div>
@@ -175,10 +351,11 @@ export default function PortfolioReport({
       <div className="dash-report-header">
         <div>
           <p className="dash-report-eyebrow">Port Diary — Portfolio Report</p>
-          <h2 className="dash-report-title">{activePort?.name || 'พอร์ต'}</h2>
+          <h2 className="dash-report-title">{reportTitle}</h2>
           <p className="dash-report-meta">
             {user?.name} · สกุลเงินแสดงผล: {displayCurrency}
             {!loadingP && !hideValues && ` · FX $1 = ฿${Number(fxRate).toFixed(2)}`}
+            {reportSubtitle && ` · ${reportSubtitle}`}
           </p>
         </div>
         <div className="dash-report-asof">{reportDate}</div>
@@ -255,11 +432,11 @@ export default function PortfolioReport({
             fmtValue={fmtMoney}
           />
         </section>
-        {portfolioHistory.length > 1 && (
+        {reportHistory.length > 1 && (
           <section className="dash-report-chart-card dash-report-chart-card--wide">
             <h3>แนวโน้มมูลค่าพอร์ต (Time series)</h3>
             <ReportLineChart
-              history={portfolioHistory}
+              history={reportHistory}
               hideValues={hideValues}
               sym={symFor(displayCurrency)}
             />
@@ -333,7 +510,7 @@ export default function PortfolioReport({
           )}
         </section>
 
-        {portfolios.length > 1 && (
+        {showAllPortsSummary && (
           <section className="dash-report-card">
             <h3>ทุกพอร์ต (ภาพรวม)</h3>
             <ul className="dash-report-mini-list">

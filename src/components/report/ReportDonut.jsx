@@ -61,12 +61,12 @@ export default function ReportDonut({ slices, centerLabel, centerValue, hideValu
           ))
         )}
         {centerLabel && (
-          <text x={CX} y={CY - 5} textAnchor="middle" className="dash-report-donut-center-label" fill="#7a7268">
+          <text x={CX} y={CY - 6} textAnchor="middle" className="dash-report-donut-center-label" fontSize="13" fill="#7a7268">
             {centerLabel}
           </text>
         )}
         {centerDisplay && (
-          <text x={CX} y={CY + 12} textAnchor="middle" className="dash-report-donut-center-value" fill="#3d3832">
+          <text x={CX} y={CY + 16} textAnchor="middle" className="dash-report-donut-center-value" fontSize="22" fontWeight="700" fill="#3d3832">
             {centerDisplay}
           </text>
         )}

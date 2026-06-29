@@ -558,8 +558,10 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           <PortfolioReport
             user={user}
             activePort={activePort}
+            activePortfolioId={activePortfolioId}
             portfolios={portfolios}
             holdings={holdings}
+            allHoldings={allHoldings}
             transactions={transactions}
             dividends={dividends}
             prices={prices}
@@ -570,8 +572,6 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
             getVal={getVal}
             getCost={getCost}
             convertToDisplay={convertToDisplay}
-            totVal={totVal}
-            totCost={totCost}
             portfolioHistory={portfolioHistory}
           />
         )}
