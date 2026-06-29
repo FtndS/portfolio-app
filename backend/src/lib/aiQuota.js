@@ -2,6 +2,7 @@ import pool from '../db/index.js'
 import {
   getPlanConfig,
   getWeeklyLimit,
+  isAiPrivilegedUser,
   nextAvailableFromOldest,
 } from './aiPlan.js'
 
@@ -13,13 +14,10 @@ export const AI_FEATURES = {
 
 const WINDOW_SQL = `used_at > NOW() - INTERVAL '7 days'`
 
-export function getAiOwnerEmail() {
-  return (process.env.AI_OWNER_EMAIL || 'tanadon.sangkhatorn@gmail.com').trim().toLowerCase()
-}
+export { getAiOwnerEmail } from './aiPlan.js'
 
 export function isAiOwner(email) {
-  if (!email) return false
-  return String(email).trim().toLowerCase() === getAiOwnerEmail()
+  return isAiPrivilegedUser('user', email)
 }
 
 async function getRecentUsages(userId, feature) {
@@ -33,7 +31,7 @@ async function getRecentUsages(userId, feature) {
 }
 
 export async function getFeatureQuota(userId, email, feature, role, plan, planExpiresAt) {
-  if (role === 'admin' || isAiOwner(email)) {
+  if (isAiPrivilegedUser(role, email)) {
     return {
       allowed: true,
       isOwner: true,
@@ -75,7 +73,7 @@ export async function getFeatureQuota(userId, email, feature, role, plan, planEx
 }
 
 export async function getAiQuota(userId, email, role, plan, planExpiresAt) {
-  const owner = role === 'admin' || isAiOwner(email)
+  const owner = isAiPrivilegedUser(role, email)
   const planConfig = getPlanConfig(plan, planExpiresAt)
   const [analyze, newsSummary, copilot] = await Promise.all([
     getFeatureQuota(userId, email, AI_FEATURES.ANALYZE, role, plan, planExpiresAt),

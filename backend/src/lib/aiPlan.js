@@ -74,9 +74,24 @@ export function resolveEffectivePlan(plan, planExpiresAt) {
   return id
 }
 
+export function getAiOwnerEmail() {
+  return (process.env.AI_OWNER_EMAIL || 'tanadon.sangkhatorn@gmail.com').trim().toLowerCase()
+}
+
+export function isAiPrivilegedUser(role, email) {
+  if (role === 'admin') return true
+  if (!email) return false
+  return String(email).trim().toLowerCase() === getAiOwnerEmail()
+}
+
 export function getPlanConfig(plan, planExpiresAt) {
   const effective = resolveEffectivePlan(plan, planExpiresAt)
   return AI_PLANS[effective] || AI_PLANS.free
+}
+
+export function getPlanConfigForUser(role, email, plan, planExpiresAt) {
+  if (isAiPrivilegedUser(role, email)) return AI_PLANS.pro
+  return getPlanConfig(plan, planExpiresAt)
 }
 
 export function getWeeklyLimit(plan, planExpiresAt, feature) {

@@ -7,7 +7,7 @@ import {
   getAiQuota,
   recordAiUsage,
 } from '../lib/aiQuota.js'
-import { getPlanConfig } from '../lib/aiPlan.js'
+import { getPlanConfigForUser } from '../lib/aiPlan.js'
 import { buildAnalyzePayload } from '../lib/aiAnalyzeContext.js'
 import { buildCopilotContext, resolveCopilotQuestion } from '../lib/aiCopilotContext.js'
 
@@ -101,7 +101,12 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
     } = req.body
     if (!holdings?.length) return res.status(400).json({ error: 'ไม่มี holdings' })
 
-    const planConfig = getPlanConfig(req.userPlan, req.userPlanExpiresAt)
+    const planConfig = getPlanConfigForUser(
+      req.userRole,
+      req.userEmail,
+      req.userPlan,
+      req.userPlanExpiresAt
+    )
     const resolved = resolveCopilotQuestion(preset, question, planConfig)
     if (resolved.error) {
       return res.status(403).json({ error: resolved.error, code: 'COPILOT_CUSTOM_PRO_ONLY' })
@@ -146,7 +151,12 @@ router.post('/analyze', requireAiQuota(AI_FEATURES.ANALYZE), async (req, res) =>
     const { holdings, prices, displayCurrency, fxRate, transactions = [], journal = [] } = req.body
     if (!holdings?.length) return res.status(400).json({ error: 'ไม่มี holdings' })
 
-    const planConfig = getPlanConfig(req.userPlan, req.userPlanExpiresAt)
+    const planConfig = getPlanConfigForUser(
+      req.userRole,
+      req.userEmail,
+      req.userPlan,
+      req.userPlanExpiresAt
+    )
     const {
       portfolioWithPct,
       sectorAlloc,
