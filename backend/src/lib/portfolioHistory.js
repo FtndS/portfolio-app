@@ -8,8 +8,18 @@ const PRICE_HIST_TTL = 30 * 60 * 1000
 
 export const BENCHMARKS = {
   sp500: { symbol: '^GSPC', label: 'S&P 500' },
-  set: { symbol: '^SET50.BK', fallbackSymbol: '^SET.BK', label: 'SET50' },
-  set100: { symbol: '^SET100.BK', fallbackSymbol: '^SET50.BK', label: 'SET100' },
+  set: {
+    symbol: '^SET50.BK',
+    fallbackSymbol: '^SET.BK',
+    altSymbols: ['SET50.BK', '^SET'],
+    label: 'SET50',
+  },
+  set100: {
+    symbol: '^SET100.BK',
+    fallbackSymbol: '^SET50.BK',
+    altSymbols: ['SET100.BK', '^SET.BK'],
+    label: 'SET100',
+  },
 }
 
 export function resolveDaysParam(daysParam) {
@@ -73,6 +83,22 @@ async function fetchYahooDailyCloses(yahooSymbol, days) {
     console.error(`Historical price error for ${yahooSymbol}:`, e.message)
     return {}
   }
+}
+
+async function fetchBenchmarkPriceMap(benchmark, days) {
+  const candidates = [
+    benchmark?.symbol,
+    benchmark?.fallbackSymbol,
+    ...(benchmark?.altSymbols || []),
+  ].filter(Boolean)
+
+  for (const sym of candidates) {
+    const map = await fetchYahooDailyCloses(sym, days)
+    const vals = Object.values(map)
+    const uniq = new Set(vals.map((v) => Number(v).toFixed(6))).size
+    if (vals.length >= 5 && uniq >= 2) return map
+  }
+  return {}
 }
 
 async function fetchHistoricalPrices(ticker, days, meta = {}, portfolioCurrency = 'USD') {
@@ -273,10 +299,7 @@ export async function computeBenchmarkHistory(benchmark, historyDates, days) {
     return { label: benchmark?.label, symbol: benchmark?.symbol, series: [], changePct: 0 }
   }
 
-  let priceMap = await fetchYahooDailyCloses(benchmark.symbol, days)
-  if (!Object.keys(priceMap).length && benchmark?.fallbackSymbol) {
-    priceMap = await fetchYahooDailyCloses(benchmark.fallbackSymbol, days)
-  }
+  const priceMap = await fetchBenchmarkPriceMap(benchmark, days)
   const series = historyDates
     .map((date) => {
       const dateStr = String(date).split('T')[0]
