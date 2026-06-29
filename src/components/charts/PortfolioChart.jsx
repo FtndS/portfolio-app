@@ -59,10 +59,15 @@ function alignBenchmarkSeries(dates, benchmark) {
     (benchmark?.series || []).map((p) => [dateKey(p.date), Number(p.indexed)])
   )
   let lastBm = null
-  return dates.map((d) => {
+  const vals = dates.map((d) => {
     if (bmMap[d] != null) lastBm = bmMap[d]
     return lastBm
   })
+
+  // Backfill leading nulls so benchmark starts on same first visible date as portfolio.
+  const firstFinite = vals.find((v) => Number.isFinite(v))
+  if (!Number.isFinite(firstFinite)) return vals
+  return vals.map((v) => (Number.isFinite(v) ? v : firstFinite))
 }
 
 function rebaseIndexedSeries(indexedVals) {
