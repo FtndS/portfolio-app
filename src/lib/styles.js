@@ -13,10 +13,10 @@ export const inp = (extra = {}) => ({
 
 export const btnPrimary = {
   padding: '10px 20px',
-  background: 'var(--accent)',
+  background: 'var(--btn-primary-bg)',
   border: 'none',
   borderRadius: '8px',
-  color: '#fff',
+  color: 'var(--btn-primary-text)',
   fontSize: '14px',
   cursor: 'pointer',
   width: '100%',
@@ -25,10 +25,10 @@ export const btnPrimary = {
 
 export const btnGhost = {
   padding: '10px 20px',
-  background: 'transparent',
-  border: '1px solid var(--border-strong)',
+  background: 'var(--btn-ghost-bg)',
+  border: '1px solid var(--btn-ghost-border)',
   borderRadius: '8px',
-  color: 'var(--text-muted)',
+  color: 'var(--btn-ghost-text)',
   fontSize: '14px',
   cursor: 'pointer',
   width: '100%',
