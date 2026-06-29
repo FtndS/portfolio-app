@@ -6,11 +6,13 @@ import Modal from '../ui/Modal'
 import DateInput from '../ui/DateInput'
 import { JOURNAL_TAGS as journalTags } from '../../lib/constants'
 import { todayIso, parseDateInput } from '../../lib/format'
+import { dismissJournalPrompt } from '../../lib/workflow'
 
 export default function JournalModal({
   entry,
   initial,
   fromTransaction = false,
+  userId,
   onClose,
   onSave,
   portfolioId,
@@ -54,6 +56,11 @@ export default function JournalModal({
     : fromTransaction
       ? 'บันทึก Journal หลังเทรด'
       : 'เขียน Journal ใหม่'
+
+  const skipJournalPrompt = () => {
+    dismissJournalPrompt(userId)
+    onClose()
+  }
 
   return (
     <Modal title={title} onClose={onClose}>
@@ -103,6 +110,16 @@ export default function JournalModal({
           {loading ? 'กำลังบันทึก...' : 'บันทึก Journal'}
         </button>
       </div>
+      {fromTransaction && !isEdit && (
+        <p style={{ textAlign: 'center', marginTop: '14px', marginBottom: 0 }}>
+          <button type="button" className="dash-link" onClick={skipJournalPrompt}>
+            ไม่ต้องเตือนอีก
+          </button>
+          <span className="dash-text-faint" style={{ fontSize: '11px', display: 'block', marginTop: '4px' }}>
+            จะไม่เปิดหน้านี้หลังบันทึก transaction (เขียน journal เองได้ที่แท็บ Journal)
+          </span>
+        </p>
+      )}
     </Modal>
   )
 }

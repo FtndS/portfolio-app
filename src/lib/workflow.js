@@ -15,6 +15,20 @@ export function journalDraftFromTransaction(tx) {
   }
 }
 
+export function journalPromptKey(userId) {
+  return `journal_prompt_after_tx_${userId}`
+}
+
+/** Whether to show journal modal after a new transaction (default: yes). */
+export function isJournalPromptEnabled(userId) {
+  if (!userId) return true
+  return !localStorage.getItem(journalPromptKey(userId))
+}
+
+export function dismissJournalPrompt(userId) {
+  if (userId) localStorage.setItem(journalPromptKey(userId), '1')
+}
+
 /** Main user journey — tab names match the nav bar exactly. */
 export const WORKFLOW_STEPS = [
   {

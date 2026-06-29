@@ -23,7 +23,7 @@ import { btnPrimary, btnGhost, inp } from '../../lib/styles'
 import { symFor, JOURNAL_TAGS as journalTags, CHART_RANGE_DAYS } from '../../lib/constants'
 import { MASKED, fmtPct, fmtDate, isoDate } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
-import { journalDraftFromTransaction } from '../../lib/workflow'
+import { journalDraftFromTransaction, isJournalPromptEnabled } from '../../lib/workflow'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../../lib/pnl'
 import WorkflowGuide from './WorkflowGuide'
 import DashboardSidebar, { tabLabel } from './DashboardSidebar'
@@ -254,7 +254,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const handleTxSaved=async(tx,{isNew})=>{
     const hl=await fetchAll(activePortfolioId)
     await fetchPrices(hl,activePortfolioId)
-    if(isNew&&tx?.id){
+    if(isNew&&tx?.id&&isJournalPromptEnabled(user?.id)){
       setJournalDraft(journalDraftFromTransaction(tx))
       setModal('j')
     }
@@ -767,6 +767,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
       {modal==='j'&&(
         <JournalModal
           portfolioId={activePortfolioId}
+          userId={user?.id}
           initial={journalDraft}
           fromTransaction={!!journalDraft}
           onClose={()=>{setModal(null);setJournalDraft(null)}}
