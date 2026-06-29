@@ -474,6 +474,12 @@ const migrations = [
       ALTER TABLE dividends ALTER COLUMN shares_held TYPE NUMERIC(28, 10);
     `,
   },
+  {
+    name: '021_token_version',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ]
 
 export async function runMigrations() {

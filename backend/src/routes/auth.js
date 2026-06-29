@@ -1,8 +1,8 @@
 import express from 'express'
 import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
 import pool from '../db/index.js'
 import { ensureUserPortfolio } from '../lib/portfolio.js'
+import { signAuthToken } from '../lib/authToken.js'
 import { authMiddleware } from '../middleware/auth.js'
 import {
   authLimiter,
@@ -200,7 +200,7 @@ router.post('/register/verify', otpVerifyLimiter, async (req, res) => {
     const result = await pool.query(
       `INSERT INTO users (email, password, name, email_verified)
        VALUES ($1, $2, $3, true)
-       RETURNING id, email, name`,
+       RETURNING id, email, name, role, plan, plan_expires_at, token_version`,
       [normalizedEmail, meta.password_hash, name.trim()]
     )
     const user = result.rows[0]
@@ -212,7 +212,7 @@ router.post('/register/verify', otpVerifyLimiter, async (req, res) => {
       console.warn('Default portfolio not created:', e.message)
     }
 
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' })
+    const token = signAuthToken(user.id, user.token_version ?? 0)
     res.json({ token, user: publicUser(user), message: 'สมัครสมาชิกสำเร็จ' })
   } catch (err) {
     console.error('Register verify error:', err.message)
@@ -252,7 +252,7 @@ router.post('/login', authLimiter, async (req, res) => {
       console.warn('Default portfolio not ensured on login:', e.message)
     }
 
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' })
+    const token = signAuthToken(user.id, user.token_version ?? 0)
     res.json({ token, user: publicUser(user) })
   } catch (err) {
     console.error('Login error:', err.message)
@@ -325,7 +325,8 @@ router.post('/reset-password', authLimiter, async (req, res) => {
       const hash = await bcrypt.hash(password, 10)
       await pool.query(
         `UPDATE users
-         SET password = $1, password_reset_token = NULL, password_reset_expires = NULL
+         SET password = $1, password_reset_token = NULL, password_reset_expires = NULL,
+             token_version = token_version + 1
          WHERE id = $2`,
         [hash, user.id]
       )
@@ -357,7 +358,8 @@ router.post('/reset-password', authLimiter, async (req, res) => {
     const hash = await bcrypt.hash(password, 10)
     await pool.query(
       `UPDATE users
-       SET password = $1, password_reset_token = NULL, password_reset_expires = NULL
+       SET password = $1, password_reset_token = NULL, password_reset_expires = NULL,
+           token_version = token_version + 1
        WHERE id = $2`,
       [hash, user.id]
     )
@@ -484,9 +486,14 @@ router.put('/change-password', authMiddleware, authLimiter, async (req, res) => 
     }
 
     const hash = await bcrypt.hash(newPassword, 10)
-    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hash, req.userId])
+    const updated = await pool.query(
+      `UPDATE users SET password = $1, token_version = token_version + 1
+       WHERE id = $2 RETURNING token_version`,
+      [hash, req.userId]
+    )
+    const token = signAuthToken(req.userId, updated.rows[0].token_version)
 
-    res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ' })
+    res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ', token })
   } catch (err) {
     console.error('Change password error:', err.message)
     res.status(500).json({ error: 'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่' })

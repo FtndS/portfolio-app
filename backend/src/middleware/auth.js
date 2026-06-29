@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import pool from '../db/index.js'
+import { isTokenVersionValid } from '../lib/authToken.js'
 
 export const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1]
@@ -8,11 +9,15 @@ export const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     const result = await pool.query(
-      'SELECT id, email, email_verified, role, plan, plan_expires_at FROM users WHERE id = $1',
+      `SELECT id, email, email_verified, role, plan, plan_expires_at, token_version
+       FROM users WHERE id = $1`,
       [decoded.userId]
     )
     const user = result.rows[0]
     if (!user) return res.status(401).json({ error: 'Invalid token' })
+    if (!isTokenVersionValid(decoded.tv, user.token_version)) {
+      return res.status(401).json({ error: 'Session expired — please log in again' })
+    }
     if (user.email_verified !== true) {
       return res.status(403).json({ error: 'กรุณายืนยันอีเมลก่อนใช้งาน' })
     }

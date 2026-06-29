@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth.js'
 import { storageTicker, defaultCurrency, detectMarket } from '../lib/ticker.js'
 import { resolvePortfolioId, repairAllPortfolioLinks } from '../lib/portfolio.js'
 import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
+import { validateHoldingId } from '../lib/holdingAccess.js'
 import { parseTransactionCsv } from '../lib/csvImport.js'
 import { parseFee } from '../lib/validate.js'
 
@@ -134,28 +135,29 @@ router.post('/', async (req, res) => {
   }
 
   let txCurrency = currency
-  if (!txCurrency && holding_id) {
-    const holdingRow = await pool.query(
-      'SELECT currency FROM holdings WHERE id = $1 AND user_id = $2',
-      [holding_id, req.userId]
-    )
-    txCurrency = holdingRow.rows[0]?.currency
-  }
-  if (!txCurrency && market) txCurrency = defaultCurrency(market)
-  if (!txCurrency) txCurrency = defaultCurrency(detectMarket(ticker, null))
-  if (!txCurrency) txCurrency = 'USD'
-
-  const sanitizedTicker = storageTicker(ticker, market || null, txCurrency)
-  const total = shareNum * priceNum
   const client = await pool.connect()
   try {
     const portfolioId = await resolvePortfolioId(req.userId, portfolio_id)
+
+    const holdingCheck = await validateHoldingId(client, req.userId, portfolioId, holding_id)
+    if (holdingCheck.error) {
+      return res.status(400).json({ error: holdingCheck.error })
+    }
+    const resolvedHoldingId = holdingCheck.holdingId
+
+    if (!txCurrency && holdingCheck.currency) txCurrency = holdingCheck.currency
+    if (!txCurrency && market) txCurrency = defaultCurrency(market)
+    if (!txCurrency) txCurrency = defaultCurrency(detectMarket(ticker, null))
+    if (!txCurrency) txCurrency = 'USD'
+
+    const sanitizedTicker = storageTicker(ticker, market || null, txCurrency)
+    const total = shareNum * priceNum
     await client.query('BEGIN')
 
     const txResult = await client.query(
       `INSERT INTO transactions (user_id, portfolio_id, holding_id, ticker, type, shares, price, total, fee, note, date, currency)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
-      [req.userId, portfolioId, holding_id || null, sanitizedTicker, type,
+      [req.userId, portfolioId, resolvedHoldingId, sanitizedTicker, type,
         shareNum, priceNum, total, feeNum, note || null, date, txCurrency]
     )
 
@@ -212,14 +214,15 @@ router.put('/:id', async (req, res) => {
       )
     }
 
-    let txCurrency = currency
-    if (!txCurrency && holding_id) {
-      const holdingRow = await client.query(
-        'SELECT currency FROM holdings WHERE id = $1 AND user_id = $2',
-        [holding_id, req.userId]
-      )
-      txCurrency = holdingRow.rows[0]?.currency
+    const holdingCheck = await validateHoldingId(client, req.userId, portfolioId, holding_id)
+    if (holdingCheck.error) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ error: holdingCheck.error })
     }
+    const resolvedHoldingId = holdingCheck.holdingId
+
+    let txCurrency = currency
+    if (!txCurrency && holdingCheck.currency) txCurrency = holdingCheck.currency
     if (!txCurrency) {
       const holdingRow = await client.query(
         'SELECT currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3 LIMIT 1',
@@ -250,7 +253,7 @@ router.put('/:id', async (req, res) => {
        RETURNING *`,
       [
         sanitizedTicker, type, shareNum, priceNum, total, feeNum,
-        note || null, date, holding_id || null, txCurrency,
+        note || null, date, resolvedHoldingId, txCurrency,
         req.params.id, req.userId,
       ]
     )

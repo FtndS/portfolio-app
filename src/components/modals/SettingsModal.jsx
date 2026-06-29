@@ -53,6 +53,7 @@ export default function SettingsModal({ user, onClose, onUserUpdate, onLogout, o
     setLoadingPw(false)
     if (r.message) {
       setPwMsg(r.message)
+      if (r.token) localStorage.setItem('token', r.token)
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
