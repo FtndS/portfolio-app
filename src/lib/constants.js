@@ -39,7 +39,7 @@ export const CHART_RANGE_DAYS = Object.fromEntries(
 
 export const BENCHMARK_TOGGLES = [
   { id: 'sp500', label: 'S&P 500', color: 'var(--chart-benchmark)' },
-  { id: 'set', label: 'SET', color: 'var(--chart-set)' },
+  { id: 'set', label: 'SET50', color: 'var(--chart-set)' },
 ]
 
 /** @deprecated use BENCHMARK_TOGGLES — kept for any legacy refs */

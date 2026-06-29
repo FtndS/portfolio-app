@@ -8,7 +8,7 @@ const PRICE_HIST_TTL = 30 * 60 * 1000
 
 export const BENCHMARKS = {
   sp500: { symbol: '^GSPC', label: 'S&P 500' },
-  set: { symbol: '^SET.BK', label: 'SET Index' },
+  set: { symbol: '^SET50.BK', fallbackSymbol: '^SET.BK', label: 'SET50' },
 }
 
 export function resolveDaysParam(daysParam) {
@@ -272,7 +272,10 @@ export async function computeBenchmarkHistory(benchmark, historyDates, days) {
     return { label: benchmark?.label, symbol: benchmark?.symbol, series: [], changePct: 0 }
   }
 
-  const priceMap = await fetchYahooDailyCloses(benchmark.symbol, days)
+  let priceMap = await fetchYahooDailyCloses(benchmark.symbol, days)
+  if (!Object.keys(priceMap).length && benchmark?.fallbackSymbol) {
+    priceMap = await fetchYahooDailyCloses(benchmark.fallbackSymbol, days)
+  }
   const series = historyDates
     .map((date) => {
       const dateStr = String(date).split('T')[0]
