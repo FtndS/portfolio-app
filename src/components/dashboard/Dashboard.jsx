@@ -550,6 +550,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
             convertToDisplay={convertToDisplay}
             totVal={totVal}
             totCost={totCost}
+            portfolioHistory={portfolioHistory}
           />
         )}
 

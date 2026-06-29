@@ -78,21 +78,19 @@ export default function AdminPage({ user, onBack, onLogout }) {
   const openCount = tickets.filter((t) => t.status === 'open').length
 
   return (
-    <div className="dash-root">
-      <div className="dash-shell">
-        <div className="dash-header">
-          <div className="dash-header-top">
-            <div>
-              <h1 className="dash-title">Admin — คำร้องจากผู้ใช้</h1>
-              <p className="dash-subtitle">{user.email} · {openCount} เปิดใหม่</p>
-            </div>
-            <div className="dash-header-util">
-              <button type="button" className="dash-util-btn" onClick={onBack}>กลับ Dashboard</button>
-              <button type="button" className="dash-util-btn dash-util-btn--logout" onClick={onLogout}>ออก</button>
-            </div>
-          </div>
+    <div className="dash-admin-page">
+      <header className="dash-admin-header">
+        <div>
+          <h1 className="dash-admin-title">Admin — คำร้องจากผู้ใช้</h1>
+          <p className="dash-admin-sub">{user.email} · {openCount} เปิดใหม่</p>
         </div>
+        <div className="dash-header-util">
+          <button type="button" className="dash-util-btn" onClick={onBack}>กลับ Dashboard</button>
+          <button type="button" className="dash-util-btn dash-util-btn--logout" onClick={onLogout}>ออก</button>
+        </div>
+      </header>
 
+      <main className="dash-admin-main">
         <div className="dash-toolbar" style={{ marginBottom: '16px' }}>
           <div className="dash-segment">
             {[
@@ -196,7 +194,7 @@ export default function AdminPage({ user, onBack, onLogout }) {
             )}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

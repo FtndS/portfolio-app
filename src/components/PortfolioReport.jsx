@@ -2,6 +2,8 @@ import { MASKED, fmtPct, fmtDate } from '../lib/format'
 import { symFor } from '../lib/constants'
 import { usePrivacy } from '../lib/privacy'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../lib/pnl'
+import ReportDonut from './report/ReportDonut'
+import ReportLineChart from './report/ReportLineChart'
 
 const SECTOR_COLORS = ['#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e', '#e84393', '#55efc4', '#a29bfe']
 
@@ -39,6 +41,7 @@ export default function PortfolioReport({
   convertToDisplay,
   totVal,
   totCost,
+  portfolioHistory = [],
 }) {
   const { hideValues } = usePrivacy()
   const fmtMoney = (n) => (hideValues ? MASKED : fmt(n))
@@ -191,6 +194,61 @@ export default function PortfolioReport({
         {allocation.length > 8 && <span className="dash-report-muted">+{allocation.length - 8} อื่นๆ</span>}
       </div>
 
+      <div className="dash-report-charts">
+        <section className="dash-report-chart-card">
+          <h3>สัดส่วนหุ้น</h3>
+          <ReportDonut
+            slices={allocation.map((h, i) => ({
+              label: h.ticker,
+              value: h.val,
+              color: SECTOR_COLORS[i % SECTOR_COLORS.length],
+            }))}
+            centerLabel="หุ้น"
+            centerValue={`${allocation.length}`}
+            hideValues={hideValues}
+            fmtValue={fmtMoney}
+          />
+        </section>
+        <section className="dash-report-chart-card">
+          <h3>สัดส่วน Sector</h3>
+          <ReportDonut
+            slices={sectorRows.map((s, i) => ({
+              label: s.name,
+              value: s.value,
+              color: SECTOR_COLORS[i % SECTOR_COLORS.length],
+            }))}
+            centerLabel="Sector"
+            centerValue={`${sectorRows.length}`}
+            hideValues={hideValues}
+            fmtValue={fmtMoney}
+          />
+        </section>
+        <section className="dash-report-chart-card">
+          <h3>สกุลเงินในพอร์ต</h3>
+          <ReportDonut
+            slices={currencyRows.map((c) => ({
+              label: c.ccy,
+              value: c.value,
+              color: c.ccy === 'THB' ? '#00b894' : c.ccy === 'USD' ? '#0984e3' : '#a29bfe',
+            }))}
+            centerLabel="สกุลเงิน"
+            centerValue={currencyRows.map((c) => c.ccy).join(' · ')}
+            hideValues={hideValues}
+            fmtValue={fmtMoney}
+          />
+        </section>
+        {portfolioHistory.length > 1 && (
+          <section className="dash-report-chart-card dash-report-chart-card--wide">
+            <h3>แนวโน้มมูลค่าพอร์ต</h3>
+            <ReportLineChart
+              history={portfolioHistory}
+              hideValues={hideValues}
+              sym={symFor(displayCurrency)}
+            />
+          </section>
+        )}
+      </div>
+
       <div className="dash-report-grid">
         <section className="dash-report-card dash-report-card--wide">
           <h3>สัดส่วนการลงทุน (Holdings)</h3>
@@ -222,49 +280,6 @@ export default function PortfolioReport({
               </tbody>
             </table>
           </div>
-        </section>
-
-        <section className="dash-report-card">
-          <h3>สัดส่วน Sector</h3>
-          <ul className="dash-report-bars">
-            {sectorRows.map((s, i) => (
-              <li key={s.name}>
-                <div className="dash-report-bar-head">
-                  <span>{s.name}</span>
-                  <span>
-                    {s.pct.toFixed(1)}%
-                    {!hideValues && ` · ${fmtMoney(s.value)}`}
-                  </span>
-                </div>
-                <div className="dash-report-bar-track">
-                  <div
-                    className="dash-report-bar-fill"
-                    style={{ width: `${s.pct}%`, background: SECTOR_COLORS[i % SECTOR_COLORS.length] }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="dash-report-card">
-          <h3>สกุลเงินในพอร์ต</h3>
-          <ul className="dash-report-bars">
-            {currencyRows.map((c) => (
-              <li key={c.ccy}>
-                <div className="dash-report-bar-head">
-                  <span>{c.ccy}</span>
-                  <span>
-                    {c.pct.toFixed(1)}%
-                    {!hideValues && ` · ${fmtMoney(c.value)}`}
-                  </span>
-                </div>
-                <div className="dash-report-bar-track">
-                  <div className="dash-report-bar-fill" style={{ width: `${c.pct}%`, background: c.ccy === 'THB' ? '#55efc4' : '#74b9ff' }} />
-                </div>
-              </li>
-            ))}
-          </ul>
         </section>
 
         <section className="dash-report-card">
