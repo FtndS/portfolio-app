@@ -39,7 +39,7 @@ export function computePortfolioPnL({ transactions, holdings, prices = {}, conve
       const costBasis = sh * prev.avgCost
       realized += convert(proceeds - costBasis, ccy)
       prev.shares -= sh
-      if (prev.shares <= 0.000001) {
+      if (prev.shares <= 1e-9) {
         prev.shares = 0
         prev.avgCost = 0
       }

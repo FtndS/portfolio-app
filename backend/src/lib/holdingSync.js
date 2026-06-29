@@ -1,6 +1,8 @@
 import { resolveMarket, defaultCurrency, storageTicker, detectMarket } from './ticker.js'
 import { fetchCompanyProfile, needsSectorRefresh } from './profile.js'
 
+const SHARES_EPS = 1e-9
+
 export async function syncHoldingFromTransactions(client, userId, portfolioId, ticker, profile = null, txCurrency) {
   const allTx = await client.query(
     `SELECT type, shares, price, fee FROM transactions
@@ -31,7 +33,7 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
     }
   }
 
-  if (netShares <= 0.000001) {
+  if (netShares <= SHARES_EPS) {
     await client.query(
       `DELETE FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3`,
       [userId, portfolioId, ticker]

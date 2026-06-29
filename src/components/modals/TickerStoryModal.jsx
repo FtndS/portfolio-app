@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import { symFor } from '../../lib/constants'
-import { MASKED, fmtDate } from '../../lib/format'
+import { MASKED, fmtDate, fmtShares } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 import { buildTickerTimeline } from '../../lib/timeline'
 import Field from '../ui/Field'
@@ -118,7 +118,7 @@ export default function TickerStoryModal({
           <div className="dash-timeline-body">
             <div className="dash-timeline-meta">{fmtDate(event.date)} · Transaction</div>
             <div className={`dash-timeline-title ${isBuy ? 'dash-text-gain' : 'dash-text-loss'}`}>
-              {t.type} {Number(t.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })} หุ้น
+              {t.type} {fmtShares(t.shares)} หุ้น
               {!hideValues && <> @ {fmtTx(t, t.price)}</>}
             </div>
             {t.note && <p className="dash-timeline-note">{t.note}</p>}

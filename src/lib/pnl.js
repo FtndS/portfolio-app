@@ -1,4 +1,4 @@
-import { isoDate } from './format.js'
+import { isoDate, SHARES_EPS } from './format.js'
 
 /**
  * Realized + unrealized P&L (average-cost, matches holdingSync).
@@ -39,7 +39,7 @@ export function computePortfolioPnL({ transactions, holdings, prices = {}, conve
       const costBasis = sh * prev.avgCost
       realized += convert(proceeds - costBasis, ccy)
       prev.shares -= sh
-      if (prev.shares <= 0.000001) {
+      if (prev.shares <= SHARES_EPS) {
         prev.shares = 0
         prev.avgCost = 0
       }

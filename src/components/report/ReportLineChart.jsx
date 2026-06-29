@@ -1,13 +1,16 @@
+import { useId } from 'react'
 import { fmtDate } from '../../lib/format'
 
 export default function ReportLineChart({ history, hideValues, sym = '$' }) {
+  const gradId = useId().replace(/:/g, '')
+
   if (!history?.length) {
     return <p className="dash-report-muted" style={{ fontSize: '13px' }}>ไม่มีประวัติมูลค่าพอร์ต</p>
   }
 
   const W = 640
-  const H = 200
-  const pad = { t: 16, r: 16, b: 32, l: 56 }
+  const H = 220
+  const pad = { t: 20, r: 16, b: 36, l: 56 }
   const innerW = W - pad.l - pad.r
   const innerH = H - pad.t - pad.b
 
@@ -15,9 +18,9 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
   const costs = history.map((d) => Number(d.total_cost || 0))
   const dates = history.map((d) => d.date)
 
-  const allNums = [...vals, ...costs].filter((n) => Number.isFinite(n) && n > 0)
-  const minV = Math.min(...allNums) * 0.98
-  const maxV = Math.max(...allNums) * 1.02
+  const portNums = vals.filter((n) => Number.isFinite(n) && n > 0)
+  const minV = portNums.length ? Math.min(...portNums) * 0.98 : 0
+  const maxV = portNums.length ? Math.max(...portNums) * 1.02 : 1
   const range = maxV - minV || 1
 
   const xAt = (i) => pad.l + (i / Math.max(history.length - 1, 1)) * innerW
@@ -32,8 +35,8 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
   const costPath = toPath(costs)
   const areaPath = `${portPath} L${xAt(vals.length - 1).toFixed(1)} ${(pad.t + innerH).toFixed(1)} L${pad.l} ${(pad.t + innerH).toFixed(1)} Z`
 
-  const first = vals[0]
-  const last = vals[vals.length - 1]
+  const first = vals.find((v) => v > 0) ?? vals[0] ?? 0
+  const last = vals[vals.length - 1] ?? 0
   const chg = first > 0 ? ((last - first) / first) * 100 : 0
   const fmt = (n) =>
     hideValues ? '••••' : `${sym}${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
@@ -42,9 +45,14 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
 
   return (
     <div className="dash-report-line-wrap">
+      <p className="dash-report-chart-caption">
+        กราฟเส้นแสดงมูลค่าพอร์ตตามเวลา (คำนวณจาก transaction + ราคาย้อนหลัง)
+        — หากนำเข้าหรือเพิ่มหุ้นจำนวนมากในวันเดียว กราฟอาจกระโดดขึ้นในช่วงนั้น
+      </p>
       <div className="dash-report-line-meta">
         <span className={chg >= 0 ? 'dash-text-gain' : 'dash-text-loss'}>
           {hideValues ? '—' : `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`}
+          {!hideValues && <span className="dash-report-muted" style={{ fontWeight: 400, marginLeft: '6px' }}>ตั้งแต่ต้นช่วง</span>}
         </span>
         <span className="dash-report-muted">
           {fmtDate(dates[0])} → {fmtDate(dates[dates.length - 1])}
@@ -52,7 +60,7 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="dash-report-line-svg" aria-hidden>
         <defs>
-          <linearGradient id="reportPortGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#6c5ce7" stopOpacity="0.35" />
             <stop offset="100%" stopColor="#6c5ce7" stopOpacity="0.02" />
           </linearGradient>
@@ -64,20 +72,20 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
               y1={yAt(v)}
               x2={W - pad.r}
               y2={yAt(v)}
-              stroke="var(--border-subtle)"
+              stroke="#e5ddd0"
               strokeWidth="1"
               strokeDasharray="4 4"
             />
-            <text x={pad.l - 8} y={yAt(v) + 4} textAnchor="end" className="dash-report-line-tick">
+            <text x={pad.l - 8} y={yAt(v) + 4} textAnchor="end" className="dash-report-line-tick" fill="#7a7268">
               {fmt(v)}
             </text>
           </g>
         ))}
-        <path d={areaPath} fill="url(#reportPortGrad)" />
+        <path d={areaPath} fill={`url(#${gradId})`} />
         <path d={costPath} fill="none" stroke="#9a9185" strokeWidth="1.5" strokeDasharray="5 4" />
         <path d={portPath} fill="none" stroke="#6c5ce7" strokeWidth="2.5" strokeLinejoin="round" />
-        <text x={pad.l} y={H - 8} className="dash-report-line-tick">{fmtDate(dates[0])}</text>
-        <text x={W - pad.r} y={H - 8} textAnchor="end" className="dash-report-line-tick">
+        <text x={pad.l} y={H - 10} className="dash-report-line-tick" fill="#7a7268">{fmtDate(dates[0])}</text>
+        <text x={W - pad.r} y={H - 10} textAnchor="end" className="dash-report-line-tick" fill="#7a7268">
           {fmtDate(dates[dates.length - 1])}
         </text>
       </svg>

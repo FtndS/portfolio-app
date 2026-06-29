@@ -466,6 +466,14 @@ const migrations = [
       ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
     `,
   },
+  {
+    name: '020_shares_precision_10',
+    sql: `
+      ALTER TABLE holdings ALTER COLUMN shares TYPE NUMERIC(28, 10);
+      ALTER TABLE transactions ALTER COLUMN shares TYPE NUMERIC(28, 10);
+      ALTER TABLE dividends ALTER COLUMN shares_held TYPE NUMERIC(28, 10);
+    `,
+  },
 ]
 
 export async function runMigrations() {

@@ -1121,21 +1121,21 @@
 }
 
 .dash-report-donut-svg {
-  width: 120px;
-  height: 120px;
+  width: 132px;
+  height: 132px;
   flex-shrink: 0;
 }
 
 .dash-report-donut-center-label {
-  font-size: 9px;
-  fill: var(--text-muted);
+  font-size: 10px;
+  fill: #7a7268;
   font-family: var(--font);
 }
 
 .dash-report-donut-center-value {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  fill: var(--text);
+  fill: #3d3832;
   font-family: var(--font);
 }
 
@@ -1180,6 +1180,32 @@
   width: 100%;
 }
 
+.dash-report-chart-caption {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.dash-report-bars--chart {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dash-report-bars--chart li {
+  margin-bottom: 10px;
+}
+
+.dash-report-bar-label {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.dash-report-charts--holdings-bars .dash-report-chart-card--wide:first-child {
+  grid-column: 1 / -1;
+}
+
 .dash-report-line-meta {
   display: flex;
   justify-content: space-between;
@@ -1197,7 +1223,7 @@
 
 .dash-report-line-tick {
   font-size: 10px;
-  fill: var(--text-muted);
+  fill: #7a7268;
   font-family: var(--font);
 }
 
@@ -1402,7 +1428,12 @@
 }
 
 @media print {
-  body {
+  body,
+  #root,
+  .dash-shell,
+  .dash-main,
+  .dash-inner,
+  .dash-report {
     background: #fff !important;
     color: #111 !important;
     -webkit-print-color-adjust: exact;
@@ -1439,8 +1470,13 @@
   .dash-report-card,
   .dash-report-chart-card {
     background: #fff !important;
-    border-color: #ddd !important;
+    border: none !important;
+    box-shadow: none !important;
     break-inside: avoid;
+  }
+
+  .dash-report-allocation-strip {
+    border: 1px solid #ddd;
   }
 
   .dash-report-charts {
@@ -1453,8 +1489,24 @@
   }
 
   .dash-report-donut-svg {
-    width: 100px;
-    height: 100px;
+    width: 110px;
+    height: 110px;
+  }
+
+  .dash-report-donut-center-label {
+    fill: #666 !important;
+  }
+
+  .dash-report-donut-center-value {
+    fill: #111 !important;
+  }
+
+  .dash-report-line-tick {
+    fill: #666 !important;
+  }
+
+  .dash-report-chart-caption {
+    color: #666 !important;
   }
 
   .dash-report-title,

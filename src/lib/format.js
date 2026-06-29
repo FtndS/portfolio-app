@@ -62,3 +62,15 @@ function isValidYmd(year, month, day) {
 export function todayIso() {
   return new Date().toISOString().split('T')[0]
 }
+
+/** Max decimal places stored for share quantities. */
+export const SHARES_DECIMALS = 10
+
+/** Treat share balances below this as zero (dust). */
+export const SHARES_EPS = 1e-9
+
+export function fmtShares(n) {
+  const x = Number(n)
+  if (!Number.isFinite(x)) return '—'
+  return x.toLocaleString('en-US', { maximumFractionDigits: SHARES_DECIMALS })
+}

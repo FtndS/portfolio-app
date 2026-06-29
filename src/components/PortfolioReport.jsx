@@ -1,8 +1,9 @@
-import { MASKED, fmtPct, fmtDate } from '../lib/format'
+import { MASKED, fmtPct, fmtDate, fmtShares } from '../lib/format'
 import { symFor } from '../lib/constants'
 import { usePrivacy } from '../lib/privacy'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../lib/pnl'
 import ReportDonut from './report/ReportDonut'
+import ReportBarChart, { shouldUseBarChart } from './report/ReportBarChart'
 import ReportLineChart from './report/ReportLineChart'
 
 const SECTOR_COLORS = ['#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e', '#e84393', '#55efc4', '#a29bfe']
@@ -139,6 +140,27 @@ export default function PortfolioReport({
     ['% เปลี่ยนแปลงวันนี้', fmtPct(weightedDayChg), pnlTone(weightedDayChg)],
   ]
 
+  const holdingSlices = allocation.map((h, i) => ({
+    label: h.ticker,
+    value: h.val,
+    color: SECTOR_COLORS[i % SECTOR_COLORS.length],
+  }))
+
+  const sectorSlices = sectorRows.map((s, i) => ({
+    label: s.name,
+    value: s.value,
+    color: SECTOR_COLORS[i % SECTOR_COLORS.length],
+  }))
+
+  const currencySlices = currencyRows.map((c) => ({
+    label: c.ccy,
+    value: c.value,
+    color: c.ccy === 'THB' ? '#00b894' : c.ccy === 'USD' ? '#0984e3' : '#a29bfe',
+  }))
+
+  const useHoldingBars = shouldUseBarChart(holdingSlices.length)
+  const useSectorBars = shouldUseBarChart(sectorSlices.length)
+
   return (
     <div className="dash-report">
       <div className="dash-report-toolbar report-no-print">
@@ -194,52 +216,48 @@ export default function PortfolioReport({
         {allocation.length > 8 && <span className="dash-report-muted">+{allocation.length - 8} อื่นๆ</span>}
       </div>
 
-      <div className="dash-report-charts">
-        <section className="dash-report-chart-card">
+      <div className={`dash-report-charts${useHoldingBars ? ' dash-report-charts--holdings-bars' : ''}`}>
+        <section className={`dash-report-chart-card${useHoldingBars ? ' dash-report-chart-card--wide' : ''}`}>
           <h3>สัดส่วนหุ้น</h3>
-          <ReportDonut
-            slices={allocation.map((h, i) => ({
-              label: h.ticker,
-              value: h.val,
-              color: SECTOR_COLORS[i % SECTOR_COLORS.length],
-            }))}
-            centerLabel="หุ้น"
-            centerValue={`${allocation.length}`}
-            hideValues={hideValues}
-            fmtValue={fmtMoney}
-          />
+          {useHoldingBars ? (
+            <ReportBarChart items={holdingSlices} hideValues={hideValues} fmtValue={fmtMoney} />
+          ) : (
+            <ReportDonut
+              slices={holdingSlices}
+              centerLabel="หุ้น"
+              centerValue={`${allocation.length}`}
+              hideValues={hideValues}
+              fmtValue={fmtMoney}
+            />
+          )}
         </section>
-        <section className="dash-report-chart-card">
+        <section className={`dash-report-chart-card${useSectorBars ? ' dash-report-chart-card--wide' : ''}`}>
           <h3>สัดส่วน Sector</h3>
-          <ReportDonut
-            slices={sectorRows.map((s, i) => ({
-              label: s.name,
-              value: s.value,
-              color: SECTOR_COLORS[i % SECTOR_COLORS.length],
-            }))}
-            centerLabel="Sector"
-            centerValue={`${sectorRows.length}`}
-            hideValues={hideValues}
-            fmtValue={fmtMoney}
-          />
+          {useSectorBars ? (
+            <ReportBarChart items={sectorSlices} hideValues={hideValues} fmtValue={fmtMoney} />
+          ) : (
+            <ReportDonut
+              slices={sectorSlices}
+              centerLabel="Sector"
+              centerValue={`${sectorRows.length}`}
+              hideValues={hideValues}
+              fmtValue={fmtMoney}
+            />
+          )}
         </section>
         <section className="dash-report-chart-card">
           <h3>สกุลเงินในพอร์ต</h3>
           <ReportDonut
-            slices={currencyRows.map((c) => ({
-              label: c.ccy,
-              value: c.value,
-              color: c.ccy === 'THB' ? '#00b894' : c.ccy === 'USD' ? '#0984e3' : '#a29bfe',
-            }))}
+            slices={currencySlices}
             centerLabel="สกุลเงิน"
-            centerValue={currencyRows.map((c) => c.ccy).join(' · ')}
+            centerValue={currencyRows.length === 1 ? currencyRows[0].ccy : `${currencyRows.length}`}
             hideValues={hideValues}
             fmtValue={fmtMoney}
           />
         </section>
         {portfolioHistory.length > 1 && (
           <section className="dash-report-chart-card dash-report-chart-card--wide">
-            <h3>แนวโน้มมูลค่าพอร์ต</h3>
+            <h3>แนวโน้มมูลค่าพอร์ต (Time series)</h3>
             <ReportLineChart
               history={portfolioHistory}
               hideValues={hideValues}
@@ -351,7 +369,7 @@ export default function PortfolioReport({
                       <td className="dash-report-ticker">{t.ticker}</td>
                       <td className={t.type === 'BUY' ? 'dash-text-gain' : 'dash-text-loss'}>{t.type}</td>
                       <td><CcyChip ccy={t.currency} /></td>
-                      <td>{Number(t.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })}</td>
+                      <td>{fmtShares(t.shares)}</td>
                       <td>
                         {hideValues
                           ? MASKED

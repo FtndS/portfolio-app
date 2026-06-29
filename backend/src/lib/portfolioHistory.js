@@ -137,7 +137,7 @@ function positionsAtDate(transactions, dateStr) {
       avgCosts[tx.ticker] = next > 0 ? (prevCost + sh * price + fee) / next : 0
     } else {
       const next = (positions[tx.ticker] || 0) - sh
-      if (next <= 0.000001) {
+      if (next <= 1e-9) {
         delete positions[tx.ticker]
         delete avgCosts[tx.ticker]
       } else {

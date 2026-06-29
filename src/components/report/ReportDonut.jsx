@@ -28,7 +28,7 @@ function buildSlices(items) {
   })
 }
 
-export default function ReportDonut({ slices, centerLabel, centerValue, hideValues, fmtValue }) {
+export default function ReportDonut({ slices, centerLabel, centerValue, hideValues, fmtValue, maxLegend = 10 }) {
   const data = slices.filter((s) => s.value > 0)
   if (!data.length) {
     return <p className="dash-report-muted" style={{ fontSize: '13px' }}>ไม่มีข้อมูล</p>
@@ -36,6 +36,12 @@ export default function ReportDonut({ slices, centerLabel, centerValue, hideValu
 
   const paths = buildSlices(data)
   const single = paths.length === 1
+  const legendShown = paths.slice(0, maxLegend)
+  const legendRest = paths.slice(maxLegend)
+  const restPct = legendRest.reduce((s, p) => s + p.pct, 0)
+  const restVal = legendRest.reduce((s, p) => s + p.value, 0)
+
+  const centerDisplay = centerValue && String(centerValue).length <= 12 ? centerValue : String(paths.length)
 
   return (
     <div className="dash-report-donut">
@@ -55,27 +61,37 @@ export default function ReportDonut({ slices, centerLabel, centerValue, hideValu
           ))
         )}
         {centerLabel && (
-          <text x={CX} y={CY - 4} textAnchor="middle" className="dash-report-donut-center-label">
+          <text x={CX} y={CY - 5} textAnchor="middle" className="dash-report-donut-center-label" fill="#7a7268">
             {centerLabel}
           </text>
         )}
-        {centerValue && (
-          <text x={CX} y={CY + 14} textAnchor="middle" className="dash-report-donut-center-value">
-            {centerValue}
+        {centerDisplay && (
+          <text x={CX} y={CY + 12} textAnchor="middle" className="dash-report-donut-center-value" fill="#3d3832">
+            {centerDisplay}
           </text>
         )}
       </svg>
       <ul className="dash-report-donut-legend">
-        {paths.map((s, i) => (
+        {legendShown.map((s, i) => (
           <li key={i}>
             <span className="dash-report-legend-dot" style={{ background: s.color }} />
-            <span className="dash-report-donut-legend-label">{s.label}</span>
+            <span className="dash-report-donut-legend-label" title={s.label}>{s.label}</span>
             <span className="dash-report-donut-legend-pct">{s.pct.toFixed(1)}%</span>
             {!hideValues && fmtValue && (
               <span className="dash-report-donut-legend-val">{fmtValue(s.value)}</span>
             )}
           </li>
         ))}
+        {legendRest.length > 0 && (
+          <li className="dash-report-donut-legend-more">
+            <span className="dash-report-legend-dot" style={{ background: '#9a9185' }} />
+            <span className="dash-report-donut-legend-label">อื่นๆ ({legendRest.length})</span>
+            <span className="dash-report-donut-legend-pct">{restPct.toFixed(1)}%</span>
+            {!hideValues && fmtValue && (
+              <span className="dash-report-donut-legend-val">{fmtValue(restVal)}</span>
+            )}
+          </li>
+        )}
       </ul>
     </div>
   )
