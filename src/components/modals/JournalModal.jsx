@@ -28,10 +28,22 @@ export default function JournalModal({
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [dontRemind, setDontRemind] = useState(false)
+
+  const applyDontRemind = () => {
+    if (dontRemind) dismissJournalPrompt(userId)
+  }
+
+  const closeModal = () => {
+    applyDontRemind()
+    onClose()
+  }
 
   const save = async () => {
     if (!f.content.trim()) {
-      setError('กรุณาเขียนบันทึกสั้นๆ ว่าทำไมซื้อ/ขาย — หรือกดยกเลิกเพื่อข้าม')
+      setError(fromTransaction && !isEdit
+        ? 'กรุณาเขียนบันทึกสั้นๆ ว่าทำไมซื้อ/ขาย — หรือกดปุ่ม ข้าม'
+        : 'กรุณาเขียนบันทึกก่อนบันทึก')
       return
     }
     const dateIso = parseDateInput(f.date)
@@ -46,6 +58,7 @@ export default function JournalModal({
       : await api.post('/journal', { ...f, date: dateIso, portfolio_id: portfolioId })
     setLoading(false)
     if (r.id) {
+      applyDontRemind()
       onSave()
       onClose()
     }
@@ -57,16 +70,11 @@ export default function JournalModal({
       ? 'บันทึก Journal หลังเทรด'
       : 'เขียน Journal ใหม่'
 
-  const skipJournalPrompt = () => {
-    dismissJournalPrompt(userId)
-    onClose()
-  }
-
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal title={title} onClose={closeModal}>
       {fromTransaction && !isEdit && (
         <p className="dash-workflow-journal-hint">
-          Transaction บันทึกแล้ว — เขียนเหตุผลสั้นๆ ว่าทำไม{ f.tag === 'ขาย' ? 'ขาย' : 'ซื้อ' } (ข้ามได้โดยกดยกเลิก)
+          Transaction บันทึกแล้ว — เขียนเหตุผลสั้นๆ ว่าทำไม{ f.tag === 'ขาย' ? 'ขาย' : 'ซื้อ' } (ข้ามได้โดยกดปุ่ม ข้าม)
         </p>
       )}
       {error && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
@@ -102,24 +110,27 @@ export default function JournalModal({
           </Field>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }} className="dash-modal-actions">
-        <button type="button" onClick={onClose} style={btnGhost}>
+      {fromTransaction && !isEdit && (
+        <label className="dash-checkbox-row">
+          <input
+            type="checkbox"
+            checked={dontRemind}
+            onChange={(e) => setDontRemind(e.target.checked)}
+          />
+          <span>
+            <span className="dash-checkbox-label">ไม่ต้องเตือนอีก</span>
+            <span className="dash-checkbox-hint">จะไม่เปิดหน้านี้หลังบันทึก transaction</span>
+          </span>
+        </label>
+      )}
+      <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }} className="dash-modal-actions">
+        <button type="button" onClick={closeModal} style={btnGhost}>
           {fromTransaction && !isEdit ? 'ข้าม' : 'ยกเลิก'}
         </button>
         <button type="button" onClick={save} style={btnPrimary} disabled={loading}>
           {loading ? 'กำลังบันทึก...' : 'บันทึก Journal'}
         </button>
       </div>
-      {fromTransaction && !isEdit && (
-        <p style={{ textAlign: 'center', marginTop: '14px', marginBottom: 0 }}>
-          <button type="button" className="dash-link" onClick={skipJournalPrompt}>
-            ไม่ต้องเตือนอีก
-          </button>
-          <span className="dash-text-faint" style={{ fontSize: '11px', display: 'block', marginTop: '4px' }}>
-            จะไม่เปิดหน้านี้หลังบันทึก transaction (เขียน journal เองได้ที่แท็บ Journal)
-          </span>
-        </p>
-      )}
     </Modal>
   )
 }
