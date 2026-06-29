@@ -37,6 +37,7 @@ export default function AIPanel({
   inSectorNews,
   transactions = [],
   journal = [],
+  variant = 'inline',
 }) {
   const [analysis, setAnalysis] = useState(null)
   const [newsSummary, setNewsSummary] = useState(null)
@@ -174,7 +175,7 @@ export default function AIPanel({
   )
 
   return (
-    <div style={{ marginTop: '8px' }}>
+    <div className={variant === 'drawer' ? 'dash-ai-panel dash-ai-panel--drawer' : ''} style={{ marginTop: variant === 'drawer' ? 0 : '8px' }}>
       <div className="dash-card">
         <div className="dash-ai-header">
           <div>

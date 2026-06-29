@@ -8,6 +8,7 @@ import Treemap from '../charts/Treemap'
 import SectorAreaChart from '../charts/SectorAreaChart'
 import PortfolioChart from '../charts/PortfolioChart'
 import AIPanel from './AIPanel'
+import AIDrawer from './AIDrawer'
 import HoldingModal from '../modals/HoldingModal'
 import JournalModal from '../modals/JournalModal'
 import TransactionModal from '../modals/TransactionModal'
@@ -64,6 +65,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [dataReady, setDataReady] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
 
   const fxRate=prices['USDTHB=X']||35
   const pid=activePortfolioId
@@ -465,6 +467,16 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
             <div className="dash-header-util" role="group" aria-label="เมนูบัญชี">
               <button
                 type="button"
+                className={`dash-util-btn dash-util-btn--ai${aiOpen ? ' dash-util-btn--active' : ''}`}
+                onClick={() => setAiOpen((v) => !v)}
+                title="เปิด AI Copilot"
+                aria-label="AI"
+                aria-expanded={aiOpen}
+              >
+                🤖 AI
+              </button>
+              <button
+                type="button"
                 className={`dash-util-btn${hideValues ? ' dash-util-btn--active' : ''}`}
                 onClick={toggleHideValues}
                 title={hideValues ? 'แสดงมูลค่าเงินทั้งหมด' : 'ซ่อนมูลค่าเงิน — แสดงแค่ %'}
@@ -531,15 +543,6 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
               ))}
             </div>
             <Treemap holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} heatmapMode={heatmapMode}/>
-            <AIPanel
-              holdings={holdings}
-              prices={prices}
-              displayCurrency={displayCurrency}
-              fxRate={fxRate}
-              inSectorNews={inSectorNews}
-              transactions={transactions}
-              journal={journal}
-            />
             {renderNewsGrid()}
           </>}
           {holdings.length===0&&<div className="dash-empty-state">
@@ -770,6 +773,31 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         {tab==='news' && renderNewsGrid()}
 
         </div>
+
+        <AIDrawer open={aiOpen} onClose={() => setAiOpen(false)}>
+          <AIPanel
+            variant="drawer"
+            holdings={holdings}
+            prices={prices}
+            displayCurrency={displayCurrency}
+            fxRate={fxRate}
+            inSectorNews={inSectorNews}
+            transactions={transactions}
+            journal={journal}
+          />
+        </AIDrawer>
+
+        {holdings.length > 0 && !aiOpen && (
+          <button
+            type="button"
+            className="dash-ai-fab"
+            onClick={() => setAiOpen(true)}
+            aria-label="เปิด AI"
+            title="เปิด AI Copilot"
+          >
+            🤖
+          </button>
+        )}
       </div>
 
       {showOnboarding && (

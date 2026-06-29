@@ -962,6 +962,17 @@ body,
   color: var(--accent-text);
 }
 
+.dash-util-btn--ai {
+  color: #6c5ce7;
+  font-weight: 600;
+}
+
+.dash-util-btn--ai:hover,
+.dash-util-btn--ai.dash-util-btn--active {
+  color: #6c5ce7;
+  background: color-mix(in srgb, #6c5ce7 14%, transparent);
+}
+
 /* Admin support tickets */
 .dash-admin-layout {
   display: grid;
