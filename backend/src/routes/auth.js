@@ -36,12 +36,17 @@ const router = express.Router()
 
 const OTP_LEGACY_MESSAGE = 'ลิงก์รีเซ็ตหมดอายุหรือไม่ถูกต้อง กรุณาขอรหัส OTP ใหม่จากหน้าลืมรหัสผ่าน'
 
+import { resolveEffectivePlan } from '../lib/aiPlan.js'
+
 function publicUser(row) {
+  const plan = row.plan || 'free'
   return {
     id: row.id,
     email: row.email,
     name: row.name,
     role: row.role || 'user',
+    plan: resolveEffectivePlan(plan, row.plan_expires_at),
+    planExpiresAt: row.plan_expires_at || null,
   }
 }
 

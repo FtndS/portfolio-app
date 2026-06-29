@@ -2,19 +2,34 @@ import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../lib/api'
 
 function formatQuotaHint(quota, key) {
-  if (!quota || quota.isOwner) return null
+  if (!quota) return null
+  if (quota.isOwner) return 'โควต้าไม่จำกัด'
   const slot = quota[key]
-  if (!slot) return 'ใช้ได้ 1 ครั้งต่อสัปดาห์'
-  if (slot.allowed) return 'ใช้ได้ 1 ครั้งต่อสัปดาห์'
-  if (!slot.nextAvailableAt) return 'ใช้ครบโควต้าสัปดาห์นี้แล้ว'
+  const limitKey = key === 'analyze' ? 'analyze' : 'newsSummary'
+  const limit = quota.limits?.[limitKey]
+  if (!slot) return null
+  const planNote = quota.plan === 'pro' ? ' · แผน Pro' : ''
+  if (slot.allowed && limit != null && slot.remaining != null) {
+    return `เหลือ ${slot.remaining}/${limit} ครั้งสัปดาห์นี้${planNote}`
+  }
+  if (slot.allowed) return `ใช้ได้ ${limit ?? 1} ครั้งต่อสัปดาห์${planNote}`
+  if (!slot.nextAvailableAt) return `ใช้ครบโควต้าสัปดาห์นี้แล้ว${planNote}`
   const when = new Date(slot.nextAvailableAt).toLocaleString('th-TH', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
-  return `ใช้ได้อีกครั้งหลัง ${when}`
+  return `ใช้ได้อีกครั้งหลัง ${when}${planNote}`
 }
 
-export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inSectorNews }) {
+export default function AIPanel({
+  holdings,
+  prices,
+  displayCurrency,
+  fxRate,
+  inSectorNews,
+  transactions = [],
+  journal = [],
+}) {
   const [analysis, setAnalysis] = useState(null)
   const [newsSummary, setNewsSummary] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -37,7 +52,14 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
     setLoading(true)
     setError('')
     try {
-      const res = await api.post('/ai/analyze', { holdings, prices, displayCurrency, fxRate })
+      const res = await api.post('/ai/analyze', {
+        holdings,
+        prices,
+        displayCurrency,
+        fxRate,
+        transactions,
+        journal,
+      })
       if (res.error) {
         setError(res.error)
         if (res.code === 'AI_QUOTA_EXCEEDED') await loadQuota()
@@ -75,16 +97,31 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
   const analyzeBlocked = quota?.analyze?.allowed === false
   const newsBlocked = quota?.newsSummary?.allowed === false
 
+  const txCount = transactions.length
+  const journalCount = journal.length
+
   const scoreColor = (s) => (s >= 8 ? 'var(--gain)' : s >= 6 ? 'var(--warn)' : 'var(--loss)')
   const impactColor = (i) => (i === 'positive' ? 'var(--gain)' : i === 'negative' ? 'var(--loss)' : 'var(--warn)')
   const impactLabel = (i) => (i === 'positive' ? '📈 บวก' : i === 'negative' ? '📉 ลบ' : '➡️ กลางๆ')
-  const typeColor = (t) => (t === 'hold' ? 'var(--gain)' : t === 'reduce' ? 'var(--loss)' : 'var(--warn)')
-  const typeLabel = (t) => (t === 'hold' ? '✋ Hold' : t === 'reduce' ? '📉 Reduce' : '⚖️ Rebalance')
+  const typeColor = (t) => (t === 'hold' ? 'var(--gain)' : t === 'reduce' ? 'var(--loss)' : t === 'review' ? 'var(--warn)' : 'var(--accent-text)')
+  const typeLabel = (t) => (
+    t === 'hold' ? '✋ Hold'
+      : t === 'reduce' ? '📉 Reduce'
+        : t === 'review' ? '🔍 ทบทวน'
+          : '⚖️ Rebalance'
+  )
 
   const emptyState = (icon, text) => (
     <div className="dash-empty-state" style={{ padding: '24px' }}>
       <p style={{ fontSize: '32px', marginBottom: '8px' }}>{icon}</p>
       <p style={{ fontSize: '13px' }}>{text}</p>
+    </div>
+  )
+
+  const insightBlock = (title, tone, children) => (
+    <div className={`dash-inset dash-inset--${tone}`} style={{ padding: '14px', marginBottom: '12px' }}>
+      <div className={`dash-text-${tone === 'accent' ? 'accent' : tone}`} style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>{title}</div>
+      {children}
     </div>
   )
 
@@ -94,9 +131,14 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
         <div className="dash-ai-header">
           <div>
             <h3 className="dash-card-title">🤖 AI วิเคราะห์พอร์ต</h3>
-            <p className="dash-card-sub" style={{ marginBottom: '4px' }}>Claude วิเคราะห์ risk, concentration และแนะนำ rebalancing</p>
+            <p className="dash-card-sub" style={{ marginBottom: '4px' }}>
+              วิเคราะห์ holdings, transaction ({txCount}), journal ({journalCount}) — ช่วยหาจุดทำกำไรและทบทวนพฤติกรรมซื้อขาย
+            </p>
             {analyzeHint && (
               <p className="dash-text-faint" style={{ fontSize: '11px', margin: '0 0 4px' }}>{analyzeHint}</p>
+            )}
+            {quota?.plan === 'pro' && (
+              <p className="dash-text-gain" style={{ fontSize: '11px', margin: '0 0 4px' }}>⭐ แผน Pro — โควต้าและข้อมูลวิเคราะห์มากขึ้น</p>
             )}
             <p className="dash-text-faint" style={{ fontSize: '11px', margin: 0 }}>⚠️ ไม่ใช่คำแนะนำการลงทุน — ใช้เพื่อการศึกษาและบันทึกส่วนตัวเท่านั้น</p>
           </div>
@@ -112,11 +154,18 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
         </div>
 
         {error && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
-        {!analysis && !loading && emptyState('🧠', analyzeBlocked ? (analyzeHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'กด "วิเคราะห์พอร์ต" เพื่อให้ Claude ช่วยวิเคราะห์')}
-        {loading && emptyState('⏳', 'Claude กำลังวิเคราะห์พอร์ตของคุณ...')}
+        {!analysis && !loading && emptyState('🧠', analyzeBlocked ? (analyzeHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'กด "วิเคราะห์พอร์ต" เพื่อให้ Claude ช่วยวิเคราะห์พอร์ต + ประวัติซื้อขาย + journal')}
+        {loading && emptyState('⏳', 'Claude กำลังอ่าน holdings, transactions และ journal...')}
 
         {analysis && (
           <div>
+            {analysis.dataScope && (
+              <p className="dash-text-faint" style={{ fontSize: '11px', marginBottom: '12px' }}>
+                วิเคราะห์จาก transaction {analysis.dataScope.transactionsIncluded}/{analysis.dataScope.transactionsTotal} รายการ
+                · journal {analysis.dataScope.journalIncluded}/{analysis.dataScope.journalTotal} รายการ
+              </p>
+            )}
+
             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <div className="dash-inset" style={{ borderColor: scoreColor(analysis.score), padding: '14px 18px', flex: '0 0 auto' }}>
                 <div className="dash-text-muted" style={{ fontSize: '11px', marginBottom: '4px' }}>คะแนนพอร์ต</div>
@@ -130,6 +179,38 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
                 <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{analysis.summary}</p>
               </div>
             </div>
+
+            {analysis.tradingPattern && (
+              insightBlock('📊 พฤติกรรมซื้อขาย', 'warn', (
+                <>
+                  <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: '0 0 8px' }}>{analysis.tradingPattern.summary}</p>
+                  {analysis.tradingPattern.profitabilityNote && (
+                    <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: '0 0 8px' }}>{analysis.tradingPattern.profitabilityNote}</p>
+                  )}
+                  {analysis.tradingPattern.frequencyWarning && (
+                    <p className="dash-text-loss" style={{ fontSize: '12px', margin: 0 }}>⚠️ {analysis.tradingPattern.frequencyWarning}</p>
+                  )}
+                </>
+              ))
+            )}
+
+            {analysis.journalInsights && (
+              insightBlock('📓 จาก Journal', 'accent', (
+                <>
+                  <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: '0 0 8px' }}>{analysis.journalInsights.summary}</p>
+                  {analysis.journalInsights.thesisAlignment && (
+                    <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: '0 0 8px' }}>{analysis.journalInsights.thesisAlignment}</p>
+                  )}
+                  {analysis.journalInsights.gaps?.length > 0 && (
+                    <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                      {analysis.journalInsights.gaps.map((g, i) => (
+                        <li key={i} className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '4px' }}>{g}</li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ))
+            )}
 
             <div className="dash-ai-grid">
               <div className="dash-inset dash-inset--gain" style={{ padding: '14px' }}>
@@ -167,9 +248,20 @@ export default function AIPanel({ holdings, prices, displayCurrency, fxRate, inS
             )}
 
             {analysis.rebalanceSuggestion && (
-              <div className="dash-inset dash-inset--accent" style={{ padding: '14px' }}>
+              <div className="dash-inset dash-inset--accent" style={{ padding: '14px', marginBottom: '12px' }}>
                 <div className="dash-text-accent" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>🔄 แนะนำ Rebalance</div>
                 <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{analysis.rebalanceSuggestion}</p>
+              </div>
+            )}
+
+            {analysis.actionPlan?.length > 0 && (
+              <div className="dash-inset" style={{ padding: '14px' }}>
+                <div className="dash-text-muted" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>📋 แผนทบทวนที่แนะนำ</div>
+                <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                  {analysis.actionPlan.map((step, i) => (
+                    <li key={i} className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.65, marginBottom: '6px' }}>{step}</li>
+                  ))}
+                </ol>
               </div>
             )}
           </div>

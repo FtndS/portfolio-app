@@ -521,7 +521,15 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
               ))}
             </div>
             <Treemap holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} heatmapMode={heatmapMode}/>
-            <AIPanel holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} inSectorNews={inSectorNews} />
+            <AIPanel
+              holdings={holdings}
+              prices={prices}
+              displayCurrency={displayCurrency}
+              fxRate={fxRate}
+              inSectorNews={inSectorNews}
+              transactions={transactions}
+              journal={journal}
+            />
             {renderNewsGrid()}
           </>}
           {holdings.length===0&&<div className="dash-empty-state">

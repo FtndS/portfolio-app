@@ -8,7 +8,7 @@ export const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     const result = await pool.query(
-      'SELECT id, email, email_verified, role FROM users WHERE id = $1',
+      'SELECT id, email, email_verified, role, plan, plan_expires_at FROM users WHERE id = $1',
       [decoded.userId]
     )
     const user = result.rows[0]
@@ -19,6 +19,8 @@ export const authMiddleware = async (req, res, next) => {
     req.userId = user.id
     req.userEmail = user.email
     req.userRole = user.role || 'user'
+    req.userPlan = user.plan || 'free'
+    req.userPlanExpiresAt = user.plan_expires_at || null
     next()
   } catch {
     res.status(401).json({ error: 'Invalid token' })

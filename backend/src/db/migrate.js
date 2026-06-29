@@ -459,6 +459,13 @@ const migrations = [
       )
     },
   },
+  {
+    name: '019_user_plan',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(20) NOT NULL DEFAULT 'free';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
+    `,
+  },
 ]
 
 export async function runMigrations() {

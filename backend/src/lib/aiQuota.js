@@ -1,11 +1,16 @@
 import pool from '../db/index.js'
+import {
+  getPlanConfig,
+  getWeeklyLimit,
+  nextAvailableFromOldest,
+} from './aiPlan.js'
 
 export const AI_FEATURES = {
   ANALYZE: 'analyze',
   NEWS_SUMMARY: 'news-summary',
 }
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+const WINDOW_SQL = `used_at > NOW() - INTERVAL '7 days'`
 
 export function getAiOwnerEmail() {
   return (process.env.AI_OWNER_EMAIL || 'tanadon.sangkhatorn@gmail.com').trim().toLowerCase()
@@ -16,69 +21,94 @@ export function isAiOwner(email) {
   return String(email).trim().toLowerCase() === getAiOwnerEmail()
 }
 
-function nextAvailableAt(usedAt) {
-  return new Date(new Date(usedAt).getTime() + WEEK_MS).toISOString()
-}
-
-async function getLastUsage(userId, feature) {
+async function getRecentUsages(userId, feature) {
   const result = await pool.query(
     `SELECT used_at FROM ai_usage
-     WHERE user_id = $1 AND feature = $2
-       AND used_at > NOW() - INTERVAL '7 days'
-     ORDER BY used_at DESC
-     LIMIT 1`,
+     WHERE user_id = $1 AND feature = $2 AND ${WINDOW_SQL}
+     ORDER BY used_at ASC`,
     [userId, feature]
   )
-  return result.rows[0]?.used_at || null
+  return result.rows.map((r) => r.used_at)
 }
 
-export async function getFeatureQuota(userId, email, feature, role) {
+export async function getFeatureQuota(userId, email, feature, role, plan, planExpiresAt) {
   if (role === 'admin' || isAiOwner(email)) {
-    return { allowed: true, isOwner: true, nextAvailableAt: null, lastUsedAt: null }
+    return {
+      allowed: true,
+      isOwner: true,
+      nextAvailableAt: null,
+      lastUsedAt: null,
+      used: 0,
+      limit: null,
+      remaining: null,
+    }
   }
 
-  const lastUsedAt = await getLastUsage(userId, feature)
-  if (!lastUsedAt) {
-    return { allowed: true, isOwner: false, nextAvailableAt: null, lastUsedAt: null }
+  const limit = getWeeklyLimit(plan, planExpiresAt, feature)
+  const usages = await getRecentUsages(userId, feature)
+  const used = usages.length
+  const remaining = Math.max(0, limit - used)
+  const lastUsedAt = usages.length ? new Date(usages[usages.length - 1]).toISOString() : null
+
+  if (used < limit) {
+    return {
+      allowed: true,
+      isOwner: false,
+      nextAvailableAt: null,
+      lastUsedAt,
+      used,
+      limit,
+      remaining,
+    }
   }
 
   return {
     allowed: false,
     isOwner: false,
-    lastUsedAt: new Date(lastUsedAt).toISOString(),
-    nextAvailableAt: nextAvailableAt(lastUsedAt),
+    lastUsedAt,
+    nextAvailableAt: nextAvailableFromOldest(usages[0]),
+    used,
+    limit,
+    remaining: 0,
   }
 }
 
-export async function getAiQuota(userId, email, role) {
+export async function getAiQuota(userId, email, role, plan, planExpiresAt) {
   const owner = role === 'admin' || isAiOwner(email)
+  const planConfig = getPlanConfig(plan, planExpiresAt)
   const [analyze, newsSummary] = await Promise.all([
-    getFeatureQuota(userId, email, AI_FEATURES.ANALYZE, role),
-    getFeatureQuota(userId, email, AI_FEATURES.NEWS_SUMMARY, role),
+    getFeatureQuota(userId, email, AI_FEATURES.ANALYZE, role, plan, planExpiresAt),
+    getFeatureQuota(userId, email, AI_FEATURES.NEWS_SUMMARY, role, plan, planExpiresAt),
   ])
 
   return {
     isOwner: owner,
-    weeklyLimit: owner ? null : 1,
+    plan: planConfig.id,
+    planLabel: planConfig.label,
+    limits: {
+      analyze: owner ? null : planConfig.weeklyLimit.analyze,
+      newsSummary: owner ? null : planConfig.weeklyLimit['news-summary'],
+    },
     analyze,
     newsSummary,
   }
 }
 
-export function quotaExceededMessage(feature, nextAvailableAt) {
+export function quotaExceededMessage(feature, nextAvailableAt, { limit } = {}) {
   const labels = {
     [AI_FEATURES.ANALYZE]: 'วิเคราะห์พอร์ต',
     [AI_FEATURES.NEWS_SUMMARY]: 'สรุปข่าว',
   }
   const label = labels[feature] || 'ใช้ AI'
+  const quotaText = limit ? `ครบ ${limit} ครั้ง/สัปดาห์` : 'ครบโควต้าสัปดาห์นี้'
   if (!nextAvailableAt) {
-    return `ใช้ ${label} ครบโควต้าสัปดาห์นี้แล้ว — ลองใหม่สัปดาห์หน้า`
+    return `ใช้ ${label} ${quotaText}แล้ว — ลองใหม่สัปดาห์หน้า`
   }
   const when = new Date(nextAvailableAt).toLocaleString('th-TH', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
-  return `ใช้ ${label} ครบโควต้าสัปดาห์นี้แล้ว — ใช้ได้อีกครั้งหลัง ${when}`
+  return `ใช้ ${label} ${quotaText}แล้ว — ใช้ได้อีกครั้งหลัง ${when}`
 }
 
 export async function recordAiUsage(userId, feature) {
