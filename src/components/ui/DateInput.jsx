@@ -1,16 +1,26 @@
 import { useState, useEffect } from 'react'
 import { fmtDate, isoDate, parseDateInput } from '../../lib/format'
 
-export default function DateInput({ value, onChange, style, placeholder = 'DD/MM/YYYY' }) {
+export default function DateInput({ value, onChange, style = {}, placeholder = 'DD/MM/YYYY' }) {
   const iso = isoDate(value)
   const [text, setText] = useState(() => (iso ? fmtDate(iso) : ''))
   const [invalid, setInvalid] = useState(false)
+
+  const { marginBottom, width, ...inputStyle } = style
 
   useEffect(() => {
     const next = isoDate(value)
     setText(next ? fmtDate(next) : '')
     setInvalid(false)
   }, [value])
+
+  const applyIso = (parsed) => {
+    const normalized = isoDate(parsed)
+    if (!normalized) return
+    setInvalid(false)
+    setText(fmtDate(normalized))
+    if (normalized !== iso) onChange(normalized)
+  }
 
   const commit = (raw) => {
     const trimmed = raw.trim()
@@ -23,31 +33,53 @@ export default function DateInput({ value, onChange, style, placeholder = 'DD/MM
       setInvalid(true)
       return
     }
-    setInvalid(false)
-    setText(fmtDate(parsed))
-    if (parsed !== iso) onChange(parsed)
+    applyIso(parsed)
   }
 
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      autoComplete="off"
-      placeholder={placeholder}
-      value={text}
-      onChange={(e) => {
-        setText(e.target.value)
-        setInvalid(false)
-      }}
-      onBlur={() => commit(text)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') commit(text)
-      }}
+    <div
+      className="dash-date-input"
       style={{
-        ...style,
-        borderColor: invalid ? 'var(--loss)' : style?.borderColor,
+        width: width ?? '100%',
+        marginBottom,
       }}
-      aria-invalid={invalid || undefined}
-    />
+    >
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder={placeholder}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          setInvalid(false)
+        }}
+        onBlur={() => commit(text)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit(text)
+        }}
+        className="dash-date-input-text"
+        style={{
+          ...inputStyle,
+          width: undefined,
+          marginBottom: 0,
+          borderColor: invalid ? 'var(--loss)' : inputStyle.borderColor,
+        }}
+        aria-invalid={invalid || undefined}
+      />
+      <label className="dash-date-input-picker" title="เลือกจากปฏิทิน">
+        <span className="dash-date-input-picker-icon" aria-hidden>📅</span>
+        <input
+          type="date"
+          className="dash-date-input-native"
+          value={iso || ''}
+          onChange={(e) => {
+            if (e.target.value) applyIso(e.target.value)
+          }}
+          tabIndex={-1}
+          aria-label="เลือกจากปฏิทิน"
+        />
+      </label>
+    </div>
   )
 }

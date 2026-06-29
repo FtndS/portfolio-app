@@ -330,6 +330,57 @@ body,
   font-size: 16px;
 }
 
+/* Date input — DD/MM/YYYY text + calendar picker */
+.dash-date-input {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+.dash-date-input-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-date-input-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dash-date-input-picker:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-muted);
+}
+
+.dash-date-input-picker-icon {
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.dash-date-input-native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
 .dash-action-btn {
   padding: 4px 10px;
   font-size: 12px;
