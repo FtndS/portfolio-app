@@ -19,10 +19,6 @@ function periodReturnSeries(values) {
 }
 
 /** indexed (base 100) → % change from period start */
-function indexedToReturn(indexed) {
-  return indexed != null ? Number(indexed) - 100 : null
-}
-
 function benchmarkColor(bm) {
   if (bm?.id) return BENCHMARK_TOGGLES.find((t) => t.id === bm.id)?.color || 'var(--chart-benchmark)'
   const sym = bm?.symbol || ''
@@ -60,13 +56,19 @@ function pickDateTicks(dates, count = 4) {
 
 function alignBenchmarkSeries(dates, benchmark) {
   const bmMap = Object.fromEntries(
-    (benchmark?.series || []).map((p) => [dateKey(p.date), indexedToReturn(p.indexed)])
+    (benchmark?.series || []).map((p) => [dateKey(p.date), Number(p.indexed)])
   )
   let lastBm = null
   return dates.map((d) => {
     if (bmMap[d] != null) lastBm = bmMap[d]
     return lastBm
   })
+}
+
+function rebaseIndexedSeries(indexedVals) {
+  const first = indexedVals.find((v) => Number.isFinite(v))
+  if (!(first > 0)) return indexedVals.map(() => null)
+  return indexedVals.map((v) => (Number.isFinite(v) ? ((v / first) - 1) * 100 : null))
 }
 
 export default function PortfolioChart({
@@ -103,12 +105,17 @@ export default function PortfolioChart({
     const firstPositive = vals.find((v) => v > 0) ?? vals[0] ?? 0
     const portChg = firstPositive > 0 ? ((latest - firstPositive) / firstPositive) * 100 : 0
 
-    const benchmarkLines = benchmarks.map((bm) => ({
-      ...bm,
-      vals: alignBenchmarkSeries(dates, bm),
-      color: benchmarkColor(bm),
-      changePct: bm.changePct ?? 0,
-    }))
+    const benchmarkLines = benchmarks.map((bm) => {
+      const indexedVals = alignBenchmarkSeries(dates, bm)
+      const bmVals = rebaseIndexedSeries(indexedVals)
+      const last = [...bmVals].reverse().find((v) => Number.isFinite(v)) ?? 0
+      return {
+        ...bm,
+        vals: bmVals,
+        color: benchmarkColor(bm),
+        changePct: last,
+      }
+    })
 
     return {
       vals,
