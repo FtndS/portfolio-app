@@ -1007,19 +1007,43 @@
 
 .dash-chart-svg {
   width: 100%;
-  height: 220px;
+  height: 260px;
   display: block;
+}
+
+.dash-chart-grid-line {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.dash-chart-baseline {
+  stroke: var(--accent-text);
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  opacity: 0.45;
+}
+
+.dash-chart-tick {
+  font-size: 10px;
+  fill: var(--text-muted);
+  font-family: var(--font);
 }
 
 .dash-chart-foot {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 6px;
-  gap: 8px;
+  gap: 16px;
   flex-wrap: wrap;
+}
+
+.dash-chart-foot-note {
+  font-size: 11px;
+  color: var(--text-faint);
 }
 
 .dash-chart-legend {

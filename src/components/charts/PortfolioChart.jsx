@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useId } from 'react'
 import { symFor, CHART_RANGES, BENCHMARK_OPTIONS } from '../../lib/constants'
-import { fmtPct, fmtDate } from '../../lib/format'
+import { fmtPct, fmtDate, fmtChartAxis } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 
 function dateKey(d) {
@@ -17,6 +17,34 @@ function leadingZeroEnd(values) {
   return idx < 0 ? 0 : idx
 }
 
+function computeYScale(series, compareMode) {
+  const finite = series.filter((v) => Number.isFinite(v) && (compareMode ? true : v > 0))
+  if (!finite.length) return { min: 0, max: 1 }
+
+  let dataMin = Math.min(...finite)
+  let dataMax = Math.max(...finite)
+  const span = dataMax - dataMin || 1
+
+  if (compareMode) {
+    const padAmt = Math.max(span * 0.12, 1.2)
+    return { min: dataMin - padAmt, max: dataMax + padAmt }
+  }
+
+  const padAmt = Math.max(span * 0.06, dataMax * 0.02)
+  return { min: Math.max(0, dataMin - padAmt), max: dataMax + padAmt }
+}
+
+function pickDateTicks(dates, count = 4) {
+  if (!dates.length) return []
+  if (dates.length <= count) return dates.map((d, i) => ({ d, i }))
+  const picks = []
+  for (let t = 0; t < count; t += 1) {
+    const i = Math.round((t / (count - 1)) * (dates.length - 1))
+    picks.push({ d: dates[i], i })
+  }
+  return picks
+}
+
 export default function PortfolioChart({
   history,
   benchmark,
@@ -29,6 +57,7 @@ export default function PortfolioChart({
   firstTxDate,
 }) {
   const { hideValues } = usePrivacy()
+  const gradId = useId().replace(/:/g, '')
   const sym = symFor(displayCurrency === 'THB' ? 'THB' : 'USD')
 
   const chartData = useMemo(() => {
@@ -86,9 +115,8 @@ export default function PortfolioChart({
 
   if (!chartData) return null
 
-  const W = 660
-  const H = 220
-  const pad = 30
+  const W = 680
+  const H = 260
   const { vals, costs, dates, bmVals, hasBenchmark, portIndexed, latest, portChg, bmChg, trimFrom, fullRangeStart, fullRangeEnd, firstValueDate, skippedEnd } = chartData
   const compareMode = hasBenchmark
   const rangeLabel = CHART_RANGES.find((r) => r.id === chartRange)?.label ?? chartRange
@@ -98,24 +126,38 @@ export default function PortfolioChart({
     ? [...portIndexed, ...bmVals.filter((v) => v != null)]
     : [...vals, ...costs].filter((v) => v > 0)
 
-  const finite = ySeries.filter((v) => Number.isFinite(v))
-  let min = 0
-  let max = 1
-  if (finite.length) {
-    let dataMin = Math.min(...finite)
-    let dataMax = Math.max(...finite)
-    if (compareMode && dataMax - dataMin < 3) {
-      const mid = (dataMax + dataMin) / 2
-      dataMin = mid - 3
-      dataMax = mid + 3
-    } else {
-      dataMin *= 0.98
-      dataMax *= 1.02
-    }
-    min = dataMin
-    max = dataMax
-  }
+  const { min, max } = computeYScale(ySeries, compareMode)
   const range = max - min || 1
+
+  const pad = {
+    t: 18,
+    r: 16,
+    b: 32,
+    l: compareMode ? 46 : 54,
+  }
+  const innerW = W - pad.l - pad.r
+  const innerH = H - pad.t - pad.b
+
+  const xAt = (i) => pad.l + (i / Math.max(vals.length - 1, 1)) * innerW
+  const yAt = (v) => pad.t + innerH - ((Number(v) - min) / range) * innerH
+
+  const fmtY = (v) => {
+    if (hideValues) return '••'
+    if (compareMode) return Number(v).toFixed(1)
+    return fmtChartAxis(v, sym, { hideValues })
+  }
+
+  const yTicks = (() => {
+    const mid = min + range / 2
+    const ticks = compareMode
+      ? [min, min + range * 0.25, min + range * 0.5, min + range * 0.75, max]
+      : [min, mid, max]
+    const uniq = [...new Set(ticks.map((t) => Number(t.toFixed(4))))]
+    return uniq.sort((a, b) => a - b)
+  })()
+
+  const dateTicks = pickDateTicks(dates, 4)
+  const baseline100 = compareMode && min <= 100 && max >= 100 ? 100 : null
 
   const daySpan =
     dates.length >= 2
@@ -127,8 +169,8 @@ export default function PortfolioChart({
     arr
       .map((v, i) => {
         if (v == null || (compareMode ? false : v <= 0 && i > 0)) return null
-        const x = vals.length < 2 ? W / 2 : pad + (i / (vals.length - 1)) * (W - pad * 2)
-        const y = H - pad - ((Number(v) - min) / range) * (H - pad * 2)
+        const x = vals.length < 2 ? pad.l + innerW / 2 : xAt(i)
+        const y = yAt(v)
         if (!Number.isFinite(y)) return null
         return `${x},${y}`
       })
@@ -139,6 +181,16 @@ export default function PortfolioChart({
   const portPts = toPts(portLine)
   const costPts = compareMode ? '' : toPts(costs)
   const bmPts = compareMode ? toPts(bmVals) : ''
+
+  const portAreaPath = (() => {
+    if (!portPts || compareMode) return ''
+    const pts = portPts.split(' ').map((p) => p.split(',').map(Number))
+    if (pts.length < 2) return ''
+    const last = pts[pts.length - 1]
+    const first = pts[0]
+    const baseY = pad.t + innerH
+    return `M${first[0]},${baseY} ${portPts} L${last[0]},${baseY} Z`
+  })()
 
   const segmentClass = (active) =>
     `dash-chart-segment-btn${active ? ' dash-chart-segment-btn--active' : ''}`
@@ -158,10 +210,14 @@ export default function PortfolioChart({
           <div className="dash-chart-stat-value">
             {hideValues
               ? fmtPct(portChg)
-              : `${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+              : compareMode
+                ? `${portChg >= 0 ? '+' : ''}${portChg.toFixed(2)}%`
+                : `${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
           </div>
           <div className="dash-chart-stat-chg" style={{ color: portChg >= 0 ? 'var(--gain)' : 'var(--loss)' }}>
-            {compareMode ? 'ในช่วงนี้ ' : ''}{portChg >= 0 ? '+' : ''}{portChg.toFixed(2)}%
+            {compareMode
+              ? (hideValues ? 'ในช่วงที่เลือก' : `มูลค่าล่าสุด ${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)
+              : `${portChg >= 0 ? '+' : ''}${portChg.toFixed(2)}%`}
             {hasBenchmark && (
               <span className="dash-text-muted" style={{ marginLeft: '8px' }}>
                 vs {benchmark.label} {bmChg >= 0 ? '+' : ''}{bmChg.toFixed(2)}%
@@ -224,7 +280,41 @@ export default function PortfolioChart({
         </p>
       )}
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="dash-chart-svg" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox={`0 0 ${W} ${H}`} className="dash-chart-svg" preserveAspectRatio="xMinYMid meet" aria-hidden>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--chart-port)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--chart-port)" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+
+        {yTicks.map((v) => (
+          <g key={v}>
+            <line
+              x1={pad.l}
+              y1={yAt(v)}
+              x2={W - pad.r}
+              y2={yAt(v)}
+              className="dash-chart-grid-line"
+            />
+            <text x={pad.l - 6} y={yAt(v) + 4} textAnchor="end" className="dash-chart-tick">
+              {fmtY(v)}
+            </text>
+          </g>
+        ))}
+
+        {baseline100 != null && (
+          <line
+            x1={pad.l}
+            y1={yAt(baseline100)}
+            x2={W - pad.r}
+            y2={yAt(baseline100)}
+            className="dash-chart-baseline"
+          />
+        )}
+
+        {portAreaPath && <path d={portAreaPath} fill={`url(#${gradId})`} />}
+
         {!compareMode && costPts && (
           <polyline points={costPts} fill="none" stroke="var(--chart-cost)" strokeWidth="1.5" strokeDasharray="4,4" strokeLinejoin="round" />
         )}
@@ -234,10 +324,24 @@ export default function PortfolioChart({
         {compareMode && bmPts && (
           <polyline points={bmPts} fill="none" stroke="var(--chart-benchmark)" strokeWidth="2" strokeDasharray="6,4" strokeLinejoin="round" />
         )}
+
+        {dateTicks.map(({ d, i }) => (
+          <text
+            key={`${d}-${i}`}
+            x={xAt(i)}
+            y={H - 8}
+            textAnchor={i === 0 ? 'start' : i === dates.length - 1 ? 'end' : 'middle'}
+            className="dash-chart-tick"
+          >
+            {fmtDate(d)}
+          </text>
+        ))}
       </svg>
 
       <div className="dash-chart-foot">
-        <span>{fmtDate(dates[0])}</span>
+        <span className="dash-chart-foot-note">
+          {compareMode ? 'แกน Y = ดัชนี (ฐาน 100 ที่จุดเริ่มช่วง)' : 'แกน Y = มูลค่า'}
+        </span>
         <span className="dash-chart-legend">
           <span><span className="dash-chart-legend-line" style={{ background: 'var(--chart-port)' }} /> {compareMode ? 'พอร์ต (indexed)' : 'มูลค่า'}</span>
           {!compareMode && <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-cost)' }} /> ทุน</span>}
@@ -245,7 +349,6 @@ export default function PortfolioChart({
             <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-benchmark)' }} /> {benchmark.label}</span>
           )}
         </span>
-        <span>{fmtDate(dates[dates.length - 1])}</span>
       </div>
     </div>
   )
