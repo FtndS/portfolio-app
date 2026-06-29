@@ -962,15 +962,56 @@ body,
   color: var(--accent-text);
 }
 
-.dash-util-btn--ai {
-  color: #6c5ce7;
+.dash-ai-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6c5ce7, #8b7cf7);
+  color: #fff;
+  font-size: 13px;
   font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 2px 10px color-mix(in srgb, #6c5ce7 35%, transparent);
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
 }
 
-.dash-util-btn--ai:hover,
-.dash-util-btn--ai.dash-util-btn--active {
-  color: #6c5ce7;
-  background: color-mix(in srgb, #6c5ce7 14%, transparent);
+.dash-ai-cta:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 4px 14px color-mix(in srgb, #6c5ce7 45%, transparent);
+}
+
+.dash-ai-cta--active {
+  background: linear-gradient(135deg, #5a4bd6, #6c5ce7);
+  box-shadow: inset 0 2px 6px color-mix(in srgb, #000 18%, transparent);
+}
+
+.dash-ai-cta-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.dash-ai-cta-text {
+  line-height: 1;
+}
+
+@media (max-width: 640px) {
+  .dash-ai-cta {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .dash-ai-cta-text {
+    display: none;
+  }
+
+  .dash-ai-cta-icon {
+    font-size: 18px;
+  }
 }
 
 /* Admin support tickets */

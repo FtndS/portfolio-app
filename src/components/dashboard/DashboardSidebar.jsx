@@ -28,7 +28,15 @@ export default function DashboardSidebar({
   return (
     <aside className={`dash-sidebar${open ? ' dash-sidebar--open' : ''}`} aria-label="เมนูหลัก">
       <div className="dash-sidebar-brand">
-        <h1 className="dash-sidebar-title">📓 Port Diary</h1>
+        <button
+          type="button"
+          className="dash-sidebar-brand-btn"
+          onClick={() => onTabChange('overview')}
+          title="กลับหน้า Overview"
+          aria-label="Port Diary — กลับหน้า Overview"
+        >
+          <span className="dash-sidebar-title">📓 Port Diary</span>
+        </button>
         <p className="dash-sidebar-sub">สวัสดี, {user.name}</p>
       </div>
 

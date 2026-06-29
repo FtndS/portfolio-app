@@ -464,17 +464,18 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
               ))}
             </div>
             <ThemeToggle />
+            <button
+              type="button"
+              className={`dash-ai-cta${aiOpen ? ' dash-ai-cta--active' : ''}`}
+              onClick={() => setAiOpen((v) => !v)}
+              title="เปิด AI Copilot"
+              aria-label="AI Copilot"
+              aria-expanded={aiOpen}
+            >
+              <span className="dash-ai-cta-icon" aria-hidden>🤖</span>
+              <span className="dash-ai-cta-text">Copilot</span>
+            </button>
             <div className="dash-header-util" role="group" aria-label="เมนูบัญชี">
-              <button
-                type="button"
-                className={`dash-util-btn dash-util-btn--ai${aiOpen ? ' dash-util-btn--active' : ''}`}
-                onClick={() => setAiOpen((v) => !v)}
-                title="เปิด AI Copilot"
-                aria-label="AI"
-                aria-expanded={aiOpen}
-              >
-                🤖 AI
-              </button>
               <button
                 type="button"
                 className={`dash-util-btn${hideValues ? ' dash-util-btn--active' : ''}`}
@@ -788,15 +789,27 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         </AIDrawer>
 
         {holdings.length > 0 && !aiOpen && (
-          <button
-            type="button"
-            className="dash-ai-fab"
-            onClick={() => setAiOpen(true)}
-            aria-label="เปิด AI"
-            title="เปิด AI Copilot"
-          >
-            🤖
-          </button>
+          <>
+            <button
+              type="button"
+              className="dash-ai-rail"
+              onClick={() => setAiOpen(true)}
+              aria-label="เปิด AI Copilot"
+              title="เปิด AI Copilot"
+            >
+              <span className="dash-ai-rail-icon" aria-hidden>🤖</span>
+              <span className="dash-ai-rail-label">AI</span>
+            </button>
+            <button
+              type="button"
+              className="dash-ai-fab"
+              onClick={() => setAiOpen(true)}
+              aria-label="เปิด AI Copilot"
+              title="เปิด AI Copilot"
+            >
+              🤖
+            </button>
+          </>
         )}
       </div>
 
