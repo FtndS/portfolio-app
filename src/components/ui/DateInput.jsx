@@ -10,8 +10,11 @@ const DateInput = forwardRef(function DateInput(
   const [invalid, setInvalid] = useState(false)
   const pickerRef = useRef(null)
   const skipSyncRef = useRef(false)
+  const pickerOpeningRef = useRef(false)
 
   const { marginBottom, width, ...inputStyle } = style
+
+  const pickerIso = parseDateInput(text.trim()) || iso || todayIso()
 
   useEffect(() => {
     if (skipSyncRef.current) {
@@ -54,15 +57,23 @@ const DateInput = forwardRef(function DateInput(
     commit: () => commit(text),
   }))
 
-  const openPicker = () => {
-    const el = pickerRef.current
-    if (!el) return
-    el.value = iso || todayIso()
+  const markPickerOpening = () => {
+    pickerOpeningRef.current = true
+  }
+
+  const handleTextBlur = () => {
+    if (pickerOpeningRef.current) {
+      pickerOpeningRef.current = false
+      return
+    }
+    commit(text)
+  }
+
+  const openNativePicker = (e) => {
     try {
-      if (typeof el.showPicker === 'function') el.showPicker()
-      else el.click()
+      if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker()
     } catch {
-      el.click()
+      /* overlay click opens picker in most browsers */
     }
   }
 
@@ -85,7 +96,7 @@ const DateInput = forwardRef(function DateInput(
             setText(maskDateInput(e.target.value))
             setInvalid(false)
           }}
-          onBlur={() => commit(text)}
+          onBlur={handleTextBlur}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit(text)
           }}
@@ -99,27 +110,21 @@ const DateInput = forwardRef(function DateInput(
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? 'dash-date-input-error' : undefined}
         />
-        <button
-          type="button"
-          className="dash-date-input-picker"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={openPicker}
-          title="เลือกจากปฏิทิน"
-          aria-label="เลือกจากปฏิทิน"
-        >
+        <label className="dash-date-input-picker">
+          <input
+            ref={pickerRef}
+            type="date"
+            className="dash-date-input-native-overlay"
+            value={pickerIso}
+            onMouseDown={markPickerOpening}
+            onClick={openNativePicker}
+            onChange={(e) => {
+              if (e.target.value) applyIso(e.target.value)
+            }}
+            aria-label="เลือกจากปฏิทิน"
+          />
           <span className="dash-date-input-picker-icon" aria-hidden>📅</span>
-        </button>
-        <input
-          ref={pickerRef}
-          type="date"
-          className="dash-date-input-native-hidden"
-          value={iso || ''}
-          onChange={(e) => {
-            if (e.target.value) applyIso(e.target.value)
-          }}
-          tabIndex={-1}
-          aria-hidden
-        />
+        </label>
       </div>
       {invalid && (
         <p id="dash-date-input-error" className="dash-date-input-error" role="alert">
