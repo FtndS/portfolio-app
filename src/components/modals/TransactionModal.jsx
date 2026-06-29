@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
@@ -6,7 +6,7 @@ import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
 import DateInput from '../ui/DateInput'
 import { sanitizeTicker } from '../../lib/constants'
-import { todayIso, parseDateInput } from '../../lib/format'
+import { todayIso } from '../../lib/format'
 
 function inferTxCurrency(ticker, holdings) {
   const h = holdings.find((x) => x.ticker === ticker)
@@ -33,6 +33,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const dateRef = useRef(null)
 
   const selHolding = (e) => {
     const h = holdings.find((h) => String(h.id) === e.target.value)
@@ -41,9 +42,9 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
   }
 
   const save = async () => {
-    if (!f.ticker || !f.shares || !f.price || !f.date) return setError('กรุณากรอกข้อมูลให้ครบ')
-    const dateIso = parseDateInput(f.date)
-    if (!dateIso) return setError('วันที่ไม่ถูกต้อง — ใช้รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025')
+    if (!f.ticker || !f.shares || !f.price) return setError('กรุณากรอกข้อมูลให้ครบ')
+    const dateIso = dateRef.current?.commit()
+    if (!dateIso) return setError('รูปแบบวันที่ผิด กรุณากรอกใหม่ — ใช้ วัน/เดือน/ปี เช่น 30/04/2025')
     const shares = parseFloat(f.shares)
     const price = parseFloat(f.price)
     if (!Number.isFinite(shares) || shares <= 0) return setError('จำนวนหุ้นต้องมากกว่า 0')
@@ -187,7 +188,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
         </div>
       )}
       <Field label="วันที่">
-        <DateInput style={inp()} value={f.date} onChange={(date) => setF({ ...f, date })} />
+        <DateInput ref={dateRef} style={inp()} value={f.date} onChange={(date) => setF({ ...f, date })} />
         <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '4px', marginBottom: 0 }}>รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025</p>
       </Field>
       <Field label="หมายเหตุ (optional)">

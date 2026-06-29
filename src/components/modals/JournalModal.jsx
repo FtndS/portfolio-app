@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
 import Modal from '../ui/Modal'
 import DateInput from '../ui/DateInput'
 import { JOURNAL_TAGS as journalTags } from '../../lib/constants'
-import { todayIso, parseDateInput } from '../../lib/format'
+import { todayIso } from '../../lib/format'
 import { dismissJournalPrompt } from '../../lib/workflow'
 
 export default function JournalModal({
@@ -29,6 +29,7 @@ export default function JournalModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [dontRemind, setDontRemind] = useState(false)
+  const dateRef = useRef(null)
 
   const applyDontRemind = () => {
     if (dontRemind) dismissJournalPrompt(userId)
@@ -46,9 +47,9 @@ export default function JournalModal({
         : 'กรุณาเขียนบันทึกก่อนบันทึก')
       return
     }
-    const dateIso = parseDateInput(f.date)
+    const dateIso = dateRef.current?.commit()
     if (!dateIso) {
-      setError('วันที่ไม่ถูกต้อง — ใช้รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025')
+      setError('รูปแบบวันที่ผิด กรุณากรอกใหม่ — ใช้ วัน/เดือน/ปี เช่น 30/04/2025')
       return
     }
     setLoading(true)
@@ -106,7 +107,7 @@ export default function JournalModal({
         </div>
         <div style={{ flex: 1 }}>
           <Field label="วันที่">
-            <DateInput style={inp({ marginBottom: 0 })} value={f.date} onChange={(date) => setF({ ...f, date })} />
+            <DateInput ref={dateRef} style={inp({ marginBottom: 0 })} value={f.date} onChange={(date) => setF({ ...f, date })} />
           </Field>
         </div>
       </div>

@@ -1,15 +1,23 @@
-import { useState, useEffect, useRef } from 'react'
-import { fmtDate, isoDate, parseDateInput, todayIso } from '../../lib/format'
+import { forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react'
+import { fmtDate, isoDate, parseDateInput, maskDateInput, todayIso } from '../../lib/format'
 
-export default function DateInput({ value, onChange, style = {}, placeholder = 'DD/MM/YYYY' }) {
+const DateInput = forwardRef(function DateInput(
+  { value, onChange, style = {}, placeholder = 'DD/MM/YYYY' },
+  ref,
+) {
   const iso = isoDate(value)
   const [text, setText] = useState(() => (iso ? fmtDate(iso) : ''))
   const [invalid, setInvalid] = useState(false)
   const pickerRef = useRef(null)
+  const skipSyncRef = useRef(false)
 
   const { marginBottom, width, ...inputStyle } = style
 
   useEffect(() => {
+    if (skipSyncRef.current) {
+      skipSyncRef.current = false
+      return
+    }
     const next = isoDate(value)
     setText(next ? fmtDate(next) : '')
     setInvalid(false)
@@ -17,25 +25,34 @@ export default function DateInput({ value, onChange, style = {}, placeholder = '
 
   const applyIso = (parsed) => {
     const normalized = isoDate(parsed)
-    if (!normalized) return
+    if (!normalized) return null
     setInvalid(false)
     setText(fmtDate(normalized))
-    if (normalized !== iso) onChange(normalized)
+    onChange(normalized)
+    return normalized
   }
 
-  const commit = (raw) => {
+  const commit = (raw = text) => {
     const trimmed = raw.trim()
     if (!trimmed) {
       setInvalid(true)
-      return
+      skipSyncRef.current = true
+      onChange('')
+      return null
     }
     const parsed = parseDateInput(trimmed)
     if (!parsed) {
       setInvalid(true)
-      return
+      skipSyncRef.current = true
+      onChange('')
+      return null
     }
-    applyIso(parsed)
+    return applyIso(parsed)
   }
+
+  useImperativeHandle(ref, () => ({
+    commit: () => commit(text),
+  }))
 
   const openPicker = () => {
     const el = pickerRef.current
@@ -51,56 +68,66 @@ export default function DateInput({ value, onChange, style = {}, placeholder = '
 
   return (
     <div
-      className="dash-date-input"
+      className="dash-date-input-wrap"
       style={{
         width: width ?? '100%',
         marginBottom,
       }}
     >
-      <input
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        placeholder={placeholder}
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value)
-          setInvalid(false)
-        }}
-        onBlur={() => commit(text)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit(text)
-        }}
-        className="dash-date-input-text"
-        style={{
-          ...inputStyle,
-          width: undefined,
-          marginBottom: 0,
-          borderColor: invalid ? 'var(--loss)' : inputStyle.borderColor,
-        }}
-        aria-invalid={invalid || undefined}
-      />
-      <button
-        type="button"
-        className="dash-date-input-picker"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={openPicker}
-        title="เลือกจากปฏิทิน"
-        aria-label="เลือกจากปฏิทิน"
-      >
-        <span className="dash-date-input-picker-icon" aria-hidden>📅</span>
-      </button>
-      <input
-        ref={pickerRef}
-        type="date"
-        className="dash-date-input-native-hidden"
-        value={iso || ''}
-        onChange={(e) => {
-          if (e.target.value) applyIso(e.target.value)
-        }}
-        tabIndex={-1}
-        aria-hidden
-      />
+      <div className="dash-date-input">
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder={placeholder}
+          value={text}
+          onChange={(e) => {
+            setText(maskDateInput(e.target.value))
+            setInvalid(false)
+          }}
+          onBlur={() => commit(text)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit(text)
+          }}
+          className="dash-date-input-text"
+          style={{
+            ...inputStyle,
+            width: undefined,
+            marginBottom: 0,
+            borderColor: invalid ? 'var(--loss)' : inputStyle.borderColor,
+          }}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? 'dash-date-input-error' : undefined}
+        />
+        <button
+          type="button"
+          className="dash-date-input-picker"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={openPicker}
+          title="เลือกจากปฏิทิน"
+          aria-label="เลือกจากปฏิทิน"
+        >
+          <span className="dash-date-input-picker-icon" aria-hidden>📅</span>
+        </button>
+        <input
+          ref={pickerRef}
+          type="date"
+          className="dash-date-input-native-hidden"
+          value={iso || ''}
+          onChange={(e) => {
+            if (e.target.value) applyIso(e.target.value)
+          }}
+          tabIndex={-1}
+          aria-hidden
+        />
+      </div>
+      {invalid && (
+        <p id="dash-date-input-error" className="dash-date-input-error" role="alert">
+          รูปแบบวันที่ผิด กรุณากรอกใหม่ (วัน/เดือน/ปี เช่น 30/04/2025)
+        </p>
+      )}
     </div>
   )
-}
+})
+
+export default DateInput

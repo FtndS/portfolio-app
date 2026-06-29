@@ -331,6 +331,10 @@ body,
 }
 
 /* Date input — DD/MM/YYYY text + calendar picker */
+.dash-date-input-wrap {
+  box-sizing: border-box;
+}
+
 .dash-date-input {
   display: flex;
   gap: 8px;
@@ -376,6 +380,13 @@ body,
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+.dash-date-input-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--loss);
 }
 
 .dash-action-btn {
