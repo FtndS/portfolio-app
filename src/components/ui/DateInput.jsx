@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
-import { fmtDate, isoDate, parseDateInput } from '../../lib/format'
+import { useState, useEffect, useRef } from 'react'
+import { fmtDate, isoDate, parseDateInput, todayIso } from '../../lib/format'
 
 export default function DateInput({ value, onChange, style = {}, placeholder = 'DD/MM/YYYY' }) {
   const iso = isoDate(value)
   const [text, setText] = useState(() => (iso ? fmtDate(iso) : ''))
   const [invalid, setInvalid] = useState(false)
+  const pickerRef = useRef(null)
 
   const { marginBottom, width, ...inputStyle } = style
 
@@ -34,6 +35,18 @@ export default function DateInput({ value, onChange, style = {}, placeholder = '
       return
     }
     applyIso(parsed)
+  }
+
+  const openPicker = () => {
+    const el = pickerRef.current
+    if (!el) return
+    el.value = iso || todayIso()
+    try {
+      if (typeof el.showPicker === 'function') el.showPicker()
+      else el.click()
+    } catch {
+      el.click()
+    }
   }
 
   return (
@@ -67,19 +80,27 @@ export default function DateInput({ value, onChange, style = {}, placeholder = '
         }}
         aria-invalid={invalid || undefined}
       />
-      <label className="dash-date-input-picker" title="เลือกจากปฏิทิน">
+      <button
+        type="button"
+        className="dash-date-input-picker"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={openPicker}
+        title="เลือกจากปฏิทิน"
+        aria-label="เลือกจากปฏิทิน"
+      >
         <span className="dash-date-input-picker-icon" aria-hidden>📅</span>
-        <input
-          type="date"
-          className="dash-date-input-native"
-          value={iso || ''}
-          onChange={(e) => {
-            if (e.target.value) applyIso(e.target.value)
-          }}
-          tabIndex={-1}
-          aria-label="เลือกจากปฏิทิน"
-        />
-      </label>
+      </button>
+      <input
+        ref={pickerRef}
+        type="date"
+        className="dash-date-input-native-hidden"
+        value={iso || ''}
+        onChange={(e) => {
+          if (e.target.value) applyIso(e.target.value)
+        }}
+        tabIndex={-1}
+        aria-hidden
+      />
     </div>
   )
 }

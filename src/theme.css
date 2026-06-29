@@ -344,18 +344,18 @@ body,
 }
 
 .dash-date-input-picker {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   width: 44px;
+  padding: 0;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   cursor: pointer;
-  overflow: hidden;
   transition: background 0.15s, border-color 0.15s;
+  font-family: var(--font);
 }
 
 .dash-date-input-picker:hover {
@@ -369,16 +369,13 @@ body,
   pointer-events: none;
 }
 
-.dash-date-input-native {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+.dash-date-input-native-hidden {
+  position: fixed;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
   opacity: 0;
-  cursor: pointer;
-  border: none;
-  margin: 0;
-  padding: 0;
+  pointer-events: none;
 }
 
 .dash-action-btn {
