@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
-import { useTheme } from '../../lib/theme'
 import ThemeToggle from '../ThemeToggle'
 import Field from '../ui/Field'
 import Modal from '../ui/Modal'
 
-export default function SettingsModal({ user, onClose, onUserUpdate, onLogout }) {
-  const { theme } = useTheme()
+export default function SettingsModal({ user, onClose, onUserUpdate, onLogout, onOpenSupport }) {
   const [name, setName] = useState(user.name || '')
   const [profileMsg, setProfileMsg] = useState('')
   const [profileErr, setProfileErr] = useState('')
@@ -112,9 +110,9 @@ export default function SettingsModal({ user, onClose, onUserUpdate, onLogout })
       <div style={{ marginBottom: '20px' }}>
         <h3 className="dash-settings-section-title">ธีมการแสดงผล</h3>
         <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
-          เลือก Light หรือ Dark — บันทึกในเครื่องนี้ (ปัจจุบัน: {theme === 'light' ? 'สว่าง' : 'มืด'})
+          เลือก Light หรือ Dark — บันทึกในเครื่องนี้
         </p>
-        <ThemeToggle />
+        <ThemeToggle className="dash-settings-theme-toggle" />
       </div>
 
       <div className="dash-settings-divider" style={{ marginBottom: '20px' }}>
@@ -162,6 +160,18 @@ export default function SettingsModal({ user, onClose, onUserUpdate, onLogout })
           {loadingExport ? 'กำลังส่งออก...' : 'ดาวน์โหลดข้อมูลของฉัน'}
         </button>
       </div>
+
+      {onOpenSupport && (
+        <div className="dash-settings-divider" style={{ marginTop: '20px' }}>
+          <h3 className="dash-settings-section-title">ช่วยเหลือ</h3>
+          <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
+            แจ้งปัญหา ถามการใช้งาน หรือขอฟีเจอร์
+          </p>
+          <button type="button" onClick={() => { onClose(); onOpenSupport() }} style={btnGhost}>
+            เปิดฟอร์มช่วยเหลือ
+          </button>
+        </div>
+      )}
 
       <div className="dash-settings-divider" style={{ marginTop: '20px' }}>
         <h3 className="dash-settings-section-title" style={{ color: 'var(--loss)' }}>ลบบัญชีถาวร</h3>

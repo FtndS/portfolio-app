@@ -25,7 +25,15 @@ docker compose build --no-cache frontend
 docker compose build backend
 
 docker compose up -d postgres
-docker compose up -d --force-recreate backend
+
+echo "==> Remove stale container refs (fixes 'No such container' on recreate)"
+docker compose rm -sf backend frontend nginx 2>/dev/null || true
+docker rm -f portfolio-backend portfolio-frontend portfolio-nginx 2>/dev/null || true
+while IFS= read -r name; do
+  [ -n "$name" ] && docker rm -f "$name" 2>/dev/null || true
+done < <(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '_portfolio-(backend|frontend|nginx)$' || true)
+
+docker compose up -d --force-recreate --remove-orphans backend
 
 health_ok() {
   docker compose exec -T backend node -e "
@@ -51,7 +59,7 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-docker compose up -d --force-recreate frontend nginx
+docker compose up -d --force-recreate --remove-orphans frontend nginx
 
 docker compose ps
 health_ok && docker compose exec -T backend node -e "fetch('http://127.0.0.1:3001/api/health').then(r=>r.text()).then(t=>console.log(t))"

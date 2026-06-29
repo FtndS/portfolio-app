@@ -1,10 +1,26 @@
 import express from 'express'
 import { authMiddleware } from '../middleware/auth.js'
 import { aiLimiter } from '../middleware/rateLimit.js'
+import { requireAiQuota } from '../middleware/aiQuota.js'
+import {
+  AI_FEATURES,
+  getAiQuota,
+  recordAiUsage,
+} from '../lib/aiQuota.js'
 
 const router = express.Router()
 router.use(authMiddleware)
 router.use(aiLimiter)
+
+router.get('/quota', async (req, res) => {
+  try {
+    const quota = await getAiQuota(req.userId, req.userEmail, req.userRole)
+    res.json(quota)
+  } catch (err) {
+    console.error('AI quota fetch error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
 
 function parseClaudeJson(text) {
   let raw = text.replace(/^```(?:json)?\s*\n?|\n?```\s*$/gm, '').trim()
@@ -62,7 +78,7 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 4096) {
 }
 
 // วิเคราะห์พอร์ตและแนะนำ rebalancing
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', requireAiQuota(AI_FEATURES.ANALYZE), async (req, res) => {
   try {
     const { holdings, prices, displayCurrency, fxRate } = req.body
     if (!holdings?.length) return res.status(400).json({ error: 'ไม่มี holdings' })
@@ -143,6 +159,7 @@ ${JSON.stringify(sectorAlloc, null, 2)}
 
     const text = await callClaude(systemPrompt, userMessage)
     const analysis = parseClaudeJson(text)
+    await recordAiUsage(req.userId, AI_FEATURES.ANALYZE)
     res.json(analysis)
   } catch (err) {
     console.error('AI analyze error:', err)
@@ -151,7 +168,7 @@ ${JSON.stringify(sectorAlloc, null, 2)}
 })
 
 // สรุปข่าวกระทบพอร์ต
-router.post('/news-summary', async (req, res) => {
+router.post('/news-summary', requireAiQuota(AI_FEATURES.NEWS_SUMMARY), async (req, res) => {
   try {
     const { holdings, news } = req.body
     if (!holdings?.length || !news?.length) {
@@ -180,9 +197,51 @@ ${newsText}
 
     const text = await callClaude(systemPrompt, userMessage, 2048)
     const result = parseClaudeJson(text)
+    await recordAiUsage(req.userId, AI_FEATURES.NEWS_SUMMARY)
     res.json(result)
   } catch (err) {
     console.error('News summary error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/ticker-journal', async (req, res) => {
+  try {
+    const { ticker, thesis = {}, journal = [] } = req.body
+    if (!ticker) return res.status(400).json({ error: 'ต้องระบุ ticker' })
+    if (!journal.length && !thesis.thesis) {
+      return res.json({ summary: 'ยังไม่มี journal หรือ thesis สำหรับหุ้นนี้ — ลองเขียนเหตุผลถือหุ้นก่อน' })
+    }
+
+    const journalText = journal.slice(0, 12).map((j, i) => {
+      const d = j.date?.split?.('T')?.[0] || j.date || ''
+      return `${i + 1}. [${d}] ${j.title || '—'} (${j.tag || 'ไม่มี tag'}): ${String(j.content || '').slice(0, 400)}`
+    }).join('\n')
+
+    const systemPrompt = `คุณคือผู้ช่วยนักลงทุนระยะยาวที่สรุปบันทึกส่วนตัว
+ตอบเป็นภาษาไทย กระชับ 2-4 ประโยค อ้างอิงเฉพาะข้อมูลที่ให้
+ไม่ใช่คำแนะนำซื้อขาย — เป็นการช่วยทบทวนความคิดของ user เท่านั้น
+ตอบ plain text ไม่ใช่ JSON`
+
+    const userMessage = `หุ้น: ${ticker}
+
+Thesis (เหตุผลถือ):
+${thesis.thesis || '— ยังไม่ได้บันทึก'}
+
+เงื่อนไขเปลี่ยนใจ:
+${thesis.invalidation || '—'}
+
+ระยะเวลาที่ตั้งใจถือ: ${thesis.horizon || '—'}
+
+Journal ที่เกี่ยวข้อง:
+${journalText || '— ไม่มี'}
+
+สรุปให้ user ทบทวน: เขาเคยคิดอะไร thesis กับ journal สอดคล้องกันไหม มีอะไรที่ควรจดจำหรือทบทวน`
+
+    const text = await callClaude(systemPrompt, userMessage, 1024)
+    res.json({ summary: text.trim() })
+  } catch (err) {
+    console.error('Ticker journal summary error:', err)
     res.status(500).json({ error: err.message })
   }
 })

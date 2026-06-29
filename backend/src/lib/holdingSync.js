@@ -3,7 +3,7 @@ import { fetchCompanyProfile, needsSectorRefresh } from './profile.js'
 
 export async function syncHoldingFromTransactions(client, userId, portfolioId, ticker, profile = null, txCurrency) {
   const allTx = await client.query(
-    `SELECT type, shares, price FROM transactions
+    `SELECT type, shares, price, fee FROM transactions
      WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3`,
     [userId, portfolioId, ticker]
   )
@@ -25,7 +25,7 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
     if (r.type === 'BUY') {
       netShares += sh
       totalBuyShares += sh
-      totalBuyCost += sh * parseFloat(r.price)
+      totalBuyCost += sh * parseFloat(r.price) + parseFloat(r.fee || 0)
     } else {
       netShares -= sh
     }

@@ -384,6 +384,81 @@ const migrations = [
       ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
     `,
   },
+  {
+    name: '015_transactions_fee',
+    sql: `
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fee NUMERIC(18, 2) NOT NULL DEFAULT 0;
+    `,
+    async after() {
+      await rebuildHoldingsFromTransactions(pool)
+    },
+  },
+  {
+    name: '016_investment_thesis',
+    sql: `
+      CREATE TABLE IF NOT EXISTS investment_thesis (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        ticker VARCHAR(32) NOT NULL,
+        thesis TEXT NOT NULL DEFAULT '',
+        invalidation TEXT NOT NULL DEFAULT '',
+        horizon VARCHAR(64) NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (user_id, portfolio_id, ticker)
+      );
+
+      CREATE INDEX IF NOT EXISTS investment_thesis_portfolio_idx
+        ON investment_thesis (portfolio_id, ticker);
+    `,
+  },
+  {
+    name: '017_ai_usage',
+    sql: `
+      CREATE TABLE IF NOT EXISTS ai_usage (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        feature VARCHAR(32) NOT NULL,
+        used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS ai_usage_user_feature_used_idx
+        ON ai_usage (user_id, feature, used_at DESC);
+    `,
+  },
+  {
+    name: '018_user_role_support_tickets',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user';
+
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        category VARCHAR(32) NOT NULL,
+        subject VARCHAR(200) NOT NULL,
+        message TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        admin_notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS support_tickets_status_created_idx
+        ON support_tickets (status, created_at DESC);
+
+      CREATE INDEX IF NOT EXISTS support_tickets_user_created_idx
+        ON support_tickets (user_id, created_at DESC);
+    `,
+    async after() {
+      const { getBootstrapAdminEmail } = await import('../lib/admin.js')
+      const adminEmail = getBootstrapAdminEmail()
+      await pool.query(
+        `UPDATE users SET role = 'admin' WHERE LOWER(email) = LOWER($1)`,
+        [adminEmail]
+      )
+    },
+  },
 ]
 
 export async function runMigrations() {

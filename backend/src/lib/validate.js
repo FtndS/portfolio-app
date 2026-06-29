@@ -30,6 +30,14 @@ export function validatePassword(password, { minLength = 8 } = {}) {
   return null
 }
 
+/** Parse optional transaction fee; returns null if invalid. */
+export function parseFee(value) {
+  if (value == null || value === '') return 0
+  const n = parseFloat(value)
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.round(n * 100) / 100
+}
+
 export function validateName(name) {
   if (!name || typeof name !== 'string' || !name.trim()) return 'กรุณาระบุชื่อ'
   if (name.trim().length > 100) return 'ชื่อยาวเกินไป'

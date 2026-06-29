@@ -43,8 +43,17 @@ export default function HoldingModal({holding,onClose,onSave,portfolioId}){
       <Field label="Ticker"><input style={inp()} placeholder={f.market==='SET'?'PTT':'AAPL, 0700'} value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})} disabled={isEdit}/></Field>
       <Field label="ชื่อเต็ม (optional)"><input style={inp()} placeholder="เช่น Apple Inc." value={f.name} onChange={e=>setF({...f,name:e.target.value})}/></Field>
       <Field label="สกุลเงิน">
-        <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
-          {marketDef.currencies.map(c=><button key={c} type="button" onClick={()=>setF({...f,currency:c})} style={{flex:1,minWidth:'70px',padding:'9px',border:`1px solid ${f.currency===c?'#6c5ce7':'#3a3a3a'}`,borderRadius:'8px',background:f.currency===c?'#2d2a5e':'transparent',color:f.currency===c?'#a29bfe':'#666',cursor:'pointer',fontSize:'13px',fontWeight:500}}>{symFor(c)} {c}</button>)}
+        <div className="dash-chip-group">
+          {marketDef.currencies.map(c=>(
+            <button
+              key={c}
+              type="button"
+              className={`dash-chip-btn${f.currency===c?' dash-chip-btn--active':''}`}
+              onClick={()=>setF({...f,currency:c})}
+            >
+              {symFor(c)} {c}
+            </button>
+          ))}
         </div>
       </Field>
       <Field label="จำนวนหุ้น"><AmountInput suffix="shares" placeholder="100" value={f.shares} nonNegative onChange={e=>setF({...f,shares:e.target.value})}/></Field>

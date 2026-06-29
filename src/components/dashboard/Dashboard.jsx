@@ -15,7 +15,8 @@ import DividendModal from '../modals/DividendModal'
 import ImportCsvModal from '../modals/ImportCsvModal'
 import PortfolioManageModal from '../modals/PortfolioManageModal'
 import SettingsModal from '../modals/SettingsModal'
-import ThemeToggle from '../ThemeToggle'
+import SupportModal from '../modals/SupportModal'
+import TickerStoryModal from '../modals/TickerStoryModal'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
@@ -23,10 +24,11 @@ import { symFor, JOURNAL_TAGS as journalTags, CHART_RANGE_DAYS } from '../../lib
 import { MASKED, fmtPct, fmtDate, isoDate } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 import { journalDraftFromTransaction } from '../../lib/workflow'
+import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../../lib/pnl'
 import WorkflowGuide from './WorkflowGuide'
 import DashboardSidebar, { tabLabel } from './DashboardSidebar'
 
-export default function Dashboard({user,onLogout,onUserUpdate}){
+export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const [portfolios,setPortfolios]=useState([])
   const [activePortfolioId,setActivePortfolioId]=useState(null)
   const [portfolioHistory,setPortfolioHistory]=useState([])
@@ -57,9 +59,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
 
   const [inSectorNews, setInSectorNews] = useState([])
   const [outSectorNews, setOutSectorNews] = useState([])
-  const [tickerNews, setTickerNews] = useState([])
   const [selectedTicker, setSelectedTicker] = useState(null)
-  const [loadingNews, setLoadingNews] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [dataReady, setDataReady] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -192,21 +192,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     }
   }, [])
 
-  const handleOpenTickerNews = async (ticker) => {
-    setSelectedTicker(ticker)
-    setLoadingNews(true)
-    setTickerNews([])
-    try {
-      const res = await api.fetch(`/news/ticker/${ticker}`)
-      if (res.ok) {
-        const data = await res.json()
-        setTickerNews(Array.isArray(data) ? data : [])
-      }
-    } catch (e) {
-      console.error('Ticker news error:', e)
-    }
-    setLoadingNews(false)
-  }
+  const handleOpenTickerStory = (ticker) => setSelectedTicker(ticker)
 
   const createPortfolio=async()=>{
     if(!newPortName.trim()) return
@@ -301,6 +287,38 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   const totPnL=totVal-totCost
   const totPct=totCost>0?(totPnL/totCost)*100:0
 
+  const sym=symFor(displayCurrency)
+  const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+
+  const { realized, unrealized, total: totalPnL, hasRealized } = computePortfolioPnL({
+    transactions,
+    holdings,
+    prices,
+    convert: convertToDisplay,
+  })
+
+  const yearStart=`${new Date().getFullYear()}-01-01`
+  const sumDivList=(list)=>sumDividends(list, convertToDisplay)
+  const dividendYtd=sumDivList(dividends.filter(d=>isoDate(d.pay_date)>=yearStart))
+  const dividendAll=sumDivList(dividends)
+  const divYieldPct=totCost>0&&dividendYtd>0?(dividendYtd/totCost)*100:0
+
+  const { totalReturn, hasDividends } = computeTotalReturn(totalPnL, dividendAll)
+  const returnPct=totCost>0?(totalReturn/totCost)*100:0
+
+  const pnlKpiLabel=hasDividends?'ผลตอบแทนรวม':'กำไร/ขาดทุน (พอร์ตนี้)'
+  const pnlKpiVal=hideValues
+    ? fmtPct(hasDividends?returnPct:totPct)
+    : fmt(hasDividends?totalReturn:totalPnL)
+  const pnlKpiTone=(hasDividends?totalReturn:totalPnL)>=0?'gain':'loss'
+  const pnlKpiSub=hideValues
+    ? 'จากทุน'
+    : hasDividends
+      ? `${hasRealized?`ราคา: ขายแล้ว ${fmt(realized)} · ถืออยู่ ${fmt(unrealized)}`:`จากราคา ${fmt(totalPnL)}`} · ปันผล ${fmt(dividendAll)}`
+      : hasRealized
+        ? `ขายแล้ว ${fmt(realized)} · ถืออยู่ ${fmt(unrealized)}`
+        : `${totPct >= 0 ? '+' : ''}${totPct.toFixed(2)}% จากทุน`
+
   const allInvested=portfolios.reduce((s,p)=>s+portfolioInvested(p),0)
   const allPortValue=allHoldings.reduce((s,h)=>{
     const p=prices[h.ticker]||Number(h.avg_cost)
@@ -308,8 +326,6 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
   },0)
   const activePort=portfolios.find(p=>p.id===activePortfolioId)
 
-  const sym=symFor(displayCurrency)
-  const fmt=n=>sym+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
   const fmtMoney=(n)=>hideValues?MASKED:fmt(n)
   const fmtTx=(t,n)=>{
     if(hideValues) return MASKED
@@ -322,12 +338,6 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
     return <span className={`dash-currency-chip dash-currency-chip--${tone}`}>{symFor(c)} {c}</span>
   }
   const fmtDiv=(d)=>hideValues?MASKED:`${symFor(d.currency||'THB')}${Number(d.amount).toLocaleString('en-US',{minimumFractionDigits:2})}`
-
-  const yearStart=`${new Date().getFullYear()}-01-01`
-  const sumDividends=(list)=>list.reduce((s,d)=>s+convertToDisplay(Number(d.amount),d.currency||'THB'),0)
-  const dividendYtd=sumDividends(dividends.filter(d=>isoDate(d.pay_date)>=yearStart))
-  const dividendAll=sumDividends(dividends)
-  const divYieldPct=totCost>0&&dividendYtd>0?(dividendYtd/totCost)*100:0
 
   const aBtn = (label, onClick, variant = 'accent') => (
     <button
@@ -442,20 +452,24 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
               ))}
             </div>
             <ThemeToggle />
-            <button
-              type="button"
-              className={`dash-privacy-btn${hideValues ? ' dash-privacy-btn--active' : ''}`}
-              onClick={toggleHideValues}
-              title={hideValues ? 'แสดงมูลค่าเงิน' : 'ซ่อนมูลค่า — แสดงแค่ %'}
-            >
-              {hideValues ? '👁️' : '🙈'}
-            </button>
-            <button type="button" onClick={() => setModal('settings')} style={{ ...btnGhost, width: 'auto', padding: '7px 14px', fontSize: '13px' }}>
-              ตั้งค่า
-            </button>
-            <button type="button" onClick={onLogout} style={{ ...btnGhost, width: 'auto', padding: '7px 14px', fontSize: '13px' }}>
-              ออก
-            </button>
+            <div className="dash-header-util" role="group" aria-label="เมนูบัญชี">
+              <button
+                type="button"
+                className={`dash-util-btn${hideValues ? ' dash-util-btn--active' : ''}`}
+                onClick={toggleHideValues}
+                title={hideValues ? 'แสดงมูลค่าเงินทั้งหมด' : 'ซ่อนมูลค่าเงิน — แสดงแค่ %'}
+                aria-label={hideValues ? 'แสดงมูลค่า' : 'ซ่อนมูลค่า'}
+                aria-pressed={hideValues}
+              >
+                {hideValues ? 'แสดงมูลค่า' : 'ซ่อนมูลค่า'}
+              </button>
+              <button type="button" className="dash-util-btn dash-util-btn--help" onClick={() => setModal('support')} title="ช่วยเหลือ / แจ้งปัญหา" aria-label="ช่วยเหลือ">ช่วยเหลือ</button>
+              <button type="button" className="dash-util-btn" onClick={() => setModal('settings')} title="ตั้งค่าบัญชี" aria-label="ตั้งค่าบัญชี">ตั้งค่า</button>
+              {onOpenAdmin && (
+                <button type="button" className="dash-util-btn dash-util-btn--admin" onClick={onOpenAdmin} title="Admin" aria-label="Admin">Admin</button>
+              )}
+              <button type="button" className="dash-util-btn dash-util-btn--logout" onClick={onLogout} title="ออกจากระบบ" aria-label="ออกจากระบบ">ออก</button>
+            </div>
           </div>
         </header>
 
@@ -472,9 +486,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             {[
               ['มูลค่าพอร์ตนี้', hideValues ? fmtPct(totPct) : fmt(totVal), `${holdings.length} holdings · ${activePort?.name||''}`, hideValues ? 'gain' : ''],
               [portfolios.length>1?'มูลค่ารวมทุกพอร์ต':'ทุนรวม (พอร์ตนี้)', hideValues ? MASKED : fmt(portfolios.length>1?allPortValue:totCost), portfolios.length>1?(hideValues?`${portfolios.length} พอร์ต`:`ทุนรวม ${fmt(allInvested)} · ${portfolios.length} พอร์ต`):'ราคาซื้อเฉลี่ย · ไม่รวมกำไร', hideValues?'':'accent'],
-              ['กำไร/ขาดทุน (พอร์ตนี้)', hideValues ? fmtPct(totPct) : fmt(totPnL), hideValues ? 'จากทุน' : `${totPct>=0?'+':''}${totPct.toFixed(2)}% จากทุน`, totPnL>=0?'gain':'loss'],
+              [pnlKpiLabel, pnlKpiVal, pnlKpiSub, pnlKpiTone],
               dividends.length>0
-                ? ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), hideValues ? `สะสม ${MASKED}` : `สะสมทั้งหมด ${fmt(dividendAll)}${divYieldPct>0?` · ~${divYieldPct.toFixed(2)}% ของทุน`:''}`, 'gain']
+                ? ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), hideValues ? `สะสม ${MASKED}` : `สะสม ${fmt(dividendAll)}${hasDividends&&!hideValues?` · รวม ~${returnPct.toFixed(2)}% ของทุน`:divYieldPct>0?` · yield ปีนี้ ~${divYieldPct.toFixed(2)}%`:''}`, 'gain']
                 : ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'Real-time', hideValues ? '' : 'info'],
             ].map(([label,val,sub,tone],i)=>(
               <div key={i} className="dash-kpi-card">
@@ -524,6 +538,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             portfolios={portfolios}
             holdings={holdings}
             transactions={transactions}
+            dividends={dividends}
             prices={prices}
             displayCurrency={displayCurrency}
             fxRate={fxRate}
@@ -534,20 +549,18 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
             convertToDisplay={convertToDisplay}
             totVal={totVal}
             totCost={totCost}
-            totPnL={totPnL}
-            totPct={totPct}
           />
         )}
 
         {/* Holdings */}
         {tab==='holdings'&&<>
           <p className="dash-holdings-hint">
-            <strong>ส่วนใหญ่ไม่ต้องใช้แท็บนี้</strong> — ยอดหุ้นและราคาทุนอัปเดตจาก <button type="button" className="dash-link" onClick={()=>selectTab('transactions')}>Transactions</button> อัตโนมัติ ใช้ Holdings เฉพาะแก้ไขยอดตรงๆ
+            กดที่ <strong>Ticker</strong> เพื่อดู Investment Thesis และ timeline ของหุ้น — ส่วนใหญ่ไม่ต้องใช้แท็บนี้ ยอดหุ้นอัปเดตจาก <button type="button" className="dash-link" onClick={()=>selectTab('transactions')}>Transactions</button> อัตโนมัติ
           </p>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
               <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} holdings</p>
-              <input type="text" className="dash-search" placeholder="🔍 ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+              <input type="text" className="dash-search" placeholder="ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <button onClick={()=>setModal('h')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เพิ่ม Holding ตรงๆ</button>
           </div>
@@ -565,7 +578,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                   const val=getVal(h),cost=getCost(h),pnl=val-cost,pct=cost>0?(pnl/cost)*100:0
                   const os=symFor(h.currency||'USD')
                   return(<tr key={h.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
-                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerNews(h.ticker)}>{h.ticker}</td>
+                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerStory(h.ticker)} title="ดู Thesis & Timeline">{h.ticker}</td>
                     <td data-label="ชื่อ" className="dash-text-muted" style={{padding:'11px 13px'}}>{h.name||'—'}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(h.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'999px',background:h.currency==='USD'?'#1a2a4a':'#1a3a2a',color:h.currency==='USD'?'#74b9ff':'#55efc4'}}>{h.currency}</span></td>
@@ -590,37 +603,40 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         {tab==='transactions'&&<>
           <WorkflowGuide
             activeTab={tab}
-            onGoTab={setTab}
-            onAddTransaction={() => setModal('tx')}
+            onGoTab={selectTab}
+            onAddTransaction={() => { setModal('tx'); setSidebarOpen(false) }}
           />
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
               <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>
-              <input type="text" className="dash-search" placeholder="🔍 ค้นหาด้วยชื่อย่อ Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+              <input type="text" className="dash-search" placeholder="ค้นหา Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <div className="dash-toolbar-actions">
-              <button type="button" onClick={()=>setModal('import')} style={{...btnGhost,width:'auto',padding:'7px 16px',fontSize:'13px',borderColor:'var(--accent)',color:'var(--accent-text)'}}>📥 Import CSV</button>
+              <button type="button" onClick={()=>setModal('import')} style={{...btnGhost,width:'auto',padding:'7px 16px',fontSize:'13px',borderColor:'var(--accent)',color:'var(--accent-text)'}}>Import CSV</button>
               <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึก Transaction</button>
             </div>
           </div>
           <div className="dash-table-wrap">
             <table className="dash-table dash-table--transactions">
               <thead><tr style={{borderBottom:'1px solid var(--border)'}}>
-                {['วันที่','Ticker','ประเภท','สกุลเงิน','Shares','ราคา/หุ้น','มูลค่ารวม','หมายเหตุ',''].map((h,i)=>(
+                {['วันที่','Ticker','ประเภท','สกุลเงิน','Shares','ราคา/หุ้น','มูลค่ารวม','ค่าธรรมเนียม','หมายเหตุ',''].map((h,i)=>(
                   <th key={i} className="dash-text-muted" style={{padding:'11px 13px',textAlign:'left',fontWeight:400}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
-                {filteredTransactions.length===0?<tr><td colSpan={9} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
+                {filteredTransactions.length===0?<tr><td colSpan={10} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
                 :filteredTransactions.map(t=>(
                   <tr key={t.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(t.date)}</td>
-                    <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{t.ticker}</td>
+                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerStory(t.ticker)} title="ดู Thesis & Timeline">{t.ticker}</td>
                     <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(t.currency)}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{Number(t.shares).toLocaleString('en-US',{maximumFractionDigits:4})}</td>
                     <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{fmtTx(t,t.price)}</td>
                     <td data-label="มูลค่ารวม" style={{padding:'11px 13px',fontWeight:500}}>{fmtTx(t,t.total)}</td>
+                    <td data-label="ค่าธรรมเนียม" className="dash-text-muted" style={{padding:'11px 13px'}}>
+                      {Number(t.fee) > 0 ? fmtTx(t, t.fee) : '—'}
+                    </td>
                     <td data-label="หมายเหตุ" className="dash-text-muted" style={{padding:'11px 13px'}}>{t.note||'—'}</td>
                     <td data-label="" style={{padding:'11px 13px',whiteSpace:'nowrap'}}>
                       {aBtn('แก้ไข',()=>{setEditT(t);setModal('et')})}
@@ -638,7 +654,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           <div className="dash-kpi-grid" style={{marginBottom:'16px'}}>
             {[
               ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), `ปี ${new Date().getFullYear()}`, 'gain'],
-              ['ปันผลสะสมทั้งหมด', hideValues ? MASKED : fmt(dividendAll), `${dividends.length} รายการ`, 'accent'],
+              ['ปันผลสะสมทั้งหมด', hideValues ? MASKED : fmt(dividendAll), hideValues ? `${dividends.length} รายการ` : (hasDividends ? `รวมกับกำไรจากราคา ~${returnPct.toFixed(2)}% ของทุน` : `${dividends.length} รายการ`), hasDividends?'gain':'accent'],
               ['Yield จากทุน (ปีนี้)', hideValues ? MASKED : (divYieldPct>0?`${divYieldPct.toFixed(2)}%`:'—'), totCost>0?'ประมาณจากทุนพอร์ตนี้':'ยังไม่มีทุน', divYieldPct>0?'gain':''],
             ].map(([label,val,sub,tone],i)=>(
               <div key={i} className="dash-kpi-card">
@@ -666,7 +682,7 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 :dividends.map(d=>(
                   <tr key={d.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="วันที่รับ" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(d.pay_date)}</td>
-                    <td data-label="Ticker" style={{padding:'11px 13px',fontWeight:600}}>{d.ticker}</td>
+                    <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerStory(d.ticker)} title="ดู Thesis & Timeline">{d.ticker}</td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(d.currency)}</td>
                     <td data-label="จำนวนเงิน" className="dash-text-gain" style={{padding:'11px 13px',fontWeight:500}}>{fmtDiv(d)}</td>
                     <td data-label="หุ้น ณ วันจ่าย" style={{padding:'11px 13px'}}>{d.shares_held?Number(d.shares_held).toLocaleString('en-US',{maximumFractionDigits:4}):'—'}</td>
@@ -703,7 +719,9 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
                 <div className="dash-journal-meta">
                   <span className="dash-text-faint" style={{fontSize:'12px'}}>{fmtDate(j.date)}</span>
                   {j.tag&&<span className="dash-tag">{j.tag}</span>}
-                  {j.tickers&&j.tickers.split(',').map(t=><span key={t} className="dash-ticker-chip">{t.trim()}</span>)}
+                  {j.tickers&&j.tickers.split(',').map(t=>(
+                    <button key={t} type="button" className="dash-ticker-chip dash-ticker-chip--link" onClick={()=>handleOpenTickerStory(t.trim())}>{t.trim()}</button>
+                  ))}
                 </div>
                 <div style={{flexShrink:0}}>
                   {aBtn('แก้ไข',()=>{setEditJ(j);setModal('ej')})}
@@ -763,12 +781,16 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
           <button onClick={createPortfolio} style={{...btnPrimary,marginTop:'8px'}}>สร้างพอร์ต</button>
         </Modal>
       )}
+      {modal==='support'&&(
+        <SupportModal onClose={()=>setModal(null)} />
+      )}
       {modal==='settings'&&(
         <SettingsModal
           user={user}
           onClose={()=>setModal(null)}
           onUserUpdate={onUserUpdate}
           onLogout={onLogout}
+          onOpenSupport={()=>setModal('support')}
         />
       )}
       {modal==='managePort'&&activePort&&(
@@ -781,13 +803,17 @@ export default function Dashboard({user,onLogout,onUserUpdate}){
         />
       )}
 
-      {/* Modal ดูข่าวสารรายหุ้นเจาะจง */}
       {selectedTicker && (
-        <Modal title={`ข่าวสารล่าสุดของหุ้น ${selectedTicker}`} onClose={() => setSelectedTicker(null)}>
-          {loadingNews ? <p style={{ color: '#888', fontSize: '13px' }}>กำลังดึงข้อมูลข่าวสารแบบเรียลไทม์...</p>
-          : tickerNews.length === 0 ? <p className="dash-text-muted" style={{ fontSize: '13px' }}>ไม่พบข้อมูลข่าวสารของหุ้นตัวนี้ในปัจจุบัน</p>
-          : tickerNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
-        </Modal>
+        <TickerStoryModal
+          ticker={selectedTicker}
+          portfolioId={activePortfolioId}
+          holding={holdings.find((h) => h.ticker === selectedTicker) || allHoldings.find((h) => h.ticker === selectedTicker)}
+          transactions={transactions}
+          journal={journal}
+          dividends={dividends}
+          fmtTx={fmtTx}
+          onClose={() => setSelectedTicker(null)}
+        />
       )}
     </div>
   )

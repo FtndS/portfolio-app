@@ -1,5 +1,33 @@
 # Deploy to VPS (GitHub Actions)
 
+## Daily workflow (auto)
+
+```
+PC: แก้โค้ด → commit → push main
+         ↓
+GitHub Actions: SSH เข้า VPS → git pull → docker compose rebuild
+```
+
+**บน Windows (แนะนำ):**
+
+```powershell
+.\scripts\push-deploy.ps1 "fix: คำอธิบายการเปลี่ยนแปลง"
+```
+
+**หรือด้วยมือ:**
+
+```bash
+git add .
+git commit -m "your message"
+git push origin main
+```
+
+หลัง push ดูสถานะที่ [Actions → Deploy to VPS](https://github.com/FtndS/portfolio-app/actions/workflows/deploy.yml) — ประมาณ 3–5 นาที แล้วเว็บ [portdiary.com](https://portdiary.com) จะอัปเดต (hard refresh ถ้า CSS ค้าง)
+
+**ครั้งแรกเท่านั้น:** ตั้ง GitHub Secrets + deploy key บน VPS (ด้านล่าง) แล้วรัน workflow **Verify VPS SSH** ให้ผ่าน
+
+---
+
 ## Why deploy was failing
 
 Deploy jobs failed at **SSH** because GitHub Secrets were missing or the SSH key was misconfigured. The workflow now validates secrets and uses native SSH (`webfactory/ssh-agent`) instead of `appleboy/ssh-action`.
@@ -86,7 +114,7 @@ chmod +x scripts/deploy-vps.sh   # once, if Permission denied
 | `BEGIN.*PRIVATE KEY` validation failed | Paste full private key, not `.pub` |
 | `unable to authenticate` | Public key not in VPS `authorized_keys`, or key pair mismatch |
 | `Connection timed out` / port unreachable | Intermittent GitHub runner → VPS routing; workflow retries 4× with 45s TCP timeout (`scripts/github-ssh-retry.sh`). If still failing, deploy manually or use a self-hosted runner on the VPS |
-| `~/portfolio-app not found` | Clone repo on VPS: `git clone https://github.com/FtndS/portfolio-app.git ~/portfolio-app` |
+| `No such container: *_portfolio-backend` | Stale Docker Compose state — run `docker compose rm -sf backend; docker rm -f portfolio-backend; ./scripts/deploy-vps.sh` |
 | `.env not found` | Create `~/portfolio-app/.env` from `.env.example` |
 
 ## Reset database (wipe all users/data)

@@ -37,7 +37,12 @@ const router = express.Router()
 const OTP_LEGACY_MESSAGE = 'ลิงก์รีเซ็ตหมดอายุหรือไม่ถูกต้อง กรุณาขอรหัส OTP ใหม่จากหน้าลืมรหัสผ่าน'
 
 function publicUser(row) {
-  return { id: row.id, email: row.email, name: row.name }
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role || 'user',
+  }
 }
 
 function requireSmtpOrFail(res) {
@@ -80,7 +85,7 @@ async function verifyStoredOtp({ email, purpose, otp }) {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, name FROM users WHERE id = $1',
+      'SELECT id, email, name, role FROM users WHERE id = $1',
       [req.userId]
     )
     const user = result.rows[0]
@@ -486,13 +491,14 @@ router.put('/change-password', authMiddleware, authLimiter, async (req, res) => 
 router.get('/export', authMiddleware, async (req, res) => {
   try {
     const userId = req.userId
-    const [userResult, portfolios, holdings, transactions, journal, dividends] = await Promise.all([
+    const [userResult, portfolios, holdings, transactions, journal, dividends, thesisRows] = await Promise.all([
       pool.query('SELECT id, email, name, email_verified, created_at FROM users WHERE id = $1', [userId]),
       pool.query('SELECT * FROM portfolios WHERE user_id = $1 ORDER BY id', [userId]),
       pool.query('SELECT * FROM holdings WHERE user_id = $1 ORDER BY portfolio_id, ticker', [userId]),
       pool.query('SELECT * FROM transactions WHERE user_id = $1 ORDER BY date DESC, id DESC', [userId]),
       pool.query('SELECT * FROM journal WHERE user_id = $1 ORDER BY date DESC, id DESC', [userId]),
       pool.query('SELECT * FROM dividends WHERE user_id = $1 ORDER BY pay_date DESC, id DESC', [userId]),
+      pool.query('SELECT * FROM investment_thesis WHERE user_id = $1 ORDER BY portfolio_id, ticker', [userId]),
     ])
 
     const user = userResult.rows[0]
@@ -523,6 +529,7 @@ router.get('/export', authMiddleware, async (req, res) => {
       transactions: transactions.rows,
       journal: journal.rows,
       dividends: dividends.rows,
+      investmentThesis: thesisRows.rows,
       portfolioSnapshots: snapshots.rows,
     }
 

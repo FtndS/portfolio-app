@@ -299,7 +299,7 @@
 }
 
 .dash-table--transactions {
-  min-width: 860px;
+  min-width: 940px;
 }
 
 .dash-table--dividends {
@@ -359,6 +359,10 @@
   max-width: 100%;
   max-height: 92vh;
   overflow-y: auto;
+}
+
+.modal-panel--wide {
+  width: 560px;
 }
 
 .auth-wrap {
@@ -428,21 +432,22 @@
 
   .dash-header-actions {
     width: 100%;
-    justify-content: stretch;
-    flex-direction: column;
-    align-items: stretch;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .dash-header-util {
+    margin-left: auto;
   }
 
   .dash-currency-toggle {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
   }
 
   .dash-currency-toggle button {
     flex: 1;
-  }
-
-  .dash-header-actions > button:last-child {
-    width: 100%;
   }
 
   .dash-portfolio-select {

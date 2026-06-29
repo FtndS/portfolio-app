@@ -131,9 +131,10 @@ function positionsAtDate(transactions, dateStr) {
     if (tx.type === 'BUY') {
       const prev = positions[tx.ticker] || 0
       const prevCost = (avgCosts[tx.ticker] || 0) * prev
+      const fee = parseFloat(tx.fee || 0)
       const next = prev + sh
       positions[tx.ticker] = next
-      avgCosts[tx.ticker] = next > 0 ? (prevCost + sh * price) / next : 0
+      avgCosts[tx.ticker] = next > 0 ? (prevCost + sh * price + fee) / next : 0
     } else {
       const next = (positions[tx.ticker] || 0) - sh
       if (next <= 0.000001) {
@@ -172,7 +173,7 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
 
   const [txResult, holdingMetaResult, portResult] = await Promise.all([
     pool.query(
-      `SELECT ticker, type, shares, price, date FROM transactions
+      `SELECT ticker, type, shares, price, fee, date FROM transactions
        WHERE user_id = $1 AND portfolio_id = $2 ORDER BY date ASC, created_at ASC`,
       [userId, portfolioId]
     ),

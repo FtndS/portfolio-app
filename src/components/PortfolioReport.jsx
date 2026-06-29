@@ -1,6 +1,7 @@
 import { MASKED, fmtPct, fmtDate } from '../lib/format'
 import { symFor } from '../lib/constants'
 import { usePrivacy } from '../lib/privacy'
+import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../lib/pnl'
 
 const SECTOR_COLORS = ['#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e', '#e84393', '#55efc4', '#a29bfe']
 
@@ -27,6 +28,7 @@ export default function PortfolioReport({
   portfolios,
   holdings,
   transactions,
+  dividends = [],
   prices,
   displayCurrency,
   fxRate,
@@ -37,8 +39,6 @@ export default function PortfolioReport({
   convertToDisplay,
   totVal,
   totCost,
-  totPnL,
-  totPct,
 }) {
   const { hideValues } = usePrivacy()
   const fmtMoney = (n) => (hideValues ? MASKED : fmt(n))
@@ -90,6 +90,17 @@ export default function PortfolioReport({
     ? allocation.reduce((s, h) => s + h.dayChg * (h.val / totVal), 0)
     : 0
 
+  const { total: totalPnL } = computePortfolioPnL({
+    transactions,
+    holdings,
+    prices,
+    convert: convertToDisplay,
+  })
+  const dividendAll = sumDividends(dividends, convertToDisplay)
+  const { totalReturn, hasDividends } = computeTotalReturn(totalPnL, dividendAll)
+  const displayPnL = hasDividends ? totalReturn : totalPnL
+  const totalPct = totCost > 0 ? (displayPnL / totCost) * 100 : 0
+
   const topGainers = [...allocation].filter((h) => h.pnl > 0).sort((a, b) => b.pnlPct - a.pnlPct).slice(0, 3)
   const topLosers = [...allocation].filter((h) => h.pnl < 0).sort((a, b) => a.pnlPct - b.pnlPct).slice(0, 3)
 
@@ -118,9 +129,9 @@ export default function PortfolioReport({
     ['มูลค่าพอร์ตปัจจุบัน', hideValues ? MASKED : fmt(totVal), ''],
     ['เงินลงทุน (ทุน)', hideValues ? MASKED : fmt(totCost), 'accent'],
     [
-      'กำไร/ขาดทุน',
-      hideValues ? fmtPct(totPct) : `${fmt(totPnL)} (${fmtPct(totPct)})`,
-      pnlTone(totPnL),
+      hasDividends ? 'ผลตอบแทนรวม' : 'กำไร/ขาดทุน',
+      hideValues ? fmtPct(totalPct) : `${fmt(displayPnL)} (${fmtPct(totalPct)})`,
+      pnlTone(displayPnL),
     ],
     ['% เปลี่ยนแปลงวันนี้', fmtPct(weightedDayChg), pnlTone(weightedDayChg)],
   ]
@@ -313,7 +324,7 @@ export default function PortfolioReport({
               <table className="dash-report-table">
                 <thead>
                   <tr>
-                    {['วันที่', 'Ticker', 'ประเภท', 'สกุลเงิน', 'Shares', 'ราคา', 'มูลค่า', 'หมายเหตุ'].map((h) => (
+                    {['วันที่', 'Ticker', 'ประเภท', 'สกุลเงิน', 'Shares', 'ราคา', 'มูลค่า', 'ค่าธรรมเนียม', 'หมายเหตุ'].map((h) => (
                       <th key={h}>{h}</th>
                     ))}
                   </tr>
@@ -335,6 +346,13 @@ export default function PortfolioReport({
                         {hideValues
                           ? MASKED
                           : `${symFor(t.currency || 'USD')}${Number(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                      </td>
+                      <td className="dash-report-muted">
+                        {hideValues
+                          ? MASKED
+                          : Number(t.fee) > 0
+                            ? `${symFor(t.currency || 'USD')}${Number(t.fee).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                            : '—'}
                       </td>
                       <td className="dash-report-muted">{t.note || '—'}</td>
                     </tr>
