@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../../lib/api'
 import PortfolioReport from '../PortfolioReport'
 import OnboardingModal, { isOnboardingDone, markOnboardingDone } from '../OnboardingModal'
@@ -327,18 +327,27 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   },0)
   const activePort=portfolios.find(p=>p.id===activePortfolioId)
 
+  const firstTxDate = useMemo(() => {
+    if (!transactions.length) return null
+    let min = null
+    for (const t of transactions) {
+      const d = isoDate(t.date)
+      if (d && (!min || d < min)) min = d
+    }
+    return min
+  }, [transactions])
+
   const fmtMoney=(n)=>hideValues?MASKED:fmt(n)
   const fmtTx=(t,n)=>{
     if(hideValues) return MASKED
-    const s=symFor(t.currency||'USD')
-    return s+Number(n).toLocaleString('en-US',{minimumFractionDigits:2})
+    return fmt(convertToDisplay(Number(n), t.currency||'USD'))
   }
   const ccyChip=(ccy='USD')=>{
     const c=ccy||'USD'
     const tone=c==='USD'?'usd':c==='THB'?'thb':'other'
     return <span className={`dash-currency-chip dash-currency-chip--${tone}`}>{symFor(c)} {c}</span>
   }
-  const fmtDiv=(d)=>hideValues?MASKED:`${symFor(d.currency||'THB')}${Number(d.amount).toLocaleString('en-US',{minimumFractionDigits:2})}`
+  const fmtDiv=(d)=>hideValues?MASKED:fmt(convertToDisplay(Number(d.amount), d.currency||'THB'))
 
   const aBtn = (label, onClick, variant = 'accent') => (
     <button
@@ -510,7 +519,8 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
                 benchmarkMode={benchmarkMode}
                 onBenchmarkModeChange={setBenchmarkMode}
                 loading={loadingHistory}
-            />
+                firstTxDate={firstTxDate}
+              />
               <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             </div>
             <SectorAreaChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
@@ -622,6 +632,18 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
               <input type="text" className="dash-search" placeholder="ค้นหา Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <div className="dash-toolbar-actions">
+              <div className="dash-segment dash-currency-toggle dash-currency-toggle--toolbar" title="สกุลเงินแสดงผล">
+                {['USD', 'THB'].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`dash-segment-btn${displayCurrency === c ? ' dash-segment-btn--active' : ''}`}
+                    onClick={() => setDisplayCurrency(c)}
+                  >
+                    {c === 'USD' ? '$ USD' : '฿ THB'}
+                  </button>
+                ))}
+              </div>
               <button type="button" onClick={()=>setModal('import')} style={{...btnGhost,width:'auto',padding:'7px 16px',fontSize:'13px',borderColor:'var(--accent)',color:'var(--accent-text)'}}>Import CSV</button>
               <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึก Transaction</button>
             </div>
@@ -629,7 +651,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           <div className="dash-table-wrap">
             <table className="dash-table dash-table--transactions">
               <thead><tr style={{borderBottom:'1px solid var(--border)'}}>
-                {['วันที่','Ticker','ประเภท','สกุลเงิน','Shares','ราคา/หุ้น','มูลค่ารวม','ค่าธรรมเนียม','หมายเหตุ',''].map((h,i)=>(
+                {['วันที่','Ticker','ประเภท','สกุลเงิน','Shares',`ราคา/หุ้น (${displayCurrency})`,`มูลค่ารวม (${displayCurrency})`,`ค่าธรรมเนียม (${displayCurrency})`,'หมายเหตุ',''].map((h,i)=>(
                   <th key={i} className="dash-text-muted" style={{padding:'11px 13px',textAlign:'left',fontWeight:400}}>{h}</th>
                 ))}
               </tr></thead>

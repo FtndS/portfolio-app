@@ -12,6 +12,11 @@ function indexedSeries(values) {
   return values.map((v) => (first > 0 ? (v / first) * 100 : 100))
 }
 
+function leadingZeroEnd(values) {
+  const idx = values.findIndex((v) => v > 0)
+  return idx < 0 ? 0 : idx
+}
+
 export default function PortfolioChart({
   history,
   benchmark,
@@ -21,6 +26,7 @@ export default function PortfolioChart({
   benchmarkMode,
   onBenchmarkModeChange,
   loading,
+  firstTxDate,
 }) {
   const { hideValues } = usePrivacy()
   const sym = symFor(displayCurrency === 'THB' ? 'THB' : 'USD')
@@ -28,9 +34,14 @@ export default function PortfolioChart({
   const chartData = useMemo(() => {
     if (!history?.length) return null
 
-    const vals = history.map((d) => Number(d.total_value))
-    const costs = history.map((d) => Number(d.total_cost || 0))
-    const dates = history.map((d) => dateKey(d.date))
+    const allVals = history.map((d) => Number(d.total_value))
+    const allCosts = history.map((d) => Number(d.total_cost || 0))
+    const allDates = history.map((d) => dateKey(d.date))
+
+    const trimFrom = leadingZeroEnd(allVals)
+    const vals = allVals.slice(trimFrom)
+    const costs = allCosts.slice(trimFrom)
+    const dates = allDates.slice(trimFrom)
 
     const bmMap = Object.fromEntries(
       (benchmark?.series || []).map((p) => [dateKey(p.date), Number(p.indexed)])
@@ -43,9 +54,9 @@ export default function PortfolioChart({
 
     const hasBenchmark = benchmark?.series?.length > 0 && benchmarkMode !== 'none'
     const portIndexed = indexedSeries(vals)
-    const latest = vals[vals.length - 1]
-    const first = vals[0]
-    const portChg = first > 0 ? ((latest - first) / first) * 100 : 0
+    const latest = vals[vals.length - 1] ?? 0
+    const firstPositive = vals.find((v) => v > 0) ?? vals[0] ?? 0
+    const portChg = firstPositive > 0 ? ((latest - firstPositive) / firstPositive) * 100 : 0
 
     return {
       vals,
@@ -57,6 +68,11 @@ export default function PortfolioChart({
       latest,
       portChg,
       bmChg: benchmark?.changePct ?? 0,
+      trimFrom,
+      fullRangeStart: allDates[0],
+      fullRangeEnd: allDates[allDates.length - 1],
+      firstValueDate: dates[0] ?? null,
+      skippedEnd: trimFrom > 0 ? allDates[trimFrom - 1] : null,
     }
   }, [history, benchmark, benchmarkMode])
 
@@ -73,8 +89,10 @@ export default function PortfolioChart({
   const W = 660
   const H = 220
   const pad = 30
-  const { vals, costs, dates, bmVals, hasBenchmark, portIndexed, latest, portChg, bmChg } = chartData
+  const { vals, costs, dates, bmVals, hasBenchmark, portIndexed, latest, portChg, bmChg, trimFrom, fullRangeStart, fullRangeEnd, firstValueDate, skippedEnd } = chartData
   const compareMode = hasBenchmark
+  const rangeLabel = CHART_RANGES.find((r) => r.id === chartRange)?.label ?? chartRange
+  const pointCount = dates.length
 
   const ySeries = compareMode
     ? [...portIndexed, ...bmVals.filter((v) => v != null)]
@@ -109,7 +127,7 @@ export default function PortfolioChart({
     arr
       .map((v, i) => {
         if (v == null || (compareMode ? false : v <= 0 && i > 0)) return null
-        const x = history.length < 2 ? W / 2 : pad + (i / (history.length - 1)) * (W - pad * 2)
+        const x = vals.length < 2 ? W / 2 : pad + (i / (vals.length - 1)) * (W - pad * 2)
         const y = H - pad - ((Number(v) - min) / range) * (H - pad * 2)
         if (!Number.isFinite(y)) return null
         return `${x},${y}`
@@ -186,6 +204,19 @@ export default function PortfolioChart({
 
       {loading && <p className="dash-chart-loading">กำลังโหลดกราฟ...</p>}
 
+      {!loading && (
+        <p className="dash-chart-period">
+          <span>ช่วงที่เลือก: <strong>{rangeLabel}</strong></span>
+          <span> · กราฟ {fmtDate(dates[0])} → {fmtDate(dates[dates.length - 1])} ({pointCount} จุด)</span>
+          {firstTxDate && (
+            <span> · Transaction แรก: {fmtDate(firstTxDate)}</span>
+          )}
+          {trimFrom > 0 && firstValueDate && skippedEnd && (
+            <span> · ข้ามช่วงไม่มีมูลค่า {fmtDate(fullRangeStart)}–{fmtDate(skippedEnd)}</span>
+          )}
+        </p>
+      )}
+
       {shortHistory && !loading && (
         <p className="dash-chart-hint">
           พอร์ตมีข้อมูล {dates.length} วันในช่วงนี้ (เริ่ม {fmtDate(dates[0])})
@@ -206,7 +237,7 @@ export default function PortfolioChart({
       </svg>
 
       <div className="dash-chart-foot">
-        <span>{dates[0]}</span>
+        <span>{fmtDate(dates[0])}</span>
         <span className="dash-chart-legend">
           <span><span className="dash-chart-legend-line" style={{ background: 'var(--chart-port)' }} /> {compareMode ? 'พอร์ต (indexed)' : 'มูลค่า'}</span>
           {!compareMode && <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-cost)' }} /> ทุน</span>}
@@ -214,7 +245,7 @@ export default function PortfolioChart({
             <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-benchmark)' }} /> {benchmark.label}</span>
           )}
         </span>
-        <span>{dates[dates.length - 1]}</span>
+        <span>{fmtDate(dates[dates.length - 1])}</span>
       </div>
     </div>
   )
