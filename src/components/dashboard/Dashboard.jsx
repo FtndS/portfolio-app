@@ -36,8 +36,8 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const [portfolioHistory,setPortfolioHistory]=useState([])
   const [heatmapMode,setHeatmapMode]=useState('today')
   const [chartRange, setChartRange] = useState('3m')
-  const [benchmarkMode, setBenchmarkMode] = useState('auto')
-  const [benchmarkData, setBenchmarkData] = useState(null)
+  const [benchmarkToggles, setBenchmarkToggles] = useState({ sp500: false, set: false })
+  const [benchmarksData, setBenchmarksData] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [newPortName,setNewPortName]=useState('')
   const [holdings,setHoldings]=useState([])
@@ -111,19 +111,22 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     setLoadingHistory(true)
     try {
       const days = CHART_RANGE_DAYS[range] ?? 90
-      const r = await api.get(`/portfolios/${portfolioId}/history`, { days, benchmark: benchmarkMode })
+      const enabled = Object.entries(benchmarkToggles).filter(([, on]) => on).map(([k]) => k)
+      const benchmarkParam = enabled.length ? enabled.join(',') : 'none'
+      const r = await api.get(`/portfolios/${portfolioId}/history`, { days, benchmarks: benchmarkParam })
       if (Array.isArray(r)) {
         setPortfolioHistory(r)
-        setBenchmarkData(null)
+        setBenchmarksData([])
       } else {
         setPortfolioHistory(Array.isArray(r.history) ? r.history : [])
-        setBenchmarkData(r.benchmark || null)
+        const list = Array.isArray(r.benchmarks) ? r.benchmarks : (r.benchmark ? [r.benchmark] : [])
+        setBenchmarksData(list)
       }
     } catch (e) {
       console.error('History fetch error:', e)
     }
     setLoadingHistory(false)
-  },[chartRange, benchmarkMode])
+  },[chartRange, benchmarkToggles])
 
   const recordSnapshot=useCallback(async(portfolioId,hl,pricesMap)=>{
     if(!portfolioId||!hl?.length) return
@@ -236,7 +239,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   useEffect(() => {
     if (!activePortfolioId) return
     fetchHistory(activePortfolioId, chartRange)
-  }, [activePortfolioId, chartRange, benchmarkMode, fetchHistory])
+  }, [activePortfolioId, chartRange, benchmarkToggles, fetchHistory])
 
   useEffect(() => {
     if (!user?.id || !dataReady || !activePortfolioId) return
@@ -525,12 +528,12 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
             <div className="dash-overview-charts">
               <PortfolioChart
                 history={portfolioHistory}
-                benchmark={benchmarkData}
+                benchmark={benchmarksData}
+                benchmarkToggles={benchmarkToggles}
+                onBenchmarkToggle={(id) => setBenchmarkToggles((prev) => ({ ...prev, [id]: !prev[id] }))}
                 displayCurrency={displayCurrency}
                 chartRange={chartRange}
                 onChartRangeChange={setChartRange}
-                benchmarkMode={benchmarkMode}
-                onBenchmarkModeChange={setBenchmarkMode}
                 loading={loadingHistory}
                 firstTxDate={firstTxDate}
               />

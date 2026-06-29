@@ -1,7 +1,7 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { computePortfolioHistory, computeBenchmarkHistory, resolveBenchmark, resolveDaysParam } from '../lib/portfolioHistory.js'
+import { computePortfolioHistory, computeBenchmarkHistory, resolveBenchmark, resolveDaysParam, BENCHMARKS } from '../lib/portfolioHistory.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -128,7 +128,6 @@ router.delete('/:id', async (req, res) => {
 // Portfolio value history (Google Finance style)
 router.get('/:id/history', async (req, res) => {
   const days = resolveDaysParam(req.query.days ?? 90)
-  const benchmarkPref = req.query.benchmark ?? 'auto'
   try {
     const owns = await pool.query(
       'SELECT id, currency FROM portfolios WHERE id = $1 AND user_id = $2',
@@ -146,18 +145,35 @@ router.get('/:id/history', async (req, res) => {
     ])
 
     let benchmark = null
-    if (benchmarkPref !== 'none' && history.length) {
-      const bm = resolveBenchmark(holdingsResult.rows, owns.rows[0].currency, benchmarkPref)
-      if (bm) {
-        benchmark = await computeBenchmarkHistory(
-          bm,
-          history.map((h) => h.date),
-          days
-        )
+    let benchmarks = []
+    if (history.length) {
+      const raw = String(req.query.benchmarks ?? req.query.benchmark ?? 'none')
+      if (raw !== 'none') {
+        const keys = raw === 'auto'
+          ? (() => {
+              const bm = resolveBenchmark(holdingsResult.rows, owns.rows[0].currency, 'auto')
+              if (!bm) return []
+              if (bm.symbol === BENCHMARKS.sp500.symbol) return ['sp500']
+              if (bm.symbol === BENCHMARKS.set.symbol) return ['set']
+              return []
+            })()
+          : raw.split(',').map((s) => s.trim().toLowerCase()).filter((k) => k === 'sp500' || k === 'set')
+
+        const dates = history.map((h) => h.date)
+        benchmarks = (
+          await Promise.all(
+            keys.map(async (key) => {
+              const bm = key === 'sp500' ? BENCHMARKS.sp500 : BENCHMARKS.set
+              const result = await computeBenchmarkHistory(bm, dates, days)
+              return { ...result, id: key }
+            })
+          )
+        ).filter((b) => b?.series?.length)
+        benchmark = benchmarks[0] || null
       }
     }
 
-    res.json({ history, benchmark })
+    res.json({ history, benchmark, benchmarks })
   } catch (err) {
     console.error('Portfolio history error:', err.message)
     res.status(500).json({ error: err.message })

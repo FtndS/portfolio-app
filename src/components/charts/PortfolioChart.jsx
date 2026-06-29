@@ -1,5 +1,5 @@
 import { useMemo, useId } from 'react'
-import { symFor, CHART_RANGES, BENCHMARK_OPTIONS } from '../../lib/constants'
+import { symFor, CHART_RANGES, BENCHMARK_TOGGLES } from '../../lib/constants'
 import { fmtPct, fmtDate, fmtChartAxis } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 
@@ -7,22 +7,35 @@ function dateKey(d) {
   return d?.split?.('T')?.[0] || d
 }
 
-function indexedSeries(values) {
-  const first = values.find((v) => v > 0) || values[0] || 1
-  return values.map((v) => (first > 0 ? (v / first) * 100 : 100))
-}
-
 function leadingZeroEnd(values) {
   const idx = values.findIndex((v) => v > 0)
   return idx < 0 ? 0 : idx
+}
+
+/** % change from first point in the trimmed series */
+function periodReturnSeries(values) {
+  const first = values.find((v) => v > 0) || values[0] || 1
+  return values.map((v) => (first > 0 ? ((v / first) - 1) * 100 : 0))
+}
+
+/** indexed (base 100) → % change from period start */
+function indexedToReturn(indexed) {
+  return indexed != null ? Number(indexed) - 100 : null
+}
+
+function benchmarkColor(bm) {
+  if (bm?.id) return BENCHMARK_TOGGLES.find((t) => t.id === bm.id)?.color || 'var(--chart-benchmark)'
+  const sym = bm?.symbol || ''
+  if (sym.includes('SET')) return 'var(--chart-set)'
+  return 'var(--chart-benchmark)'
 }
 
 function computeYScale(series, compareMode) {
   const finite = series.filter((v) => Number.isFinite(v) && (compareMode ? true : v > 0))
   if (!finite.length) return { min: 0, max: 1 }
 
-  let dataMin = Math.min(...finite)
-  let dataMax = Math.max(...finite)
+  const dataMin = Math.min(...finite)
+  const dataMax = Math.max(...finite)
   const span = dataMax - dataMin || 1
 
   if (compareMode) {
@@ -45,20 +58,33 @@ function pickDateTicks(dates, count = 4) {
   return picks
 }
 
+function alignBenchmarkSeries(dates, benchmark) {
+  const bmMap = Object.fromEntries(
+    (benchmark?.series || []).map((p) => [dateKey(p.date), indexedToReturn(p.indexed)])
+  )
+  let lastBm = null
+  return dates.map((d) => {
+    if (bmMap[d] != null) lastBm = bmMap[d]
+    return lastBm
+  })
+}
+
 export default function PortfolioChart({
   history,
-  benchmark,
+  benchmark = [],
+  benchmarkToggles = {},
+  onBenchmarkToggle,
   displayCurrency,
   chartRange,
   onChartRangeChange,
-  benchmarkMode,
-  onBenchmarkModeChange,
   loading,
   firstTxDate,
 }) {
   const { hideValues } = usePrivacy()
   const gradId = useId().replace(/:/g, '')
   const sym = symFor(displayCurrency === 'THB' ? 'THB' : 'USD')
+  const benchmarks = Array.isArray(benchmark) ? benchmark : benchmark ? [benchmark] : []
+  const anyToggleOn = Object.values(benchmarkToggles).some(Boolean)
 
   const chartData = useMemo(() => {
     if (!history?.length) return null
@@ -72,38 +98,33 @@ export default function PortfolioChart({
     const costs = allCosts.slice(trimFrom)
     const dates = allDates.slice(trimFrom)
 
-    const bmMap = Object.fromEntries(
-      (benchmark?.series || []).map((p) => [dateKey(p.date), Number(p.indexed)])
-    )
-    let lastBm = null
-    const bmVals = dates.map((d) => {
-      if (bmMap[d] != null) lastBm = bmMap[d]
-      return lastBm
-    })
-
-    const hasBenchmark = benchmark?.series?.length > 0 && benchmarkMode !== 'none'
-    const portIndexed = indexedSeries(vals)
+    const portReturn = periodReturnSeries(vals)
     const latest = vals[vals.length - 1] ?? 0
     const firstPositive = vals.find((v) => v > 0) ?? vals[0] ?? 0
     const portChg = firstPositive > 0 ? ((latest - firstPositive) / firstPositive) * 100 : 0
+
+    const benchmarkLines = benchmarks.map((bm) => ({
+      ...bm,
+      vals: alignBenchmarkSeries(dates, bm),
+      color: benchmarkColor(bm),
+      changePct: bm.changePct ?? 0,
+    }))
 
     return {
       vals,
       costs,
       dates,
-      bmVals,
-      hasBenchmark,
-      portIndexed,
+      portReturn,
+      benchmarkLines,
       latest,
       portChg,
-      bmChg: benchmark?.changePct ?? 0,
       trimFrom,
       fullRangeStart: allDates[0],
       fullRangeEnd: allDates[allDates.length - 1],
       firstValueDate: dates[0] ?? null,
       skippedEnd: trimFrom > 0 ? allDates[trimFrom - 1] : null,
     }
-  }, [history, benchmark, benchmarkMode])
+  }, [history, benchmarks])
 
   if (!history?.length) {
     return (
@@ -117,23 +138,41 @@ export default function PortfolioChart({
 
   const W = 680
   const H = 260
-  const { vals, costs, dates, bmVals, hasBenchmark, portIndexed, latest, portChg, bmChg, trimFrom, fullRangeStart, fullRangeEnd, firstValueDate, skippedEnd } = chartData
-  const compareMode = hasBenchmark
+  const {
+    vals,
+    costs,
+    dates,
+    portReturn,
+    benchmarkLines,
+    latest,
+    portChg,
+    trimFrom,
+    fullRangeStart,
+    fullRangeEnd,
+    firstValueDate,
+    skippedEnd,
+  } = chartData
+
+  const compareMode = anyToggleOn
   const rangeLabel = CHART_RANGES.find((r) => r.id === chartRange)?.label ?? chartRange
   const pointCount = dates.length
+  const currencyLabel = displayCurrency === 'THB' ? 'THB (฿)' : 'USD ($)'
 
   const ySeries = compareMode
-    ? [...portIndexed, ...bmVals.filter((v) => v != null)]
+    ? [
+        ...portReturn,
+        ...benchmarkLines.flatMap((bm) => bm.vals.filter((v) => v != null)),
+      ]
     : [...vals, ...costs].filter((v) => v > 0)
 
   const { min, max } = computeYScale(ySeries, compareMode)
   const range = max - min || 1
 
   const pad = {
-    t: 18,
+    t: 22,
     r: 16,
     b: 32,
-    l: compareMode ? 46 : 54,
+    l: compareMode ? 52 : 58,
   }
   const innerW = W - pad.l - pad.r
   const innerH = H - pad.t - pad.b
@@ -143,7 +182,11 @@ export default function PortfolioChart({
 
   const fmtY = (v) => {
     if (hideValues) return '••'
-    if (compareMode) return Number(v).toFixed(1)
+    if (compareMode) {
+      const n = Number(v)
+      const sign = n > 0 ? '+' : ''
+      return `${sign}${n.toFixed(n >= 100 || n <= -100 ? 0 : 1)}%`
+    }
     return fmtChartAxis(v, sym, { hideValues })
   }
 
@@ -157,7 +200,7 @@ export default function PortfolioChart({
   })()
 
   const dateTicks = pickDateTicks(dates, 4)
-  const baseline100 = compareMode && min <= 100 && max >= 100 ? 100 : null
+  const baseline0 = compareMode && min <= 0 && max >= 0 ? 0 : null
 
   const daySpan =
     dates.length >= 2
@@ -177,10 +220,9 @@ export default function PortfolioChart({
       .filter(Boolean)
       .join(' ')
 
-  const portLine = compareMode ? portIndexed : vals
+  const portLine = compareMode ? portReturn : vals
   const portPts = toPts(portLine)
   const costPts = compareMode ? '' : toPts(costs)
-  const bmPts = compareMode ? toPts(bmVals) : ''
 
   const portAreaPath = (() => {
     if (!portPts || compareMode) return ''
@@ -202,8 +244,8 @@ export default function PortfolioChart({
           <h3 className="dash-chart-title">Portfolio Value</h3>
           <p className="dash-chart-sub">
             {compareMode
-              ? 'เทียบ % การเปลี่ยนในช่วงที่เลือก (ฐาน 100) — ไม่ใช่กำไรรวมจากทุน'
-              : 'มูลค่าพอร์ตจาก transaction + ราคาย้อนหลัง'}
+              ? 'กราฟ % การเปลี่ยนแปลงจากต้นช่วงที่เลือก (0% = จุดเริ่ม) — ไม่ใช่กำไรรวมจากทุน'
+              : `กราฟมูลค่าพอร์ต (${currencyLabel}) จาก transaction + ราคาย้อนหลัง`}
           </p>
         </div>
         <div className="dash-chart-stats">
@@ -216,11 +258,18 @@ export default function PortfolioChart({
           </div>
           <div className="dash-chart-stat-chg" style={{ color: portChg >= 0 ? 'var(--gain)' : 'var(--loss)' }}>
             {compareMode
-              ? (hideValues ? 'ในช่วงที่เลือก' : `มูลค่าล่าสุด ${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)
+              ? (hideValues
+                  ? 'ในช่วงที่เลือก'
+                  : `มูลค่าล่าสุด ${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)
               : `${portChg >= 0 ? '+' : ''}${portChg.toFixed(2)}%`}
-            {hasBenchmark && (
+            {compareMode && benchmarkLines.length > 0 && (
               <span className="dash-text-muted" style={{ marginLeft: '8px' }}>
-                vs {benchmark.label} {bmChg >= 0 ? '+' : ''}{bmChg.toFixed(2)}%
+                {benchmarkLines.map((bm, i) => (
+                  <span key={bm.symbol || i}>
+                    {i > 0 ? ' · ' : 'vs '}
+                    {bm.label} {bm.changePct >= 0 ? '+' : ''}{bm.changePct.toFixed(2)}%
+                  </span>
+                ))}
               </span>
             )}
           </div>
@@ -243,17 +292,18 @@ export default function PortfolioChart({
           ))}
         </div>
         <div className="dash-chart-toolbar-group">
-          <span className="dash-chart-toolbar-label">Benchmark</span>
-          {BENCHMARK_OPTIONS.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              className={segmentClass(benchmarkMode === b.id)}
-              onClick={() => onBenchmarkModeChange?.(b.id)}
-              disabled={loading}
-            >
-              {b.label}
-            </button>
+          <span className="dash-chart-toolbar-label">เทียบกับ</span>
+          {BENCHMARK_TOGGLES.map((b) => (
+            <label key={b.id} className="dash-chart-check" style={{ color: benchmarkToggles[b.id] ? b.color : undefined }}>
+              <input
+                type="checkbox"
+                checked={!!benchmarkToggles[b.id]}
+                onChange={() => onBenchmarkToggle?.(b.id)}
+                disabled={loading}
+              />
+              <span className="dash-chart-check-mark" style={{ borderColor: b.color }} />
+              <span>{b.label}</span>
+            </label>
           ))}
         </div>
       </div>
@@ -276,7 +326,7 @@ export default function PortfolioChart({
       {shortHistory && !loading && (
         <p className="dash-chart-hint">
           พอร์ตมีข้อมูล {dates.length} วันในช่วงนี้ (เริ่ม {fmtDate(dates[0])})
-          {compareMode && ' — ลองปิด Benchmark หรือเลือกช่วง All เพื่อดูมูลค่าเต็ม'}
+          {compareMode && ' — ลองปิด benchmark หรือเลือกช่วง All เพื่อดูมูลค่าเต็ม'}
         </p>
       )}
 
@@ -287,6 +337,16 @@ export default function PortfolioChart({
             <stop offset="100%" stopColor="var(--chart-port)" stopOpacity="0.02" />
           </linearGradient>
         </defs>
+
+        <text
+          x={12}
+          y={pad.t + innerH / 2}
+          transform={`rotate(-90 12 ${pad.t + innerH / 2})`}
+          textAnchor="middle"
+          className="dash-chart-axis-label"
+        >
+          {compareMode ? '% เปลี่ยนแปลง' : `มูลค่า (${currencyLabel})`}
+        </text>
 
         {yTicks.map((v) => (
           <g key={v}>
@@ -303,12 +363,12 @@ export default function PortfolioChart({
           </g>
         ))}
 
-        {baseline100 != null && (
+        {baseline0 != null && (
           <line
             x1={pad.l}
-            y1={yAt(baseline100)}
+            y1={yAt(baseline0)}
             x2={W - pad.r}
-            y2={yAt(baseline100)}
+            y2={yAt(baseline0)}
             className="dash-chart-baseline"
           />
         )}
@@ -321,15 +381,32 @@ export default function PortfolioChart({
         {portPts && (
           <polyline points={portPts} fill="none" stroke="var(--chart-port)" strokeWidth="2.5" strokeLinejoin="round" />
         )}
-        {compareMode && bmPts && (
-          <polyline points={bmPts} fill="none" stroke="var(--chart-benchmark)" strokeWidth="2" strokeDasharray="6,4" strokeLinejoin="round" />
-        )}
+        {compareMode &&
+          benchmarkLines.map((bm) => {
+            const pts = toPts(bm.vals)
+            if (!pts) return null
+            return (
+              <polyline
+                key={bm.symbol}
+                points={pts}
+                fill="none"
+                stroke={bm.color}
+                strokeWidth="2"
+                strokeDasharray="6,4"
+                strokeLinejoin="round"
+              />
+            )
+          })}
+
+        <text x={pad.l + innerW / 2} y={H - 2} textAnchor="middle" className="dash-chart-axis-label">
+          วันที่
+        </text>
 
         {dateTicks.map(({ d, i }) => (
           <text
             key={`${d}-${i}`}
             x={xAt(i)}
-            y={H - 8}
+            y={H - 14}
             textAnchor={i === 0 ? 'start' : i === dates.length - 1 ? 'end' : 'middle'}
             className="dash-chart-tick"
           >
@@ -340,14 +417,31 @@ export default function PortfolioChart({
 
       <div className="dash-chart-foot">
         <span className="dash-chart-foot-note">
-          {compareMode ? 'แกน Y = ดัชนี (ฐาน 100 ที่จุดเริ่มช่วง)' : 'แกน Y = มูลค่า'}
+          {compareMode
+            ? 'แกน Y = % เปลี่ยนแปลงจากจุดเริ่มช่วง (0% = ไม่เปลี่ยน) · แกน X = วันที่'
+            : `แกน Y = มูลค่าพอร์ต (${currencyLabel}) · แกน X = วันที่`}
         </span>
         <span className="dash-chart-legend">
-          <span><span className="dash-chart-legend-line" style={{ background: 'var(--chart-port)' }} /> {compareMode ? 'พอร์ต (indexed)' : 'มูลค่า'}</span>
-          {!compareMode && <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-cost)' }} /> ทุน</span>}
-          {compareMode && benchmark?.label && (
-            <span><span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-benchmark)' }} /> {benchmark.label}</span>
+          <span>
+            <span className="dash-chart-legend-line" style={{ background: 'var(--chart-port)' }} />
+            {compareMode ? 'พอร์ต' : 'มูลค่า'}
+          </span>
+          {!compareMode && (
+            <span>
+              <span className="dash-chart-legend-line dash-chart-legend-line--dashed" style={{ background: 'var(--chart-cost)' }} />
+              ทุน
+            </span>
           )}
+          {compareMode &&
+            benchmarkLines.map((bm) => (
+              <span key={bm.symbol}>
+                <span
+                  className="dash-chart-legend-line dash-chart-legend-line--dashed"
+                  style={{ background: bm.color }}
+                />
+                {bm.label}
+              </span>
+            ))}
         </span>
       </div>
     </div>

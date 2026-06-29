@@ -36,6 +36,12 @@ export const CHART_RANGE_DAYS = Object.fromEntries(
   CHART_RANGES.map((r) => [r.id, r.days])
 )
 
+export const BENCHMARK_TOGGLES = [
+  { id: 'sp500', label: 'S&P 500', color: 'var(--chart-benchmark)' },
+  { id: 'set', label: 'SET', color: 'var(--chart-set)' },
+]
+
+/** @deprecated use BENCHMARK_TOGGLES — kept for any legacy refs */
 export const BENCHMARK_OPTIONS = [
   { id: 'auto', label: 'Auto' },
   { id: 'sp500', label: 'S&P 500' },

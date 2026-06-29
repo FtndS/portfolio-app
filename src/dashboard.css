@@ -1030,6 +1030,71 @@
   font-family: var(--font);
 }
 
+.dash-chart-axis-label {
+  font-size: 10px;
+  fill: var(--text-faint);
+  font-family: var(--font);
+  font-weight: 500;
+}
+
+.dash-chart-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+}
+
+.dash-chart-check input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.dash-chart-check-mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.dash-chart-check input:checked + .dash-chart-check-mark {
+  background: currentColor;
+  border-color: currentColor;
+}
+
+.dash-chart-check input:checked + .dash-chart-check-mark::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.dash-chart-check:has(input:checked) {
+  color: var(--accent-text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dash-chart-check:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .dash-chart-foot {
   display: flex;
   justify-content: center;
