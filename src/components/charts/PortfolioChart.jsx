@@ -136,8 +136,8 @@ export default function PortfolioChart({
 
   if (!chartData) return null
 
-  const W = 680
-  const H = 260
+  const W = 980
+  const H = 300
   const {
     vals,
     costs,
