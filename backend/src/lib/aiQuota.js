@@ -8,6 +8,7 @@ import {
 export const AI_FEATURES = {
   ANALYZE: 'analyze',
   NEWS_SUMMARY: 'news-summary',
+  COPILOT: 'copilot',
 }
 
 const WINDOW_SQL = `used_at > NOW() - INTERVAL '7 days'`
@@ -76,9 +77,10 @@ export async function getFeatureQuota(userId, email, feature, role, plan, planEx
 export async function getAiQuota(userId, email, role, plan, planExpiresAt) {
   const owner = role === 'admin' || isAiOwner(email)
   const planConfig = getPlanConfig(plan, planExpiresAt)
-  const [analyze, newsSummary] = await Promise.all([
+  const [analyze, newsSummary, copilot] = await Promise.all([
     getFeatureQuota(userId, email, AI_FEATURES.ANALYZE, role, plan, planExpiresAt),
     getFeatureQuota(userId, email, AI_FEATURES.NEWS_SUMMARY, role, plan, planExpiresAt),
+    getFeatureQuota(userId, email, AI_FEATURES.COPILOT, role, plan, planExpiresAt),
   ])
 
   return {
@@ -88,9 +90,11 @@ export async function getAiQuota(userId, email, role, plan, planExpiresAt) {
     limits: {
       analyze: owner ? null : planConfig.weeklyLimit.analyze,
       newsSummary: owner ? null : planConfig.weeklyLimit['news-summary'],
+      copilot: owner ? null : planConfig.weeklyLimit.copilot,
     },
     analyze,
     newsSummary,
+    copilot,
   }
 }
 
@@ -98,6 +102,7 @@ export function quotaExceededMessage(feature, nextAvailableAt, { limit } = {}) {
   const labels = {
     [AI_FEATURES.ANALYZE]: 'วิเคราะห์พอร์ต',
     [AI_FEATURES.NEWS_SUMMARY]: 'สรุปข่าว',
+    [AI_FEATURES.COPILOT]: 'Copilot',
   }
   const label = labels[feature] || 'ใช้ AI'
   const quotaText = limit ? `ครบ ${limit} ครั้ง/สัปดาห์` : 'ครบโควต้าสัปดาห์นี้'

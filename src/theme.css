@@ -689,6 +689,67 @@ body,
 
 .dash-ai-btn--primary { background: var(--accent); }
 .dash-ai-btn--news { background: #00b894; }
+.dash-ai-btn--copilot { background: #6c5ce7; margin-top: 8px; width: 100%; }
+
+.dash-copilot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dash-copilot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.dash-copilot-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.dash-copilot-chip--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent-text);
+}
+
+.dash-copilot-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dash-copilot-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.dash-copilot-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 56px;
+}
+
+.dash-copilot-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 
 .dash-donut-label { fill: var(--text-muted); }
 .dash-donut-value { fill: var(--text); }

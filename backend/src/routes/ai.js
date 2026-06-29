@@ -9,6 +9,7 @@ import {
 } from '../lib/aiQuota.js'
 import { getPlanConfig } from '../lib/aiPlan.js'
 import { buildAnalyzePayload } from '../lib/aiAnalyzeContext.js'
+import { buildCopilotContext, resolveCopilotQuestion } from '../lib/aiCopilotContext.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -84,6 +85,60 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 4096) {
   if (!data.content?.[0]?.text) throw new Error('Empty response from AI')
   return data.content[0].text
 }
+
+// Copilot Lite — คำถามสั้นๆ จากข้อมูลพอร์ต (context กระชับ ไม่ใช่แชทยาว)
+router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) => {
+  try {
+    const {
+      holdings,
+      prices,
+      displayCurrency,
+      fxRate,
+      transactions = [],
+      journal = [],
+      preset,
+      question,
+    } = req.body
+    if (!holdings?.length) return res.status(400).json({ error: 'ไม่มี holdings' })
+
+    const planConfig = getPlanConfig(req.userPlan, req.userPlanExpiresAt)
+    const resolved = resolveCopilotQuestion(preset, question, planConfig)
+    if (resolved.error) {
+      return res.status(403).json({ error: resolved.error, code: 'COPILOT_CUSTOM_PRO_ONLY' })
+    }
+
+    const { context, dataScope } = buildCopilotContext({
+      holdings,
+      prices,
+      displayCurrency,
+      fxRate,
+      transactions,
+      journal,
+      planConfig,
+    })
+
+    const systemPrompt = `คุณคือ Copilot ผู้ช่วยนักลงทุนระยะยาวของ Port Diary
+ตอบเป็นภาษาไทย กระชับ อ่านง่าย ใช้ bullet ได้ถ้าเหมาะสม
+อ้างอิงเฉพาะข้อมูลพอร์ตที่ให้ — ห้ามแต่งตัวเลขหรือหุ้นที่ไม่มีในข้อมูล
+ไม่ใช่คำแนะนำซื้อขาย — ช่วยทบทวนและสรุปเท่านั้น
+ตอบ plain text ไม่ใช่ JSON ไม่เกิน ${Math.floor(planConfig.copilot.maxTokens / 3)} คำโดยประมาณ`
+
+    const userMessage = `${context}
+
+คำถาม: ${resolved.question}`
+
+    const text = await callClaude(systemPrompt, userMessage, planConfig.copilot.maxTokens)
+    await recordAiUsage(req.userId, AI_FEATURES.COPILOT)
+    res.json({
+      answer: text.trim(),
+      preset: resolved.preset,
+      dataScope,
+    })
+  } catch (err) {
+    console.error('AI copilot error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
 
 // วิเคราะห์พอร์ตและแนะนำ rebalancing (รวม transaction + journal)
 router.post('/analyze', requireAiQuota(AI_FEATURES.ANALYZE), async (req, res) => {

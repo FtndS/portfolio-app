@@ -1,3 +1,15 @@
+/**
+ * AI plan limits — tuned for Anthropic API unit economics.
+ *
+ * Rough cost per call (Claude Sonnet, order of magnitude):
+ *   analyze      ~$0.04–0.08  (large context + JSON)
+ *   news-summary ~$0.01–0.02
+ *   copilot      ~$0.01–0.03  (compact context + short answer)
+ *
+ * Target max AI spend per subscriber month (heavy usage):
+ *   Free  ~$0.10–0.15
+ *   Pro @ ฿149 (~$4)  ~$0.60–1.00  (≈ 20–25% of revenue)
+ */
 export const AI_PLANS = {
   free: {
     id: 'free',
@@ -5,6 +17,7 @@ export const AI_PLANS = {
     weeklyLimit: {
       analyze: 1,
       'news-summary': 1,
+      copilot: 2,
     },
     analyze: {
       maxTransactions: 30,
@@ -13,6 +26,14 @@ export const AI_PLANS = {
       maxRecommendations: 5,
       maxStringLen: 180,
     },
+    copilot: {
+      maxHoldings: 8,
+      maxTransactions: 12,
+      maxJournal: 4,
+      maxTokens: 1200,
+      maxQuestionLen: 0,
+      allowCustomQuestion: false,
+    },
   },
   pro: {
     id: 'pro',
@@ -20,6 +41,7 @@ export const AI_PLANS = {
     weeklyLimit: {
       analyze: 8,
       'news-summary': 4,
+      copilot: 6,
     },
     analyze: {
       maxTransactions: 120,
@@ -27,6 +49,14 @@ export const AI_PLANS = {
       maxTokens: 6144,
       maxRecommendations: 8,
       maxStringLen: 280,
+    },
+    copilot: {
+      maxHoldings: 16,
+      maxTransactions: 25,
+      maxJournal: 8,
+      maxTokens: 1800,
+      maxQuestionLen: 240,
+      allowCustomQuestion: true,
     },
   },
 }
@@ -55,4 +85,11 @@ export function getWeeklyLimit(plan, planExpiresAt, feature) {
 
 export function nextAvailableFromOldest(oldestUsedAt) {
   return new Date(new Date(oldestUsedAt).getTime() + WEEK_MS).toISOString()
+}
+
+/** Estimated weekly AI calls at plan ceiling (for ops dashboards). */
+export function estimateWeeklyAiCalls(plan, planExpiresAt) {
+  const cfg = getPlanConfig(plan, planExpiresAt)
+  const w = cfg.weeklyLimit
+  return (w.analyze || 0) + (w['news-summary'] || 0) + (w.copilot || 0)
 }

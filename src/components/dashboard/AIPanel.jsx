@@ -1,11 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../lib/api'
 
+const COPILOT_PRESETS = [
+  { id: 'portfolio_summary', label: 'สรุปภาพรวมพอร์ต', icon: '📊' },
+  { id: 'sector_risk', label: 'Sector ไหนเสี่ยงเกิน', icon: '⚖️' },
+  { id: 'trading_review', label: 'ทบทวนการซื้อขาย', icon: '🔄' },
+  { id: 'weekly_focus', label: 'โฟกัสสัปดาห์นี้', icon: '🎯' },
+]
+
 function formatQuotaHint(quota, key) {
   if (!quota) return null
   if (quota.isOwner) return 'โควต้าไม่จำกัด'
+  const limitKeyMap = { analyze: 'analyze', newsSummary: 'newsSummary', copilot: 'copilot' }
+  const limitKey = limitKeyMap[key] || key
   const slot = quota[key]
-  const limitKey = key === 'analyze' ? 'analyze' : 'newsSummary'
   const limit = quota.limits?.[limitKey]
   if (!slot) return null
   const planNote = quota.plan === 'pro' ? ' · แผน Pro' : ''
@@ -32,10 +40,15 @@ export default function AIPanel({
 }) {
   const [analysis, setAnalysis] = useState(null)
   const [newsSummary, setNewsSummary] = useState(null)
+  const [copilotAnswer, setCopilotAnswer] = useState(null)
+  const [copilotPreset, setCopilotPreset] = useState('portfolio_summary')
+  const [copilotQuestion, setCopilotQuestion] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingNews, setLoadingNews] = useState(false)
+  const [loadingCopilot, setLoadingCopilot] = useState(false)
   const [error, setError] = useState('')
   const [newsError, setNewsError] = useState('')
+  const [copilotError, setCopilotError] = useState('')
   const [quota, setQuota] = useState(null)
 
   const loadQuota = useCallback(async () => {
@@ -73,6 +86,38 @@ export default function AIPanel({
     setLoading(false)
   }
 
+  const askCopilot = async (presetId, customQuestion) => {
+    if (!holdings.length || quota?.copilot?.allowed === false) return
+    const preset = presetId || copilotPreset
+    const question = customQuestion !== undefined ? customQuestion : copilotQuestion
+    setLoadingCopilot(true)
+    setCopilotError('')
+    setCopilotPreset(preset)
+    try {
+      const body = {
+        holdings,
+        prices,
+        displayCurrency,
+        fxRate,
+        transactions,
+        journal,
+        preset: question?.trim() ? undefined : preset,
+        question: question?.trim() || undefined,
+      }
+      const res = await api.post('/ai/copilot', body)
+      if (res.error) {
+        setCopilotError(res.error)
+        if (res.code === 'AI_QUOTA_EXCEEDED') await loadQuota()
+      } else {
+        setCopilotAnswer(res)
+        await loadQuota()
+      }
+    } catch {
+      setCopilotError('เกิดข้อผิดพลาด กรุณาลองใหม่')
+    }
+    setLoadingCopilot(false)
+  }
+
   const summarizeNews = async () => {
     if (!inSectorNews.length || quota?.newsSummary?.allowed === false) return
     setLoadingNews(true)
@@ -94,8 +139,11 @@ export default function AIPanel({
 
   const analyzeHint = formatQuotaHint(quota, 'analyze')
   const newsHint = formatQuotaHint(quota, 'newsSummary')
+  const copilotHint = formatQuotaHint(quota, 'copilot')
   const analyzeBlocked = quota?.analyze?.allowed === false
   const newsBlocked = quota?.newsSummary?.allowed === false
+  const copilotBlocked = quota?.copilot?.allowed === false
+  const copilotPro = quota?.plan === 'pro' || quota?.isOwner
 
   const txCount = transactions.length
   const journalCount = journal.length
@@ -127,6 +175,83 @@ export default function AIPanel({
 
   return (
     <div style={{ marginTop: '8px' }}>
+      <div className="dash-card">
+        <div className="dash-ai-header">
+          <div>
+            <h3 className="dash-card-title">💬 Copilot</h3>
+            <p className="dash-card-sub" style={{ marginBottom: '4px' }}>
+              ถามคำถามสั้นๆ จากข้อมูลพอร์ต — สรุปภาพรวม ทบทวน sector หรือพฤติกรรมซื้อขาย
+            </p>
+            {copilotHint && (
+              <p className="dash-text-faint" style={{ fontSize: '11px', margin: '0 0 4px' }}>{copilotHint}</p>
+            )}
+            {!copilotPro && (
+              <p className="dash-text-faint" style={{ fontSize: '11px', margin: '0 0 4px' }}>
+                Free: ใช้ปุ่มคำถามแนะนำ · Pro: ถามเองได้
+              </p>
+            )}
+            <p className="dash-text-faint" style={{ fontSize: '11px', margin: 0 }}>⚠️ ไม่ใช่คำแนะนำการลงทุน — ใช้เพื่อทบทวนส่วนตัวเท่านั้น</p>
+          </div>
+        </div>
+
+        <div className="dash-copilot-chips" style={{ marginBottom: '12px' }}>
+          {COPILOT_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`dash-copilot-chip${copilotPreset === p.id && !copilotQuestion.trim() ? ' dash-copilot-chip--active' : ''}`}
+              disabled={loadingCopilot || !holdings.length || copilotBlocked}
+              onClick={() => {
+                setCopilotQuestion('')
+                askCopilot(p.id, '')
+              }}
+            >
+              <span aria-hidden>{p.icon}</span> {p.label}
+            </button>
+          ))}
+        </div>
+
+        {copilotPro && (
+          <div className="dash-copilot-custom" style={{ marginBottom: '12px' }}>
+            <textarea
+              className="dash-copilot-input"
+              rows={2}
+              placeholder="ถามเองได้ (Pro) เช่น หุ้นไหนควรทบทวนก่อน"
+              value={copilotQuestion}
+              onChange={(e) => setCopilotQuestion(e.target.value)}
+              disabled={loadingCopilot || copilotBlocked}
+              maxLength={240}
+            />
+            <button
+              type="button"
+              className="dash-ai-btn dash-ai-btn--copilot"
+              disabled={loadingCopilot || !holdings.length || copilotBlocked || !copilotQuestion.trim()}
+              onClick={() => askCopilot(undefined, copilotQuestion)}
+            >
+              {loadingCopilot ? '⏳ กำลังตอบ...' : 'ถาม Copilot'}
+            </button>
+          </div>
+        )}
+
+        {copilotError && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{copilotError}</p>}
+        {!copilotAnswer && !loadingCopilot && emptyState('💬', copilotBlocked ? (copilotHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'เลือกคำถามด้านบน หรือพิมพ์คำถามเอง (Pro)')}
+        {loadingCopilot && emptyState('⏳', 'Copilot กำลังอ่านพอร์ตและตอบ...')}
+
+        {copilotAnswer && (
+          <div className="dash-inset dash-inset--accent" style={{ padding: '14px' }}>
+            {copilotAnswer.dataScope && (
+              <p className="dash-text-faint" style={{ fontSize: '11px', marginBottom: '10px' }}>
+                จากหุ้น {copilotAnswer.dataScope.holdingsShown}/{copilotAnswer.dataScope.holdingsTotal} ตัว
+                · transaction {copilotAnswer.dataScope.transactionsIncluded}/{copilotAnswer.dataScope.transactionsTotal}
+              </p>
+            )}
+            <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
+              {copilotAnswer.answer}
+            </p>
+          </div>
+        )}
+      </div>
+
       <div className="dash-card">
         <div className="dash-ai-header">
           <div>

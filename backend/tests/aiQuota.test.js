@@ -82,6 +82,22 @@ describe('aiQuota', () => {
     expect(status.remaining).toBe(1)
   })
 
+  it('blocks free user when copilot weekly limit reached', async () => {
+    const usedAt = new Date('2026-06-20T10:00:00Z')
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        { used_at: usedAt },
+        { used_at: new Date('2026-06-21T10:00:00Z') },
+      ],
+    })
+
+    const status = await getFeatureQuota(2, 'user@test.com', AI_FEATURES.COPILOT, 'user', 'free', null)
+    expect(status.allowed).toBe(false)
+    expect(status.used).toBe(2)
+    expect(status.limit).toBe(2)
+    expect(status.remaining).toBe(0)
+  })
+
   it('builds Thai quota message', () => {
     const msg = quotaExceededMessage(AI_FEATURES.ANALYZE, '2026-06-27T10:00:00.000Z', { limit: 1 })
     expect(msg).toContain('วิเคราะห์พอร์ต')
