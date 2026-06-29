@@ -32,9 +32,6 @@ async function parseResponse(res, path) {
   if (res.status === 401 && path !== '/auth/login' && path !== '/auth/register') {
     clearAuth()
   }
-  if (res.status === 403 && path !== '/auth/login' && path !== '/auth/register' && localStorage.getItem('token')) {
-    clearAuth()
-  }
 
   if (!res.ok) {
     const err =
