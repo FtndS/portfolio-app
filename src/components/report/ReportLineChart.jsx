@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { fmtDate } from '../../lib/format'
+import { fmtDate, fmtChartAxis } from '../../lib/format'
 
 export default function ReportLineChart({ history, hideValues, sym = '$' }) {
   const gradId = useId().replace(/:/g, '')
@@ -7,12 +7,6 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
   if (!history?.length) {
     return <p className="dash-report-muted" style={{ fontSize: '13px' }}>ไม่มีประวัติมูลค่าพอร์ต</p>
   }
-
-  const W = 640
-  const H = 220
-  const pad = { t: 20, r: 16, b: 36, l: 56 }
-  const innerW = W - pad.l - pad.r
-  const innerH = H - pad.t - pad.b
 
   const vals = history.map((d) => Number(d.total_value))
   const costs = history.map((d) => Number(d.total_cost || 0))
@@ -22,6 +16,17 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
   const minV = portNums.length ? Math.min(...portNums) * 0.98 : 0
   const maxV = portNums.length ? Math.max(...portNums) * 1.02 : 1
   const range = maxV - minV || 1
+
+  const yTicks = [minV, minV + range * 0.5, maxV]
+  const fmtAxis = (n) => fmtChartAxis(n, sym, { hideValues })
+  const maxLabelLen = Math.max(...yTicks.map((v) => fmtAxis(v).length))
+  const padL = Math.max(56, Math.min(80, maxLabelLen * 6 + 14))
+
+  const W = 640
+  const H = 220
+  const pad = { t: 20, r: 16, b: 36, l: padL }
+  const innerW = W - pad.l - pad.r
+  const innerH = H - pad.t - pad.b
 
   const xAt = (i) => pad.l + (i / Math.max(history.length - 1, 1)) * innerW
   const yAt = (v) => pad.t + innerH - ((v - minV) / range) * innerH
@@ -38,10 +43,6 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
   const first = vals.find((v) => v > 0) ?? vals[0] ?? 0
   const last = vals[vals.length - 1] ?? 0
   const chg = first > 0 ? ((last - first) / first) * 100 : 0
-  const fmt = (n) =>
-    hideValues ? '••••' : `${sym}${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
-
-  const yTicks = [minV, minV + range * 0.5, maxV]
 
   return (
     <div className="dash-report-line-wrap">
@@ -76,8 +77,8 @@ export default function ReportLineChart({ history, hideValues, sym = '$' }) {
               strokeWidth="1"
               strokeDasharray="4 4"
             />
-            <text x={pad.l - 8} y={yAt(v) + 4} textAnchor="end" className="dash-report-line-tick" fill="#7a7268">
-              {fmt(v)}
+            <text x={pad.l - 6} y={yAt(v) + 4} textAnchor="end" className="dash-report-line-tick" fill="#7a7268">
+              {fmtAxis(v)}
             </text>
           </g>
         ))}

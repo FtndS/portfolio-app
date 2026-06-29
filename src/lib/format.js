@@ -82,3 +82,20 @@ export function fmtShares(n) {
   if (!Number.isFinite(x)) return '—'
   return x.toLocaleString('en-US', { maximumFractionDigits: SHARES_DECIMALS })
 }
+
+/** Compact axis labels for charts (avoids clipping long values like ฿1,087,542). */
+export function fmtChartAxis(n, sym = '', { hideValues = false } = {}) {
+  if (hideValues) return MASKED
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '—'
+  const abs = Math.abs(v)
+  if (abs >= 1_000_000) {
+    const m = v / 1_000_000
+    const maxFrac = abs >= 10_000_000 ? 1 : 2
+    return `${sym}${m.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: maxFrac })}M`
+  }
+  if (abs >= 10_000) {
+    return `${sym}${(v / 1_000).toLocaleString('en-US', { maximumFractionDigits: 0 })}K`
+  }
+  return `${sym}${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+}
