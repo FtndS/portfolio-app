@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
@@ -6,7 +6,14 @@ import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
 import DateInput from '../ui/DateInput'
 import { sanitizeTicker } from '../../lib/constants'
-import { todayIso } from '../../lib/format'
+import { todayIso, fmtShares, SHARES_EPS } from '../../lib/format'
+
+const SELL_PCT_PRESETS = [25, 50, 75, 100]
+
+function formatSellQty(n) {
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return parseFloat(n.toFixed(10)).toString()
+}
 
 function inferTxCurrency(ticker, holdings) {
   const h = holdings.find((x) => x.ticker === ticker)
@@ -33,12 +40,48 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sellPctActive, setSellPctActive] = useState(null)
+  const [sellPctCustom, setSellPctCustom] = useState('')
   const dateRef = useRef(null)
+
+  const sellContext = useMemo(() => {
+    if (f.type !== 'SELL') return null
+    const ticker = sanitizeTicker(f.ticker)
+    if (!ticker) return null
+    const h = f.holding_id
+      ? holdings.find((x) => String(x.id) === f.holding_id)
+      : holdings.find((x) => x.ticker === ticker)
+    if (!h) return null
+    let available = Number(h.shares)
+    if (isEdit && transaction?.type === 'SELL' && sanitizeTicker(transaction.ticker) === ticker) {
+      available += Number(transaction.shares)
+    }
+    if (!(available > SHARES_EPS)) return null
+    return { available }
+  }, [f.type, f.ticker, f.holding_id, holdings, isEdit, transaction])
+
+  const applySellPct = (pct) => {
+    if (!sellContext || !Number.isFinite(pct) || pct <= 0 || pct > 100) return
+    const qty = pct >= 100 ? sellContext.available : sellContext.available * (pct / 100)
+    setSellPctActive(pct)
+    setF((prev) => ({ ...prev, shares: formatSellQty(qty) }))
+  }
+
+  const applyCustomSellPct = () => {
+    if (!sellPctCustom.trim() || !sellContext) return
+    const pct = parseFloat(sellPctCustom)
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) return
+    const qty = pct >= 100 ? sellContext.available : sellContext.available * (pct / 100)
+    setSellPctActive('custom')
+    setF((prev) => ({ ...prev, shares: formatSellQty(qty) }))
+  }
 
   const selHolding = (e) => {
     const h = holdings.find((h) => String(h.id) === e.target.value)
-    if (h) setF({ ...f, holding_id: e.target.value, ticker: h.ticker, currency: h.currency || 'USD' })
-    else setF({ ...f, holding_id: '' })
+    if (h) {
+      setSellPctActive(null)
+      setF({ ...f, holding_id: e.target.value, ticker: h.ticker, currency: h.currency || 'USD' })
+    } else setF({ ...f, holding_id: '' })
   }
 
   const save = async () => {
@@ -48,6 +91,9 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     const shares = parseFloat(f.shares)
     const price = parseFloat(f.price)
     if (!Number.isFinite(shares) || shares <= 0) return setError('จำนวนหุ้นต้องมากกว่า 0')
+    if (f.type === 'SELL' && sellContext && shares > sellContext.available + SHARES_EPS) {
+      return setError(`ขายได้สูงสุด ${fmtShares(sellContext.available)} หุ้น`)
+    }
     if (!Number.isFinite(price) || price <= 0) return setError('ราคาต้องมากกว่า 0')
     const fee = f.fee === '' ? 0 : parseFloat(f.fee)
     if (!Number.isFinite(fee) || fee < 0) return setError('ค่าธรรมเนียมต้องเป็นตัวเลข 0 ขึ้นไป')
@@ -101,6 +147,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
               onChange={(e) => {
                 const ticker = e.target.value
                 const next = { ...f, ticker }
+                setSellPctActive(null)
                 if (!isEdit && !f.holding_id) next.currency = inferTxCurrency(sanitizeTicker(ticker), holdings)
                 setF(next)
               }}
@@ -116,7 +163,10 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
                   key={t}
                   type="button"
                   className={f.type === t ? (t === 'BUY' ? 'active-buy' : 'active-sell') : ''}
-                  onClick={() => setF({ ...f, type: t })}
+                  onClick={() => {
+                    setSellPctActive(null)
+                    setF({ ...f, type: t })
+                  }}
                 >
                   {t === 'BUY' ? '🟢 BUY' : '🔴 SELL'}
                 </button>
@@ -143,12 +193,53 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
       <div style={{ display: 'flex', gap: '8px' }} className="dash-modal-row">
         <div style={{ flex: 1 }}>
           <Field label="จำนวนหุ้น">
+            {f.type === 'SELL' && sellContext && (
+              <div className="dash-sell-pct">
+                <span className="dash-sell-pct-hint">ถือ {fmtShares(sellContext.available)}</span>
+                <div className="dash-sell-pct-btns">
+                  {SELL_PCT_PRESETS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`dash-sell-pct-btn${sellPctActive === p ? ' dash-sell-pct-btn--active' : ''}`}
+                      onClick={() => applySellPct(p)}
+                    >
+                      {p === 100 ? 'ทั้งหมด' : `${p}%`}
+                    </button>
+                  ))}
+                  <span className="dash-sell-pct-custom-wrap">
+                    <input
+                      type="number"
+                      min="0.01"
+                      max="100"
+                      step="0.01"
+                      className={`dash-sell-pct-custom${sellPctActive === 'custom' ? ' dash-sell-pct-custom--active' : ''}`}
+                      placeholder="—"
+                      value={sellPctCustom}
+                      onChange={(e) => setSellPctCustom(e.target.value.replace(/-/g, ''))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') applyCustomSellPct()
+                      }}
+                      onBlur={applyCustomSellPct}
+                      aria-label="กำหนดเปอร์เซ็นต์ขาย"
+                    />
+                    <span className="dash-sell-pct-suffix">%</span>
+                  </span>
+                </div>
+              </div>
+            )}
+            {f.type === 'SELL' && !sellContext && sanitizeTicker(f.ticker) && (
+              <p className="dash-sell-pct-hint dash-sell-pct-hint--warn">ไม่พบหุ้นในพอร์ต — เลือกจาก Holding หรือตรวจ ticker</p>
+            )}
             <AmountInput
               suffix="shares"
               placeholder="100"
               value={f.shares}
               nonNegative
-              onChange={(e) => setF({ ...f, shares: e.target.value })}
+              onChange={(e) => {
+                setSellPctActive(null)
+                setF({ ...f, shares: e.target.value })
+              }}
             />
           </Field>
         </div>
