@@ -77,7 +77,7 @@ export default function Landing({ onLogin, onRegister }) {
             <span>อย่างมีระบบ</span>
           </h1>
           <p>
-            Port Diary ช่วยจดจำการตัดสินใจลงทุน — thesis, journal, timeline ต่อหุ้น
+            PortDiary ช่วยจดจำการตัดสินใจลงทุน — thesis, journal, timeline ต่อหุ้น
             รวม transaction, กราฟ และ AI ไว้ในที่เดียว
           </p>
           <div className="landing-hero-cta">
@@ -185,7 +185,7 @@ export default function Landing({ onLogin, onRegister }) {
           <a href="/terms.html" style={{ color: '#555', marginRight: '16px', fontSize: '13px', textDecoration: 'none' }}>ข้อกำหนดการใช้งาน</a>
           <a href="/privacy.html" style={{ color: '#555', fontSize: '13px', textDecoration: 'none' }}>นโยบายความเป็นส่วนตัว</a>
         </div>
-        © {new Date().getFullYear()} Port Diary — บันทึกพอร์ตการลงทุน
+        © {new Date().getFullYear()} PortDiary — บันทึกพอร์ตการลงทุน
       </footer>
     </div>
   )

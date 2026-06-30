@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../../lib/api'
 import { btnPrimary, btnGhost } from '../../lib/styles'
 
@@ -29,6 +29,15 @@ function quotaLine(quota, key, label) {
   return { label, value: 'ใช้ได้', tone: 'default' }
 }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 const QUOTA_KEYS = [
   ['analyze', 'วิเคราะห์พอร์ต'],
   ['copilot', 'Copilot'],
@@ -36,10 +45,16 @@ const QUOTA_KEYS = [
   ['tickerJournal', 'สรุป journal หุ้น'],
 ]
 
-export default function SubscriptionPage({ user, onOpenSupport }) {
+export default function SubscriptionPage({ user }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+  const [receiptFile, setReceiptFile] = useState(null)
+  const [receiptPreview, setReceiptPreview] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitMsg, setSubmitMsg] = useState('')
+  const [submitErr, setSubmitErr] = useState('')
+  const paymentRef = useRef(null)
 
   const load = async () => {
     setLoading(true)
@@ -57,12 +72,70 @@ export default function SubscriptionPage({ user, onOpenSupport }) {
     load()
   }, [])
 
-  const requestUpgrade = () => {
-    onOpenSupport?.({
-      category: 'other',
-      subject: 'ขออัปเกรดเป็น Pro',
-      message: 'สวัสดีครับ/ค่ะ ต้องการอัปเกรดบัญชีเป็นแผน Pro กรุณาติดต่อกลับพร้อมวิธีชำระเงิน ขอบคุณครับ/ค่ะ',
-    })
+  const scrollToPayment = () => {
+    paymentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const onReceiptChange = (e) => {
+    const file = e.target.files?.[0]
+    setSubmitErr('')
+    setSubmitMsg('')
+    if (!file) {
+      setReceiptFile(null)
+      setReceiptPreview('')
+      return
+    }
+    if (!/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
+      setSubmitErr('ใช้ไฟล์รูป JPG หรือ PNG เท่านั้น')
+      return
+    }
+    if (file.size > 1.5 * 1024 * 1024) {
+      setSubmitErr('ไฟล์ใหญ่เกิน 1.5 MB')
+      return
+    }
+    setReceiptFile(file)
+    setReceiptPreview(URL.createObjectURL(file))
+  }
+
+  const submitUpgrade = async () => {
+    setSubmitErr('')
+    setSubmitMsg('')
+    if (!receiptFile) {
+      setSubmitErr('กรุณาแนบสลิปการโอนเงิน')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const receiptBase64 = await fileToDataUrl(receiptFile)
+      const price = data?.catalog?.proMonthlyThb || 99
+      const message = [
+        `ขออัปเกรดบัญชีเป็นแผน Pro (฿${price}/เดือน)`,
+        '',
+        `อีเมลบัญชี: ${user?.email || '—'}`,
+        `ชื่อ: ${user?.name || '—'}`,
+        `User ID: ${user?.id || '—'}`,
+        '',
+        'แนบสลิปการโอน PromptPay แล้ว — รอทีมงานยืนยันและเปิด Pro',
+      ].join('\n')
+
+      const r = await api.post('/support', {
+        category: 'upgrade',
+        subject: 'ขออัปเกรดเป็น Pro',
+        message,
+        receiptBase64,
+      })
+      if (r.error) {
+        setSubmitErr(r.error)
+        return
+      }
+      setSubmitMsg('ส่งคำขอแล้ว — ทีมงานจะตรวจสลิปและเปิด Pro ให้ภายใน 1 วันทำการ')
+      setReceiptFile(null)
+      setReceiptPreview('')
+    } catch {
+      setSubmitErr('ส่งคำขอไม่สำเร็จ — ลองใหม่อีกครั้ง')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (loading) {
@@ -88,6 +161,8 @@ export default function SubscriptionPage({ user, onOpenSupport }) {
   const freePlan = plans.find((p) => p.id === 'free')
   const proPlan = plans.find((p) => p.id === 'pro')
   const features = freePlan?.features || []
+  const proPrice = data.catalog?.proMonthlyThb || 99
+  const qrUrl = data.paymentQrUrl || '/promptpay-qr-99.png'
 
   const quotaLines = QUOTA_KEYS.map(([key, label]) => quotaLine(data.quota, key, label)).filter(Boolean)
 
@@ -148,8 +223,8 @@ export default function SubscriptionPage({ user, onOpenSupport }) {
               ))}
             </ul>
             {plan.id === 'pro' && !isPro && (
-              <button type="button" className="dash-sub-upgrade-btn" onClick={requestUpgrade} style={btnPrimary}>
-                อัปเกรดเป็น Pro
+              <button type="button" className="dash-sub-upgrade-btn" onClick={scrollToPayment} style={btnPrimary}>
+                อัปเกรดเป็น Pro — ฿{proPrice}
               </button>
             )}
             {plan.id === 'pro' && isPro && !data.isOwner && (
@@ -163,21 +238,58 @@ export default function SubscriptionPage({ user, onOpenSupport }) {
       </div>
 
       {!isPro && (
-        <div className="dash-card dash-sub-note">
-          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '10px' }}>วิธีอัปเกรด Pro</h3>
+        <div className="dash-card dash-sub-note" ref={paymentRef}>
+          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '10px' }}>ช่องทางชำระเงิน</h3>
           <ol className="dash-sub-steps">
-            <li>กด「อัปเกรดเป็น Pro」ด้านล่าง</li>
-            <li>โอนเงินตามช่องทางด้านล่าง</li>
-            <li>รอทีมงานยืนยัน (มักภายใน 1 วันทำการ) — แผน Pro จะเปิดให้อัตโนมัติ</li>
+            <li>สแกน QR PromptPay โอน <strong>฿{proPrice}</strong> (ราคาเปิดตัว)</li>
+            <li>อัปโหลดสลิปด้านล่าง — ระบบแนบอีเมล <strong>{user?.email}</strong> ให้อัตโนมัติ</li>
+            <li>กดส่งคำขอ — ทีมงานจะได้ Ticket + อีเมลแจ้งเตือนเพื่อเปิด Pro</li>
           </ol>
-          {data.paymentInstructions ? (
-            <div className="dash-inset dash-inset--accent" style={{ padding: '12px', marginTop: '12px', whiteSpace: 'pre-wrap', fontSize: '13px' }}>
+
+          <div className="dash-sub-payment">
+            <div className="dash-sub-qr-wrap">
+              <img
+                src={qrUrl}
+                alt={`PromptPay QR ฿${proPrice} PortDiary`}
+                className="dash-sub-qr"
+                width={280}
+                height={380}
+              />
+              <p className="dash-text-muted" style={{ fontSize: '12px', textAlign: 'center', margin: '8px 0 0' }}>
+                PortDiary · ฿{proPrice}.00
+              </p>
+            </div>
+
+            <div className="dash-sub-receipt">
+              <label className="dash-text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+                อัปโหลดสลิปการโอน (JPG/PNG)
+              </label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={onReceiptChange}
+                className="dash-sub-file"
+              />
+              {receiptPreview && (
+                <img src={receiptPreview} alt="ตัวอย่างสลิป" className="dash-sub-receipt-preview" />
+              )}
+              {submitErr && <p className="dash-text-loss" style={{ fontSize: '13px', marginTop: '10px' }}>{submitErr}</p>}
+              {submitMsg && <p className="dash-text-gain" style={{ fontSize: '13px', marginTop: '10px' }}>{submitMsg}</p>}
+              <button
+                type="button"
+                onClick={submitUpgrade}
+                style={{ ...btnPrimary, marginTop: '12px', width: '100%' }}
+                disabled={submitting}
+              >
+                {submitting ? 'กำลังส่ง...' : 'ส่งคำขออัปเกรด Pro'}
+              </button>
+            </div>
+          </div>
+
+          {data.paymentInstructions && (
+            <div className="dash-inset" style={{ padding: '12px', marginTop: '14px', whiteSpace: 'pre-wrap', fontSize: '13px' }}>
               {data.paymentInstructions}
             </div>
-          ) : (
-            <p className="dash-text-muted" style={{ fontSize: '13px', margin: '12px 0 0', lineHeight: 1.65 }}>
-              รายละเอียบบัญชีโอนจะส่งให้ทางอีเมลหลังส่งคำขอ — หรือติดต่อทีมงานผ่าน「ช่วยเหลือ」
-            </p>
           )}
         </div>
       )}

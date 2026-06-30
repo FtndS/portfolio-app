@@ -350,7 +350,7 @@ export default function PortfolioReport({
 
       <div className="dash-report-header">
         <div>
-          <p className="dash-report-eyebrow">Port Diary — Portfolio Report</p>
+          <p className="dash-report-eyebrow">PortDiary — Portfolio Report</p>
           <h2 className="dash-report-title">{reportTitle}</h2>
           <p className="dash-report-meta">
             {user?.name} · สกุลเงินแสดงผล: {displayCurrency}

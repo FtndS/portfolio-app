@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 
 const STEPS = [
   {
-    title: 'ยินดีต้อนรับสู่ Port Diary',
+    title: 'ยินดีต้อนรับสู่ PortDiary',
     body: 'เครื่องมือบันทึกและวิเคราะห์พอร์ตส่วนตัว — รวม transaction, กราฟ, รายงานสรุป และ journal ไว้ในที่เดียว',
     icon: '📓',
   },
@@ -180,7 +180,7 @@ export default function OnboardingModal({
           )}
           {step === 3 && (
             <button type="button" className="onboarding-btn-primary onboarding-btn-full" onClick={finish}>
-              เริ่มใช้งาน Port Diary
+              เริ่มใช้งาน PortDiary
             </button>
           )}
         </div>

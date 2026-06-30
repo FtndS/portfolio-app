@@ -789,7 +789,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         {tab==='news' && renderNewsGrid()}
 
         {tab==='subscription' && (
-          <SubscriptionPage user={user} onOpenSupport={openSupport} />
+          <SubscriptionPage user={user} />
         )}
 
         </div>

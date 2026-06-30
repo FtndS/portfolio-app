@@ -530,7 +530,7 @@ router.get('/export', authMiddleware, async (req, res) => {
     const exportedAt = new Date().toISOString()
     const payload = {
       exportedAt,
-      app: 'Port Diary',
+      app: 'PortDiary',
       user: {
         id: user.id,
         email: user.email,

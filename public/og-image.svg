@@ -17,7 +17,7 @@
     <circle cx="14.5" cy="24.5" r="1.25" fill="#15803d"/>
   </g>
 
-  <text x="300" y="285" fill="#3b352f" font-family="Inter, system-ui, sans-serif" font-size="72" font-weight="700" letter-spacing="-1.5">Port Diary</text>
+  <text x="300" y="285" fill="#3b352f" font-family="Inter, system-ui, sans-serif" font-size="72" font-weight="700" letter-spacing="-1.5">PortDiary</text>
   <text x="300" y="355" fill="#575046" font-family="Inter, system-ui, sans-serif" font-size="34" font-weight="500">16-#L2#%8-"H2!5#0</text>
   <text x="300" y="420" fill="#756c61" font-family="Inter, system-ui, sans-serif" font-size="26" font-weight="400">Journal · #2 · H2' · AI '4@#20+L-#L</text>
 

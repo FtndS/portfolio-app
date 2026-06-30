@@ -25,6 +25,7 @@ router.get('/', async (req, res) => {
       planExpiresAt: req.userPlanExpiresAt || null,
       isOwner,
       paymentEnabled: process.env.STRIPE_ENABLED === 'true',
+      paymentQrUrl: process.env.PRO_PAYMENT_QR_URL || '/promptpay-qr-99.png',
       paymentInstructions: process.env.PRO_PAYMENT_INSTRUCTIONS || null,
       catalog: buildSubscriptionCatalog(),
       quota,

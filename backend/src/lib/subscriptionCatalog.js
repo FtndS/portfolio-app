@@ -1,6 +1,6 @@
 import { AI_PLANS } from './aiPlan.js'
 
-export const PRO_MONTHLY_THB = Number(process.env.PRO_MONTHLY_PRICE_THB) || 149
+export const PRO_MONTHLY_THB = Number(process.env.PRO_MONTHLY_PRICE_THB) || 99
 
 const FEATURE_ROWS = [
   { key: 'portfolio', label: 'พอร์ต, Transaction, Journal', free: 'ไม่จำกัด', pro: 'ไม่จำกัด' },

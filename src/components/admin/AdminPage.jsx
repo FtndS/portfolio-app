@@ -14,6 +14,7 @@ const CATEGORY_LABELS = {
   bug: 'Bug',
   question: 'คำถาม',
   feature: 'ขอฟีเจอร์',
+  upgrade: 'อัปเกรด Pro',
   other: 'อื่นๆ',
 }
 

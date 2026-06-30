@@ -36,7 +36,7 @@ export default function DashboardSidebar({
           className="dash-sidebar-brand-btn"
           onClick={() => onTabChange('overview')}
           title="กลับหน้า Overview"
-          aria-label="Port Diary — กลับหน้า Overview"
+          aria-label="PortDiary — กลับหน้า Overview"
         >
           <Logo size={24} className="dash-sidebar-logo" />
         </button>

@@ -6,10 +6,11 @@ import { sendEmail, buildSupportTicketEmail } from '../lib/email.js'
 const router = express.Router()
 router.use(authMiddleware)
 
-const CATEGORIES = new Set(['bug', 'question', 'feature', 'other'])
+const CATEGORIES = new Set(['bug', 'question', 'feature', 'other', 'upgrade'])
 const MAX_TICKETS_PER_DAY = 5
+const MAX_RECEIPT_BYTES = 1.5 * 1024 * 1024
 
-function validateTicketInput({ category, subject, message }) {
+function validateTicketInput({ category, subject, message, receiptBase64 }) {
   if (!CATEGORIES.has(category)) {
     return 'กรุณาเลือกประเภทปัญหา'
   }
@@ -21,19 +22,59 @@ function validateTicketInput({ category, subject, message }) {
   if (body.length < 10 || body.length > 5000) {
     return 'รายละเอียดต้องมี 10–5,000 ตัวอักษร'
   }
+  if (category === 'upgrade' && !receiptBase64) {
+    return 'กรุณาแนบสลิปการโอนเงิน'
+  }
   return null
 }
 
-async function notifyAdmins(ticket, user) {
+function parseReceiptBase64(receiptBase64) {
+  if (!receiptBase64) return null
+  const raw = String(receiptBase64).trim()
+  const match = raw.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/i)
+  if (!match) return { error: 'รูปสลิปไม่ถูกต้อง — ใช้ไฟล์ JPG หรือ PNG' }
+
+  const contentType = match[1].toLowerCase().replace('jpg', 'jpeg')
+  let buffer
+  try {
+    buffer = Buffer.from(match[2], 'base64')
+  } catch {
+    return { error: 'อ่านไฟล์สลิปไม่สำเร็จ' }
+  }
+  if (!buffer.length) return { error: 'ไฟล์สลิปว่างเปล่า' }
+  if (buffer.length > MAX_RECEIPT_BYTES) {
+    return { error: 'ไฟล์สลิปใหญ่เกินไป (สูงสุด 1.5 MB)' }
+  }
+
+  const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg'
+  return { buffer, contentType, filename: `receipt.${ext}` }
+}
+
+async function collectNotifyEmails() {
+  const emails = new Set()
   const admins = await pool.query(
-    `SELECT email, name FROM users WHERE role = 'admin' AND email_verified = true`
+    `SELECT email FROM users WHERE role = 'admin' AND email_verified = true`
   )
-  if (!admins.rows.length) return
+  for (const row of admins.rows) {
+    if (row.email) emails.add(row.email.toLowerCase())
+  }
+  const owner = process.env.AI_OWNER_EMAIL || process.env.ADMIN_EMAIL
+  if (owner) emails.add(owner.trim().toLowerCase())
+  return [...emails]
+}
+
+async function notifyAdmins(ticket, user, receipt) {
+  const recipients = await collectNotifyEmails()
+  if (!recipients.length) return
 
   const { subject, html, text } = buildSupportTicketEmail({ ticket, user })
+  const attachments = receipt
+    ? [{ filename: receipt.filename, content: receipt.buffer, contentType: receipt.contentType }]
+    : undefined
+
   await Promise.allSettled(
-    admins.rows.map((admin) =>
-      sendEmail({ to: admin.email, subject, html, text })
+    recipients.map((to) =>
+      sendEmail({ to, subject, html, text, attachments })
     )
   )
 }
@@ -57,9 +98,12 @@ router.get('/mine', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { category, subject, message } = req.body
-    const validationErr = validateTicketInput({ category, subject, message })
+    const { category, subject, message, receiptBase64 } = req.body
+    const validationErr = validateTicketInput({ category, subject, message, receiptBase64 })
     if (validationErr) return res.status(400).json({ error: validationErr })
+
+    const receipt = parseReceiptBase64(receiptBase64)
+    if (receipt?.error) return res.status(400).json({ error: receipt.error })
 
     const recent = await pool.query(
       `SELECT COUNT(*)::int AS count FROM support_tickets
@@ -82,7 +126,7 @@ router.post('/', async (req, res) => {
       'SELECT id, email, name FROM users WHERE id = $1',
       [req.userId]
     )
-    notifyAdmins(ticket, userResult.rows[0]).catch((e) => {
+    notifyAdmins(ticket, userResult.rows[0], receipt).catch((e) => {
       console.error('Support ticket email error:', e)
     })
 

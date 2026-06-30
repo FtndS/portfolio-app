@@ -123,7 +123,7 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
       planConfig,
     })
 
-    const systemPrompt = `คุณคือ Copilot ผู้ช่วยนักลงทุนระยะยาวของ Port Diary
+    const systemPrompt = `คุณคือ Copilot ผู้ช่วยนักลงทุนระยะยาวของ PortDiary
 ตอบเป็นภาษาไทย กระชับ อ่านง่าย ใช้ bullet ได้ถ้าเหมาะสม
 อ้างอิงเฉพาะข้อมูลพอร์ตที่ให้ — ห้ามแต่งตัวเลขหรือหุ้นที่ไม่มีในข้อมูล
 ไม่ใช่คำแนะนำซื้อขาย — ช่วยทบทวนและสรุปเท่านั้น

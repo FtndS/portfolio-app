@@ -8,6 +8,7 @@ const SUPPORT_CATEGORIES = [
   ['bug', 'แจ้งปัญหา / Bug'],
   ['question', 'คำถามการใช้งาน'],
   ['feature', 'ขอฟีเจอร์'],
+  ['upgrade', 'อัปเกรด Pro'],
   ['other', 'อื่นๆ'],
 ]
 

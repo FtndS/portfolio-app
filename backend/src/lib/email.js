@@ -17,8 +17,8 @@ function getTransporter() {
   return transporter
 }
 
-export async function sendEmail({ to, subject, html, text }) {
-  const from = process.env.SMTP_FROM || 'Port Diary <noreply@portdiary.com>'
+export async function sendEmail({ to, subject, html, text, attachments }) {
+  const from = process.env.SMTP_FROM || 'PortDiary <noreply@portdiary.com>'
   const transport = getTransporter()
 
   if (!transport) {
@@ -29,20 +29,20 @@ export async function sendEmail({ to, subject, html, text }) {
     return false
   }
 
-  await transport.sendMail({ from, to, subject, html, text })
+  await transport.sendMail({ from, to, subject, html, text, attachments })
   return true
 }
 
 export function buildOtpEmail({ code, purpose }) {
   const isRegister = purpose === 'register'
   const subject = isRegister
-    ? 'รหัสยืนยันการสมัคร Port Diary'
-    : 'รหัสยืนยันรีเซ็ตรหัสผ่าน Port Diary'
+    ? 'รหัสยืนยันการสมัคร PortDiary'
+    : 'รหัสยืนยันรีเซ็ตรหัสผ่าน PortDiary'
   const action = isRegister ? 'ยืนยันการสมัครสมาชิก' : 'รีเซ็ตรหัสผ่าน'
-  const text = `รหัส OTP สำหรับ${action} Port Diary: ${code}\n\nรหัสหมดอายุใน 10 นาที\nถ้าคุณไม่ได้ขอรหัสนี้ ให้ละเว้นอีเมลนี้`
+  const text = `รหัส OTP สำหรับ${action} PortDiary: ${code}\n\nรหัสหมดอายุใน 10 นาที\nถ้าคุณไม่ได้ขอรหัสนี้ ให้ละเว้นอีเมลนี้`
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#222">
-      <h2 style="color:#6c5ce7">📓 Port Diary</h2>
+      <h2 style="color:#6c5ce7">PortDiary</h2>
       <p>รหัส OTP สำหรับ${action}</p>
       <p style="font-size:32px;font-weight:700;letter-spacing:8px;color:#6c5ce7;margin:24px 0">${code}</p>
       <p style="font-size:13px;color:#666">รหัสหมดอายุใน <strong>10 นาที</strong></p>
@@ -56,16 +56,21 @@ const CATEGORY_LABELS = {
   bug: 'แจ้งปัญหา / Bug',
   question: 'คำถามการใช้งาน',
   feature: 'ขอฟีเจอร์',
+  upgrade: 'อัปเกรด Pro',
   other: 'อื่นๆ',
 }
 
 export function buildSupportTicketEmail({ ticket, user }) {
   const appUrl = process.env.APP_URL || 'https://portdiary.com'
   const category = CATEGORY_LABELS[ticket.category] || ticket.category
-  const subject = `[Port Diary] คำร้องใหม่ #${ticket.id}: ${ticket.subject}`
+  const isUpgrade = ticket.category === 'upgrade'
+  const subject = isUpgrade
+    ? `[PortDiary] ขออัปเกรด Pro #${ticket.id} — ${user.email}`
+    : `[PortDiary] คำร้องใหม่ #${ticket.id}: ${ticket.subject}`
   const text = [
-    `มีคำร้องใหม่จาก ${user.name} (${user.email})`,
+    isUpgrade ? 'มีคำขออัปเกรด Pro พร้อมสลิปแนบ' : `มีคำร้องใหม่จาก ${user.name} (${user.email})`,
     '',
+    `จาก: ${user.name} (${user.email})`,
     `ประเภท: ${category}`,
     `หัวข้อ: ${ticket.subject}`,
     '',
@@ -75,10 +80,11 @@ export function buildSupportTicketEmail({ ticket, user }) {
   ].join('\n')
   const html = `
     <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#222">
-      <h2 style="color:#6c5ce7">📓 Port Diary — คำร้องใหม่</h2>
+      <h2 style="color:#6c5ce7">${isUpgrade ? '🚀 PortDiary — ขออัปเกรด Pro' : '📋 PortDiary — คำร้องใหม่'}</h2>
       <p><strong>จาก:</strong> ${user.name} (${user.email})</p>
       <p><strong>ประเภท:</strong> ${category}</p>
       <p><strong>หัวข้อ:</strong> ${ticket.subject}</p>
+      ${isUpgrade ? '<p style="color:#15803d"><strong>แนบสลิปการโอนในอีเมลนี้</strong> — เปิด Pro ได้ที่ Admin → จัดการแผน Pro</p>' : ''}
       <div style="background:#f5f5f5;padding:14px;border-radius:8px;margin:16px 0;white-space:pre-wrap;font-size:14px;line-height:1.6">${ticket.message.replace(/</g, '&lt;')}</div>
       <p><a href="${appUrl}/admin" style="color:#6c5ce7">เปิดหน้า Admin</a></p>
     </div>
@@ -91,11 +97,11 @@ export function isSmtpConfigured() {
 }
 
 export function buildPasswordResetEmail(resetUrl) {
-  const subject = 'รีเซ็ตรหัสผ่าน Port Diary'
+  const subject = 'รีเซ็ตรหัสผ่าน PortDiary'
   const text = `คลิกลิงก์นี้เพื่อตั้งรหัสผ่านใหม่ (หมดอายุใน 1 ชั่วโมง):\n\n${resetUrl}\n\nถ้าคุณไม่ได้ขอรีเซ็ต ให้ละเว้นอีเมลนี้`
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#222">
-      <h2 style="color:#6c5ce7">📓 Port Diary</h2>
+      <h2 style="color:#6c5ce7">PortDiary</h2>
       <p>คุณขอรีเซ็ตรหัสผ่าน คลิกปุ่มด้านล่างเพื่อตั้งรหัสผ่านใหม่ (ลิงก์หมดอายุใน 1 ชั่วโมง)</p>
       <p style="margin:24px 0">
         <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#6c5ce7;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">

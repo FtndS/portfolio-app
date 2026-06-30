@@ -1,5 +1,5 @@
 /**
- * Port Diary logo — 3D diary icon (matches og:image / social brand).
+ * PortDiary logo — 3D diary icon (matches og:image / social brand).
  * @param {{ size?: number, showText?: boolean, className?: string }} props
  */
 export default function Logo({ size = 32, showText = true, className = '' }) {
@@ -17,7 +17,7 @@ export default function Logo({ size = 32, showText = true, className = '' }) {
         aria-hidden="true"
         draggable={false}
       />
-      {showText && <span className="pd-logo-text">Port Diary</span>}
+      {showText && <span className="pd-logo-text">PortDiary</span>}
     </span>
   )
 }

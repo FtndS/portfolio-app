@@ -190,7 +190,7 @@ export default function AdminSubscribers({ highlightUserId }) {
                 style={{ width: '100%', minHeight: '72px', marginBottom: '14px', resize: 'vertical' }}
                 value={planNote}
                 onChange={(e) => setPlanNote(e.target.value)}
-                placeholder="เช่น โอน 149 บาท วันที่ 29 มิ.ย. 2569 · ธ.กสิกร xxx-x-xxxxx-x"
+                placeholder="เช่น โอน 99 บาท วันที่ 29 มิ.ย. 2569 · PromptPay"
               />
 
               <label className="dash-text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '6px' }}>

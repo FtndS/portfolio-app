@@ -158,7 +158,7 @@ export default function TickerStoryModal({
   return (
     <Modal title={`${ticker}${holding?.name ? ` — ${holding.name}` : ''}`} onClose={onClose} wide>
       <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '16px', lineHeight: 1.6 }}>
-        บันทึกเหตุผลถือหุ้นและดู timeline การลงทุนต่อตัว — จุดเด่นของ Port Diary
+        บันทึกเหตุผลถือหุ้นและดู timeline การลงทุนต่อตัว — จุดเด่นของ PortDiary
       </p>
 
       <section className="dash-story-section">
