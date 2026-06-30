@@ -47,3 +47,19 @@ export const pricesLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'คำขอราคามากเกินไป กรุณารอสักครู่' },
 })
+
+export const supportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'ส่งคำร้องบ่อยเกินไป กรุณาลองใหม่ภายหลัง' },
+})
+
+export const csvImportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'นำเข้า CSV บ่อยเกินไป กรุณาลองใหม่ภายหลัง' },
+})

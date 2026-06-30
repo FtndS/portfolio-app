@@ -1,4 +1,5 @@
 import express from 'express'
+import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { resolvePortfolioId } from '../lib/portfolio.js'
@@ -15,7 +16,7 @@ router.get('/', async (req, res) => {
     )
     res.json(result.rows)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -30,7 +31,7 @@ router.post('/', async (req, res) => {
     )
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -47,7 +48,7 @@ router.put('/:id', async (req, res) => {
     }
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -56,7 +57,7 @@ router.delete('/:id', async (req, res) => {
     await pool.query('DELETE FROM journal WHERE id=$1 AND user_id=$2', [req.params.id, req.userId])
     res.json({ message: 'Deleted' })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 

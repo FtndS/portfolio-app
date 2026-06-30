@@ -4,12 +4,14 @@ import { authMiddleware } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { computeProExpiry, normalizePlanId } from '../lib/subscriptionAdmin.js'
 import { resolveEffectivePlan } from '../lib/aiPlan.js'
+import { serverError } from '../lib/httpErrors.js'
 
 const router = express.Router()
 router.use(authMiddleware)
 router.use(requireAdmin)
 
 const STATUSES = new Set(['open', 'in_progress', 'resolved', 'closed'])
+const CATEGORIES = new Set(['bug', 'question', 'feature', 'other', 'upgrade'])
 
 router.get('/users', async (req, res) => {
   try {
@@ -52,8 +54,7 @@ router.get('/users', async (req, res) => {
     }))
     res.json(rows)
   } catch (err) {
-    console.error('GET admin/users error:', err)
-    res.status(500).json({ error: 'โหลดรายชื่อผู้ใช้ไม่สำเร็จ' })
+    serverError(res, err, 'GET admin/users error:')
   }
 })
 
@@ -113,37 +114,63 @@ router.patch('/users/:id/plan', async (req, res) => {
       message: nextPlan === 'pro' ? 'เปิดแผน Pro แล้ว' : 'เปลี่ยนเป็น Free แล้ว',
     })
   } catch (err) {
-    console.error('PATCH admin/users plan error:', err)
-    res.status(500).json({ error: 'อัปเดตแผนไม่สำเร็จ' })
+    serverError(res, err, 'PATCH admin/users plan error:')
   }
 })
 
 router.get('/tickets', async (req, res) => {
   try {
     const status = String(req.query.status || '').trim()
+    const category = String(req.query.category || '').trim()
     const params = []
-    let where = ''
+    const where = []
 
     if (status && STATUSES.has(status)) {
       params.push(status)
-      where = `WHERE t.status = $1`
+      where.push(`t.status = $${params.length}`)
+    }
+    if (category && CATEGORIES.has(category)) {
+      params.push(category)
+      where.push(`t.category = $${params.length}`)
     }
 
     const result = await pool.query(
       `SELECT t.id, t.category, t.subject, t.message, t.status, t.admin_notes,
               t.created_at, t.updated_at,
+              (t.receipt_data IS NOT NULL) AS has_receipt,
               u.id AS user_id, u.email AS user_email, u.name AS user_name
        FROM support_tickets t
        JOIN users u ON u.id = t.user_id
-       ${where}
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
        ORDER BY t.created_at DESC
        LIMIT 200`,
       params
     )
     res.json(result.rows)
   } catch (err) {
-    console.error('GET admin/tickets error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err, 'GET admin/tickets error:')
+  }
+})
+
+router.get('/tickets/:id/receipt', async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!id) return res.status(400).json({ error: 'รหัสคำร้องไม่ถูกต้อง' })
+
+    const result = await pool.query(
+      'SELECT receipt_mime, receipt_data FROM support_tickets WHERE id = $1',
+      [id]
+    )
+    const row = result.rows[0]
+    if (!row?.receipt_data) {
+      return res.status(404).json({ error: 'ไม่มีสลิปแนบ' })
+    }
+
+    res.set('Content-Type', row.receipt_mime || 'image/jpeg')
+    res.set('Cache-Control', 'private, max-age=3600')
+    res.send(row.receipt_data)
+  } catch (err) {
+    serverError(res, err, 'GET admin/tickets receipt error:')
   }
 })
 
@@ -165,7 +192,8 @@ router.put('/tickets/:id', async (req, res) => {
            admin_notes = COALESCE($3, admin_notes),
            updated_at = NOW()
        WHERE id = $1
-       RETURNING *`,
+       RETURNING id, category, subject, message, status, admin_notes, created_at, updated_at,
+                 (receipt_data IS NOT NULL) AS has_receipt, user_id`,
       [id, status || null, notes]
     )
 
@@ -185,8 +213,7 @@ router.put('/tickets/:id', async (req, res) => {
       user_name: userResult.rows[0]?.name,
     })
   } catch (err) {
-    console.error('PATCH admin/tickets error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err, 'PUT admin/tickets error:')
   }
 })
 

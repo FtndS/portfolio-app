@@ -71,7 +71,7 @@ app.use(cors({
   },
   credentials: true,
 }))
-app.use(express.json({ limit: '1mb' }))
+app.use(express.json({ limit: '2.5mb' }))
 
 // Price cache 5 นาที
 const priceCache = new Map()
@@ -82,7 +82,7 @@ app.get('/api/health', async (req, res) => {
     await pool.query('SELECT NOW()')
     res.json({ status: 'ok', db: 'connected' })
   } catch (err) {
-    res.status(500).json({ status: 'error', db: err.message })
+    res.status(500).json({ status: 'error', db: process.env.NODE_ENV === 'production' ? 'unavailable' : err.message })
   }
 })
 

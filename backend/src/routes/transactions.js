@@ -1,4 +1,5 @@
 import express from 'express'
+import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { storageTicker, defaultCurrency, detectMarket } from '../lib/ticker.js'
@@ -7,6 +8,7 @@ import { syncHoldingFromTransactions } from '../lib/holdingSync.js'
 import { validateHoldingId } from '../lib/holdingAccess.js'
 import { parseTransactionCsv } from '../lib/csvImport.js'
 import { parseFee } from '../lib/validate.js'
+import { csvImportLimiter } from '../middleware/rateLimit.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -23,11 +25,11 @@ router.get('/', async (req, res) => {
     res.json(result.rows)
   } catch (err) {
     console.error('GET transactions error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
-router.post('/import', async (req, res) => {
+router.post('/import', csvImportLimiter, async (req, res) => {
   const { csv, portfolio_id, dry_run } = req.body
   if (!csv || typeof csv !== 'string') {
     return res.status(400).json({ error: 'กรุณาส่งไฟล์ CSV' })
@@ -112,7 +114,7 @@ router.post('/import', async (req, res) => {
     }
   } catch (err) {
     console.error('CSV import error:', err)
-    res.status(500).json({ error: err.message || 'นำเข้าไม่สำเร็จ' })
+    serverError(res, err)
   }
 })
 
@@ -167,7 +169,7 @@ router.post('/', async (req, res) => {
     res.json(txResult.rows[0])
   } catch (err) {
     await client.query('ROLLBACK')
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   } finally {
     client.release()
   }
@@ -268,7 +270,7 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK')
     console.error('PUT transaction error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   } finally {
     client.release()
   }
@@ -304,7 +306,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Deleted' })
   } catch (err) {
     await client.query('ROLLBACK')
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   } finally {
     client.release()
   }

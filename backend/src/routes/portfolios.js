@@ -1,4 +1,5 @@
 import express from 'express'
+import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { computePortfolioHistory, computeBenchmarkHistory, resolveBenchmark, resolveDaysParam, BENCHMARKS } from '../lib/portfolioHistory.js'
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
     )
     res.json(result.rows)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -42,7 +43,7 @@ router.post('/', async (req, res) => {
     )
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -67,7 +68,7 @@ router.put('/:id/default', async (req, res) => {
     res.json(result.rows[0])
   } catch (err) {
     await client.query('ROLLBACK')
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   } finally {
     client.release()
   }
@@ -85,7 +86,7 @@ router.put('/:id', async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -119,7 +120,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Deleted' })
   } catch (err) {
     await client.query('ROLLBACK')
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   } finally {
     client.release()
   }
@@ -176,7 +177,7 @@ router.get('/:id/history', async (req, res) => {
     res.json({ history, benchmark, benchmarks })
   } catch (err) {
     console.error('Portfolio history error:', err.message)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -200,7 +201,7 @@ router.post('/:id/snapshot', async (req, res) => {
     )
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 

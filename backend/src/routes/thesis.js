@@ -1,4 +1,5 @@
 import express from 'express'
+import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { resolvePortfolioId } from '../lib/portfolio.js'
@@ -23,7 +24,7 @@ router.get('/', async (req, res) => {
     res.json(result.rows)
   } catch (err) {
     console.error('GET thesis list error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -42,7 +43,7 @@ router.get('/:ticker', async (req, res) => {
     res.json(result.rows[0])
   } catch (err) {
     console.error('GET thesis error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -65,7 +66,7 @@ router.put('/:ticker', async (req, res) => {
     res.json(result.rows[0])
   } catch (err) {
     console.error('PUT thesis error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 

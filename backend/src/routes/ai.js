@@ -1,4 +1,5 @@
 import express from 'express'
+import { serverError } from '../lib/httpErrors.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { aiLimiter } from '../middleware/rateLimit.js'
 import { requireAiQuota } from '../middleware/aiQuota.js'
@@ -28,7 +29,7 @@ router.get('/quota', async (req, res) => {
     res.json(quota)
   } catch (err) {
     console.error('AI quota fetch error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -141,7 +142,7 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
     })
   } catch (err) {
     console.error('AI copilot error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -244,7 +245,7 @@ ${JSON.stringify(journalSummary.entries, null, 2)}
     res.json({ ...analysis, dataScope })
   } catch (err) {
     console.error('AI analyze error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -281,7 +282,7 @@ ${newsText}
     res.json(result)
   } catch (err) {
     console.error('News summary error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -339,7 +340,7 @@ ${journalText || '— ไม่มี'}
     res.json({ summary: text.trim() })
   } catch (err) {
     console.error('Ticker journal summary error:', err)
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 

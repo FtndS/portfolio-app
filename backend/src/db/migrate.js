@@ -487,6 +487,13 @@ const migrations = [
       ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_updated_at TIMESTAMPTZ;
     `,
   },
+  {
+    name: '023_support_receipt',
+    sql: `
+      ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS receipt_mime VARCHAR(64);
+      ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS receipt_data BYTEA;
+    `,
+  },
 ]
 
 export async function runMigrations() {

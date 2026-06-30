@@ -1131,6 +1131,34 @@ body,
   gap: 10px;
 }
 
+.dash-admin-receipt-badge {
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--gain-soft);
+  color: var(--gain);
+  vertical-align: middle;
+}
+
+.dash-admin-receipt-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dash-admin-receipt-img {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  margin-bottom: 6px;
+}
+
 /* Ticker story — thesis + timeline */
 .dash-story-section {
   margin-bottom: 20px;

@@ -3,6 +3,49 @@ import { api } from '../../lib/api'
 import { btnPrimary, btnGhost } from '../../lib/styles'
 import AdminSubscribers from './AdminSubscribers'
 
+function TicketReceipt({ ticketId }) {
+  const [url, setUrl] = useState('')
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    if (!ticketId) return undefined
+    let revoked = false
+    setErr('')
+    setUrl('')
+
+    api.fetch(`/admin/tickets/${ticketId}/receipt`).then(async (res) => {
+      if (revoked) return
+      if (!res.ok) {
+        setErr('โหลดสลิปไม่สำเร็จ')
+        return
+      }
+      const blob = await res.blob()
+      if (revoked) return
+      setUrl(URL.createObjectURL(blob))
+    }).catch(() => {
+      if (!revoked) setErr('โหลดสลิปไม่สำเร็จ')
+    })
+
+    return () => {
+      revoked = true
+      setUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return ''
+      })
+    }
+  }, [ticketId])
+
+  if (err) return <p className="dash-text-loss" style={{ fontSize: '13px' }}>{err}</p>
+  if (!url) return <p className="dash-text-muted" style={{ fontSize: '13px' }}>กำลังโหลดสลิป...</p>
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="dash-admin-receipt-link">
+      <img src={url} alt="สลิปการโอน" className="dash-admin-receipt-img" />
+      <span className="dash-text-muted" style={{ fontSize: '12px' }}>คลิกเพื่อดูขนาดเต็ม</span>
+    </a>
+  )
+}
+
 const STATUS_LABELS = {
   open: 'เปิดใหม่',
   in_progress: 'กำลังดำเนินการ',
@@ -30,6 +73,7 @@ export default function AdminPage({ user, onBack, onLogout }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [selected, setSelected] = useState(null)
   const [editStatus, setEditStatus] = useState('open')
   const [editNotes, setEditNotes] = useState('')
@@ -39,7 +83,9 @@ export default function AdminPage({ user, onBack, onLogout }) {
   const loadTickets = useCallback(async () => {
     setLoading(true)
     setError('')
-    const params = filter === 'all' ? undefined : { status: filter }
+    const params = {}
+    if (filter !== 'all') params.status = filter
+    if (categoryFilter !== 'all') params.category = categoryFilter
     const rows = await api.get('/admin/tickets', params)
     setLoading(false)
     if (Array.isArray(rows)) {
@@ -48,7 +94,7 @@ export default function AdminPage({ user, onBack, onLogout }) {
       setError(rows.error || 'โหลดคำร้องไม่สำเร็จ')
       setTickets([])
     }
-  }, [filter])
+  }, [filter, categoryFilter])
 
   useEffect(() => {
     if (adminTab === 'tickets') loadTickets()
@@ -144,6 +190,24 @@ export default function AdminPage({ user, onBack, onLogout }) {
               </button>
             </div>
 
+            <div className="dash-segment" style={{ marginBottom: '16px' }}>
+              {[
+                ['all', 'ทุกประเภท'],
+                ['upgrade', 'อัปเกรด Pro'],
+                ['bug', 'Bug'],
+                ['question', 'คำถาม'],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`dash-segment-btn${categoryFilter === key ? ' dash-segment-btn--active' : ''}`}
+                  onClick={() => setCategoryFilter(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {error && <p className="dash-text-loss" style={{ marginBottom: '12px' }}>{error}</p>}
 
             <div className="dash-admin-layout">
@@ -166,7 +230,10 @@ export default function AdminPage({ user, onBack, onLogout }) {
                           {STATUS_LABELS[t.status] || t.status}
                         </span>
                       </div>
-                      <div className="dash-admin-ticket-subject">{t.subject}</div>
+                      <div className="dash-admin-ticket-subject">
+                        {t.subject}
+                        {t.has_receipt && <span className="dash-admin-receipt-badge">สลิป</span>}
+                      </div>
                       <div className="dash-text-faint" style={{ fontSize: '12px' }}>
                         {t.user_name || t.user_email} · {CATEGORY_LABELS[t.category]} · {fmtDate(t.created_at)}
                       </div>
@@ -189,6 +256,13 @@ export default function AdminPage({ user, onBack, onLogout }) {
                     <div className="dash-inset" style={{ padding: '14px', marginBottom: '16px', whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: 1.65 }}>
                       {selected.message}
                     </div>
+
+                    {selected.has_receipt && (
+                      <div className="dash-card dash-admin-receipt" style={{ marginBottom: '16px', padding: '14px' }}>
+                        <h4 className="dash-text-muted" style={{ fontSize: '12px', margin: '0 0 10px', fontWeight: 600 }}>สลิปการโอน</h4>
+                        <TicketReceipt ticketId={selected.id} />
+                      </div>
+                    )}
 
                     {selected.user_id && (
                       <button

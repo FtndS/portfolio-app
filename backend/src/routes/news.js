@@ -1,4 +1,5 @@
 import express from 'express'
+import { serverError } from '../lib/httpErrors.js'
 import { authMiddleware } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -76,7 +77,7 @@ router.get('/dashboard', async (req, res) => {
       cachedAt: new Date().toISOString()
     })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -86,7 +87,7 @@ router.get('/ticker/:symbol', async (req, res) => {
     const articles = await fetchRSS(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}`)
     res.json(articles.slice(0, 15))
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 

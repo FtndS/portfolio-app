@@ -1,4 +1,5 @@
 import express from 'express'
+import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { defaultCurrency, resolveMarket, storageTicker } from '../lib/ticker.js'
@@ -103,7 +104,7 @@ router.get('/', async (req, res) => {
     await refreshStaleSectors(rows, portfolioCurrency)
     res.json(rows)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -130,7 +131,7 @@ router.post('/', async (req, res) => {
     )
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -167,7 +168,7 @@ router.put('/:id', async (req, res) => {
     }
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -189,7 +190,7 @@ router.post('/refresh-sectors', async (req, res) => {
     await refreshStaleSectors(result.rows, portfolioCurrency)
     res.json({ updated: result.rows.length, holdings: result.rows })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -198,7 +199,7 @@ router.delete('/:id', async (req, res) => {
     await pool.query('DELETE FROM holdings WHERE id=$1 AND user_id=$2', [req.params.id, req.userId])
     res.json({ message: 'Deleted' })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 

@@ -3,6 +3,7 @@ import {
   quotaExceededMessage,
   reserveAiQuota,
 } from '../lib/aiQuota.js'
+import { serverError } from '../lib/httpErrors.js'
 
 export function requireAiQuota(feature) {
   return async (req, res, next) => {
@@ -25,8 +26,7 @@ export function requireAiQuota(feature) {
       }
       next()
     } catch (err) {
-      console.error('AI quota check error:', err)
-      res.status(500).json({ error: err.message })
+      serverError(res, err, 'AI quota check error:')
     }
   }
 }

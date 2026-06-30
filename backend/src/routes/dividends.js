@@ -1,4 +1,5 @@
 import express from 'express'
+import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { resolvePortfolioId } from '../lib/portfolio.js'
@@ -20,7 +21,7 @@ router.get('/', async (req, res) => {
     )
     res.json(result.rows)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -49,7 +50,7 @@ router.get('/summary', async (req, res) => {
     )
     res.json({ ...result.rows[0], by_ticker: byTicker.rows })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -88,7 +89,7 @@ router.post('/', async (req, res) => {
     )
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -109,7 +110,7 @@ router.put('/:id', async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'ไม่พบรายการ' })
     res.json(result.rows[0])
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
@@ -122,7 +123,7 @@ router.delete('/:id', async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'ไม่พบรายการ' })
     res.json({ message: 'Deleted' })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    serverError(res, err)
   }
 })
 
