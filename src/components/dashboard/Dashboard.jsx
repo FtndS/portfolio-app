@@ -28,6 +28,7 @@ import { usePrivacy } from '../../lib/privacy'
 import { journalDraftFromTransaction, isJournalPromptEnabled } from '../../lib/workflow'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../../lib/pnl'
 import { convertAmount, toPortfolioCurrency } from '../../lib/currency'
+import { inferPortfolioCurrency } from '../../lib/reportScope'
 import WorkflowGuide from './WorkflowGuide'
 import DashboardSidebar, { tabLabel } from './DashboardSidebar'
 import ThemeToggle from '../ThemeToggle'
@@ -141,7 +142,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const recordSnapshot=useCallback(async(portfolioId,hl,pricesMap)=>{
     if(!portfolioId||!hl?.length) return
     const port=portfolios.find((p)=>Number(p.id)===Number(portfolioId))
-    const portCcy=port?.currency||'USD'
+    const portCcy=inferPortfolioCurrency(port, hl)
     const toPortCcy=(amount,holdingCcy)=>toPortfolioCurrency(amount,holdingCcy,portCcy,fxRate)
     const getVal=h=>{
       const p=pricesMap[h.ticker]||Number(h.avg_cost)
@@ -347,6 +348,10 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     return s+convertToDisplay(Number(h.shares)*p,h.currency||'USD')
   },0)
   const activePort=portfolios.find(p=>p.id===activePortfolioId)
+  const activePortCurrency = useMemo(
+    () => inferPortfolioCurrency(activePort, holdings),
+    [activePort, holdings]
+  )
 
   const firstTxDate = useMemo(() => {
     if (!transactions.length) return null
@@ -553,10 +558,10 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           {holdings.length>0&&<>
             <div className="dash-overview-charts">
               <PortfolioChart
-                key={`${activePortfolioId}-${displayCurrency}`}
+                key={`${activePortfolioId}-${displayCurrency}-${activePortCurrency}`}
                 history={portfolioHistory}
                 portfolioName={activePort?.name}
-                portfolioCurrency={activePort?.currency || 'USD'}
+                portfolioCurrency={activePortCurrency}
                 fxRate={fxRate}
                 benchmark={benchmarksData}
                 benchmarkToggles={benchmarkToggles}

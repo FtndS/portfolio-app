@@ -1,4 +1,5 @@
 import pool from '../db/index.js'
+import { inferPortfolioCurrency } from './currency.js'
 import { toYahooTicker, resolveMarket, yahooSymbolsForHolding } from './ticker.js'
 import { yahooGet } from './yahooAuth.js'
 import { fetchHoldingQuote } from './yahooPrices.js'
@@ -144,6 +145,50 @@ function priceOnDate(priceMap, dateStr, fallback = 0) {
   return priceMap[sorted[0]]
 }
 
+function txDateStr(tx) {
+  return (tx.date instanceof Date ? tx.date.toISOString() : String(tx.date)).split('T')[0]
+}
+
+function cashFlowOnDate(transactions, dateStr) {
+  let cf = 0
+  for (const tx of transactions) {
+    if (txDateStr(tx) !== dateStr) continue
+    const sh = parseFloat(tx.shares)
+    const price = parseFloat(tx.price)
+    const fee = parseFloat(tx.fee || 0)
+    const amount = sh * price + fee
+    if (tx.type === 'BUY') cf += amount
+    else if (tx.type === 'SELL') cf -= amount
+  }
+  return cf
+}
+
+/** Chain-linked return excluding net deposits/withdrawals (TWR-style). */
+export function attachPerformancePct(points, transactions) {
+  if (!points.length) return points
+
+  const result = [{ ...points[0], performance_pct: 0 }]
+  let chain = 1
+
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i]
+    const v0 = Number(points[i - 1].total_value) || 0
+    const v1 = Number(p.total_value) || 0
+    const cf = cashFlowOnDate(transactions, p.date)
+
+    if (v0 > 0) {
+      chain *= 1 + (v1 - v0 - cf) / v0
+    }
+
+    result.push({
+      ...p,
+      performance_pct: Math.round((chain - 1) * 10000) / 100,
+    })
+  }
+
+  return result
+}
+
 function positionsAtDate(transactions, dateStr) {
   const positions = {}
   const avgCosts = {}
@@ -208,9 +253,10 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
     pool.query('SELECT currency FROM portfolios WHERE id = $1 AND user_id = $2', [portfolioId, userId]),
   ])
   const transactions = txResult.rows
-  const portfolioCurrency = portResult.rows[0]?.currency || 'USD'
+  const holdingsRows = holdingMetaResult.rows
+  const portfolioCurrency = inferPortfolioCurrency(portResult.rows[0]?.currency, holdingsRows)
   const holdingMeta = Object.fromEntries(
-    holdingMetaResult.rows.map((r) => [r.ticker, r])
+    holdingsRows.map((r) => [r.ticker, r])
   )
 
   const snapshotResult = await pool.query(
@@ -225,12 +271,15 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   )
 
   if (!transactions.length) {
-    return snapshotResult.rows.map(r => ({
-      date: r.date,
-      total_value: Number(r.total_value),
-      total_cost: Number(r.total_cost),
-      source: 'snapshot',
-    }))
+    return attachPerformancePct(
+      snapshotResult.rows.map((r) => ({
+        date: r.date,
+        total_value: Number(r.total_value),
+        total_cost: Number(r.total_cost),
+        source: 'snapshot',
+      })),
+      []
+    )
   }
 
   const tickers = [...new Set(transactions.map(t => t.ticker))]
@@ -288,7 +337,7 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
     else unique.push(todayPoint)
   }
 
-  return unique.sort((a, b) => a.date.localeCompare(b.date))
+  return attachPerformancePct(unique.sort((a, b) => a.date.localeCompare(b.date)), transactions)
 }
 
 export async function computeBenchmarkHistory(benchmark, historyDates, days) {

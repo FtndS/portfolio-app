@@ -6,7 +6,7 @@ import { usePrivacy } from '../lib/privacy'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../lib/pnl'
 import {
   aggregateHoldingsByTicker,
-  mergePortfolioHistories,
+  mergePortfolioHistoriesWithPerformance,
   normalizeHistoryResponse,
   convertHistoryToDisplay,
   portfolioNameById,
@@ -113,12 +113,12 @@ export default function PortfolioReport({
             holdings: aggHoldings,
             transactions: allTx,
             dividends: allDiv,
-            portfolioHistory: mergePortfolioHistories(
+            portfolioHistory: mergePortfolioHistoriesWithPerformance(
               portfolios.map((p, i) => ({
                 batch: histRes[i],
                 portfolioCurrency: inferPortfolioCurrency(p, allHoldings),
               })),
-              { displayCurrency, usdThb: fxRate }
+              { displayCurrency, usdThb: fxRate, transactions: allTx }
             ),
             benchmark: compareSp500 ? histRes.map(extractBenchmark).find(Boolean) || null : null,
             title: 'ทุกพอร์ตรวม',

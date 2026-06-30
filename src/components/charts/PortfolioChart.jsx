@@ -124,17 +124,30 @@ export default function PortfolioChart({
     const allVals = history.map((d) => convert(d.total_value))
     const allCosts = history.map((d) => convert(d.total_cost || 0))
     const allDates = history.map((d) => dateKey(d.date))
+    const allPerf = history.map((d) => (d.performance_pct != null ? Number(d.performance_pct) : null))
+    const hasPerf = allPerf.some((v) => v != null)
 
     const trimFrom = leadingZeroEnd(allVals)
     const vals = allVals.slice(trimFrom)
     const costs = allCosts.slice(trimFrom)
     const dates = allDates.slice(trimFrom)
+    const perf = hasPerf ? allPerf.slice(trimFrom) : null
 
     const baselineIdx = Math.max(0, compareBaselineIndex(vals, costs))
-    const portReturn = periodReturnSeries(vals, baselineIdx)
+    const naiveReturn = periodReturnSeries(vals, baselineIdx)
+    const perfSlice = hasPerf ? allPerf.slice(trimFrom) : null
+    const portReturn = perfSlice
+      ? (() => {
+          const base = perfSlice[0] ?? 0
+          return perfSlice.map((v) => (v != null ? v - base : 0))
+        })()
+      : naiveReturn
     const latest = vals[vals.length - 1] ?? 0
-    const firstPositive = vals.find((v) => v > 0) ?? vals[0] ?? 0
-    const portChg = firstPositive > 0 ? ((latest - firstPositive) / firstPositive) * 100 : 0
+    const firstPositive = vals[baselineIdx] > 0 ? vals[baselineIdx] : (vals.find((v) => v > 0) ?? vals[0] ?? 0)
+    const naiveChg = firstPositive > 0 ? ((latest - firstPositive) / firstPositive) * 100 : 0
+    const portChg = perfSlice
+      ? (portReturn[portReturn.length - 1] ?? 0)
+      : naiveChg
 
     const benchmarkLines = benchmarks.map((bm) => {
       const indexedVals = alignBenchmarkSeries(dates, bm)
@@ -147,7 +160,7 @@ export default function PortfolioChart({
         changePct: last,
       }
     })
-    const comparePortChg = [...portReturn].reverse().find((v) => Number.isFinite(v)) ?? 0
+    const comparePortChg = portReturn[portReturn.length - 1] ?? 0
 
     return {
       vals,
@@ -163,6 +176,7 @@ export default function PortfolioChart({
       fullRangeEnd: allDates[allDates.length - 1],
       firstValueDate: dates[0] ?? null,
       skippedEnd: trimFrom > 0 ? allDates[trimFrom - 1] : null,
+      usesTwr: !!perfSlice,
     }
   }, [history, benchmarks, displayCurrency, fxRate, portfolioCurrency])
 
@@ -192,6 +206,7 @@ export default function PortfolioChart({
     fullRangeEnd,
     firstValueDate,
     skippedEnd,
+    usesTwr,
   } = chartData
 
   const compareMode = anyToggleOn
@@ -282,8 +297,10 @@ export default function PortfolioChart({
           <h3 className="dash-chart-title">Portfolio Value</h3>
           <p className="dash-chart-sub">
             {compareMode
-              ? 'กราฟ % การเปลี่ยนแปลงจากต้นช่วงที่เลือก (0% = จุดเริ่ม) — ไม่ใช่กำไรรวมจากทุน'
-              : `กราฟมูลค่าพอร์ต (${currencyLabel}) จาก transaction + ราคาย้อนหลัง${portfolioName ? ` · ${portfolioName}` : ''}`}
+              ? usesTwr
+                ? 'กราฟ % ผลตอบแทนจากราคาหุ้น (ไม่นับเงินซื้อเพิ่ม) — เทียบกับดัชนี'
+                : 'กราฟ % การเปลี่ยนแปลงจากต้นช่วงที่เลือก (0% = จุดเริ่ม) — ไม่ใช่กำไรรวมจากทุน'
+              : `กราฟมูลค่าพอร์ต (${currencyLabel}) = ราคา × จำนวนหุ้น${portfolioName ? ` · ${portfolioName}` : ''}`}
           </p>
         </div>
         <div className="dash-chart-stats">
@@ -300,6 +317,11 @@ export default function PortfolioChart({
                   ? 'ในช่วงที่เลือก'
                   : `มูลค่าล่าสุด ${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)
               : `${portChg >= 0 ? '+' : ''}${portChg.toFixed(2)}%`}
+            {!compareMode && usesTwr && (
+              <span className="dash-text-muted" style={{ marginLeft: '6px', fontSize: '11px' }}>
+                ผลตอบแทนจากราคา
+              </span>
+            )}
             {compareMode && benchmarkLines.length > 0 && (
               <span className="dash-text-muted" style={{ marginLeft: '8px' }}>
                 {benchmarkLines.map((bm, i) => (

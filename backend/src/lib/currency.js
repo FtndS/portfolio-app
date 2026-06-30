@@ -22,3 +22,19 @@ export function fromUsd(amountUsd, displayCurrency, usdThb = 35) {
 export function convertAmount(amount, fromCurrency, displayCurrency, usdThb = 35) {
   return fromUsd(toUsd(amount, fromCurrency, usdThb), displayCurrency, usdThb)
 }
+
+/** Infer native currency from holdings when portfolios.currency is stale. */
+export function inferPortfolioCurrency(explicitCurrency, holdings = []) {
+  if (!holdings?.length) return explicitCurrency || 'USD'
+
+  const counts = {}
+  for (const h of holdings) {
+    const c = String(h.currency || 'USD').toUpperCase()
+    counts[c] = (counts[c] || 0) + 1
+  }
+  const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'USD'
+  const explicit = String(explicitCurrency || '').toUpperCase()
+
+  if ((counts[dominant] || 0) >= holdings.length * 0.5) return dominant
+  return explicit || dominant || 'USD'
+}

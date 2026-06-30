@@ -100,6 +100,9 @@ export default function ReportLineChart({
     const allCosts = history.map((d) => Number(d.total_cost || 0))
     const allDates = history.map((d) => dateKey(d.date))
 
+    const allPerf = history.map((d) => (d.performance_pct != null ? Number(d.performance_pct) : null))
+    const hasPerf = allPerf.some((v) => v != null)
+
     const trimFrom = leadingZeroEnd(allVals)
     const vals = allVals.slice(trimFrom)
     const costs = allCosts.slice(trimFrom)
@@ -107,10 +110,18 @@ export default function ReportLineChart({
     if (!vals.length) return null
 
     const baselineIdx = Math.max(0, compareBaselineIndex(vals))
-    const portReturn = periodReturnSeries(vals, baselineIdx)
+    const naiveReturn = periodReturnSeries(vals, baselineIdx)
+    const perfSlice = hasPerf ? allPerf.slice(trimFrom) : null
+    const portReturn = perfSlice
+      ? (() => {
+          const base = perfSlice[0] ?? 0
+          return perfSlice.map((v) => (v != null ? v - base : 0))
+        })()
+      : naiveReturn
     const latest = vals[vals.length - 1] ?? 0
     const firstPositive = vals[baselineIdx] > 0 ? vals[baselineIdx] : (vals.find((v) => v > 0) ?? vals[0] ?? 0)
-    const portChg = firstPositive > 0 ? ((latest - firstPositive) / firstPositive) * 100 : 0
+    const naiveChg = firstPositive > 0 ? ((latest - firstPositive) / firstPositive) * 100 : 0
+    const portChg = perfSlice ? (portReturn[portReturn.length - 1] ?? 0) : naiveChg
 
     let bmReturn = null
     let bmChg = 0
@@ -121,7 +132,7 @@ export default function ReportLineChart({
       bmChg = last
     }
 
-    return { vals, costs, dates, portReturn, bmReturn, latest, portChg, bmChg, baselineIdx }
+    return { vals, costs, dates, portReturn, bmReturn, latest, portChg, bmChg, baselineIdx, usesTwr: !!perfSlice }
   }, [history, benchmark, compareSp500])
 
   if (!history?.length) {
@@ -130,7 +141,7 @@ export default function ReportLineChart({
 
   if (!chartData) return null
 
-  const { vals, costs, dates, portReturn, bmReturn, latest, portChg, bmChg } = chartData
+  const { vals, costs, dates, portReturn, bmReturn, latest, portChg, bmChg, usesTwr } = chartData
   const compareMode = compareSp500 && bmReturn != null
 
   const W = 720
@@ -194,8 +205,10 @@ export default function ReportLineChart({
         <div>
           <p className="dash-report-chart-caption">
             {compareMode
-              ? 'กราฟ % การเปลี่ยนแปลงจากต้นช่วง — เทียบกับ S&P 500'
-              : `มูลค่าพอร์ต (${currencyLabel}) จาก transaction + ราคาย้อนหลัง`}
+              ? usesTwr
+                ? 'กราฟ % ผลตอบแทนจากราคาหุ้น (ไม่นับเงินซื้อเพิ่ม) — เทียบกับ S&P 500'
+                : 'กราฟ % การเปลี่ยนแปลงจากต้นช่วง — เทียบกับ S&P 500'
+              : `มูลค่าพอร์ต (${currencyLabel}) = ราคา × จำนวนหุ้น`}
           </p>
         </div>
         <div className="dash-report-line-stats">

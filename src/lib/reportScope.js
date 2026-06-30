@@ -1,5 +1,49 @@
 import { convertAmount } from './currency.js'
 
+function txDateStr(tx) {
+  return String(tx?.date || '').split('T')[0]
+}
+
+function cashFlowOnDate(transactions, dateStr) {
+  let cf = 0
+  for (const tx of transactions || []) {
+    if (txDateStr(tx) !== dateStr) continue
+    const sh = Number(tx.shares)
+    const price = Number(tx.price)
+    const fee = Number(tx.fee || 0)
+    const amount = sh * price + fee
+    if (tx.type === 'BUY') cf += amount
+    else if (tx.type === 'SELL') cf -= amount
+  }
+  return cf
+}
+
+/** Chain-linked return excluding net deposits/withdrawals (matches backend). */
+export function attachPerformancePct(points, transactions = []) {
+  if (!points?.length) return points || []
+
+  const result = [{ ...points[0], performance_pct: 0 }]
+  let chain = 1
+
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i]
+    const v0 = Number(points[i - 1].total_value) || 0
+    const v1 = Number(p.total_value) || 0
+    const cf = cashFlowOnDate(transactions, p.date)
+
+    if (v0 > 0) {
+      chain *= 1 + (v1 - v0 - cf) / v0
+    }
+
+    result.push({
+      ...p,
+      performance_pct: Math.round((chain - 1) * 10000) / 100,
+    })
+  }
+
+  return result
+}
+
 /** Merge holdings with the same ticker + currency across portfolios (weighted avg cost). */
 export function aggregateHoldingsByTicker(holdings) {
   const map = new Map()
@@ -57,6 +101,12 @@ export function mergePortfolioHistories(entries, { displayCurrency = 'USD', usdT
     }
   }
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export function mergePortfolioHistoriesWithPerformance(entries, options = {}) {
+  const merged = mergePortfolioHistories(entries, options)
+  const transactions = options.transactions || []
+  return attachPerformancePct(merged, transactions)
 }
 
 export function convertHistoryToDisplay(history, portfolioCurrency, displayCurrency, usdThb = 35) {
