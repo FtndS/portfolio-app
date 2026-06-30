@@ -1,7 +1,7 @@
 import express from 'express'
 import bcrypt from 'bcryptjs'
 import pool from '../db/index.js'
-import { ensureUserPortfolio } from '../lib/portfolio.js'
+import { ensureUserPortfolio, repairAllPortfolioLinks } from '../lib/portfolio.js'
 import { signAuthToken } from '../lib/authToken.js'
 import { authMiddleware } from '../middleware/auth.js'
 import {
@@ -211,6 +211,7 @@ router.post('/register/verify', otpVerifyLimiter, async (req, res) => {
 
     try {
       await ensureUserPortfolio(user.id)
+      await repairAllPortfolioLinks(user.id)
     } catch (e) {
       console.warn('Default portfolio not created:', e.message)
     }
@@ -251,6 +252,7 @@ router.post('/login', authLimiter, async (req, res) => {
 
     try {
       await ensureUserPortfolio(user.id)
+      await repairAllPortfolioLinks(user.id)
     } catch (e) {
       console.warn('Default portfolio not ensured on login:', e.message)
     }

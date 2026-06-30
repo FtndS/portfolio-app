@@ -27,6 +27,7 @@ import { MASKED, fmtPct, fmtDate, isoDate, fmtShares } from '../../lib/format'
 import { usePrivacy } from '../../lib/privacy'
 import { journalDraftFromTransaction, isJournalPromptEnabled } from '../../lib/workflow'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../../lib/pnl'
+import { convertAmount, toPortfolioCurrency } from '../../lib/currency'
 import WorkflowGuide from './WorkflowGuide'
 import DashboardSidebar, { tabLabel } from './DashboardSidebar'
 import ThemeToggle from '../ThemeToggle'
@@ -141,12 +142,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     if(!portfolioId||!hl?.length) return
     const port=portfolios.find((p)=>Number(p.id)===Number(portfolioId))
     const portCcy=port?.currency||'USD'
-    const toPortCcy=(amount,holdingCcy)=>{
-      const ccy=holdingCcy||'USD'
-      if(portCcy===ccy) return amount
-      if(portCcy==='THB') return ccy==='THB'?amount:amount*fxRate
-      return ccy==='THB'?amount/fxRate:amount
-    }
+    const toPortCcy=(amount,holdingCcy)=>toPortfolioCurrency(amount,holdingCcy,portCcy,fxRate)
     const getVal=h=>{
       const p=pricesMap[h.ticker]||Number(h.avg_cost)
       return toPortCcy(Number(h.shares)*p,h.currency)
@@ -284,15 +280,16 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     }
   }
 
-  const convertToDisplay=(amount,currency)=>{
-    if(displayCurrency==='THB') return currency==='THB'?amount:amount*fxRate
-    return currency==='THB'?amount/fxRate:amount
-  }
+  const convertToDisplay=useCallback((amount,currency)=>{
+    return convertAmount(amount,currency||'USD',displayCurrency,fxRate)
+  },[displayCurrency,fxRate])
 
   const portfolioInvested=(p)=>{
-    if(p.invested_thb!=null||p.invested_usd!=null){
+    if(p.invested_thb!=null||p.invested_usd!=null||p.invested_hkd!=null||p.invested_cny!=null){
       return convertToDisplay(Number(p.invested_usd||0),'USD')
         +convertToDisplay(Number(p.invested_thb||0),'THB')
+        +convertToDisplay(Number(p.invested_hkd||0),'HKD')
+        +convertToDisplay(Number(p.invested_cny||0),'CNY')
     }
     return convertToDisplay(Number(p.total_invested||0),p.currency||'USD')
   }

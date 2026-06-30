@@ -54,7 +54,8 @@ export async function repairAllPortfolioLinks(userId) {
 }
 
 export async function resolvePortfolioId(userId, portfolioId) {
-  const defaultId = await repairAllPortfolioLinks(userId)
+  let defaultId = await getDefaultPortfolioId(userId)
+  if (!defaultId) defaultId = await ensureUserPortfolio(userId)
 
   if (portfolioId != null && portfolioId !== '') {
     const id = Number(portfolioId)

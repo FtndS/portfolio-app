@@ -1,10 +1,10 @@
+import { convertAmount } from '../../lib/currency'
+
 export default function Treemap({holdings,prices,displayCurrency,fxRate,heatmapMode='today'}){
   const getVal=h=>{
     const p=prices[h.ticker]||Number(h.avg_cost)
     const v=Number(h.shares)*p
-    if(displayCurrency==='THB') return h.currency==='THB'?v:v*fxRate
-    if(displayCurrency==='USD') return h.currency==='USD'?v:h.currency==='THB'?v/fxRate:v
-    return v
+    return convertAmount(v,h.currency||'USD',displayCurrency,fxRate)
   }
   const getChg=h=>{
     if(heatmapMode==='invested'){

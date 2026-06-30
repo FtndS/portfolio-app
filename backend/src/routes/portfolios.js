@@ -17,8 +17,14 @@ router.get('/', async (req, res) => {
           CASE WHEN COALESCE(h.currency, 'USD') = 'THB' THEN h.shares * h.avg_cost ELSE 0 END
         ), 0) AS invested_thb,
         COALESCE(SUM(
-          CASE WHEN COALESCE(h.currency, 'USD') != 'THB' THEN h.shares * h.avg_cost ELSE 0 END
+          CASE WHEN COALESCE(h.currency, 'USD') = 'USD' THEN h.shares * h.avg_cost ELSE 0 END
         ), 0) AS invested_usd,
+        COALESCE(SUM(
+          CASE WHEN COALESCE(h.currency, 'USD') = 'HKD' THEN h.shares * h.avg_cost ELSE 0 END
+        ), 0) AS invested_hkd,
+        COALESCE(SUM(
+          CASE WHEN COALESCE(h.currency, 'USD') = 'CNY' THEN h.shares * h.avg_cost ELSE 0 END
+        ), 0) AS invested_cny,
         COUNT(h.id) AS holding_count
        FROM portfolios p
        LEFT JOIN holdings h ON h.portfolio_id = p.id

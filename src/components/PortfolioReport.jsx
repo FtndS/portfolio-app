@@ -8,6 +8,7 @@ import {
   aggregateHoldingsByTicker,
   mergePortfolioHistories,
   normalizeHistoryResponse,
+  convertHistoryToDisplay,
   portfolioNameById,
 } from '../lib/reportScope'
 import ReportDonut from './report/ReportDonut'
@@ -66,10 +67,16 @@ export default function PortfolioReport({
         holdings,
         transactions,
         dividends,
-        portfolioHistory,
+        portfolioHistory: convertHistoryToDisplay(
+          portfolioHistory,
+          activePort?.currency || 'USD',
+          displayCurrency,
+          fxRate
+        ),
         title: activePort?.name || 'พอร์ต',
         subtitle: null,
         showAllPortsSummary: portfolios.length > 1,
+        portfolioCurrency: activePort?.currency || 'USD',
       })
       setLoadingScope(false)
       return () => { cancelled = true }
@@ -94,10 +101,17 @@ export default function PortfolioReport({
             holdings: aggHoldings,
             transactions: allTx,
             dividends: allDiv,
-            portfolioHistory: mergePortfolioHistories(histRes),
+            portfolioHistory: mergePortfolioHistories(
+              portfolios.map((p, i) => ({
+                batch: histRes[i],
+                portfolioCurrency: p.currency || 'USD',
+              })),
+              { displayCurrency, usdThb: fxRate }
+            ),
             title: 'ทุกพอร์ตรวม',
             subtitle: `${portfolios.length} พอร์ต · ${aggHoldings.length} หลักทรัพย์`,
             showAllPortsSummary: false,
+            portfolioCurrency: displayCurrency,
           })
         } else {
           const portId = Number(scope)
@@ -109,14 +123,21 @@ export default function PortfolioReport({
           ])
           if (cancelled) return
           const hl = Array.isArray(h) ? h : []
+          const port = portfolios.find((p) => Number(p.id) === portId)
           setScoped({
             holdings: hl,
             transactions: Array.isArray(t) ? t : [],
             dividends: Array.isArray(d) ? d : [],
-            portfolioHistory: normalizeHistoryResponse(hist),
+            portfolioHistory: convertHistoryToDisplay(
+              normalizeHistoryResponse(hist),
+              port?.currency || 'USD',
+              displayCurrency,
+              fxRate
+            ),
             title: portfolioNameById(portfolios, portId),
             subtitle: null,
             showAllPortsSummary: portfolios.length > 1,
+            portfolioCurrency: port?.currency || 'USD',
           })
         }
       } catch (err) {
@@ -147,6 +168,8 @@ export default function PortfolioReport({
     activePort,
     portfolios,
     allHoldings,
+    displayCurrency,
+    fxRate,
   ])
 
   const reportHoldings = scoped?.holdings ?? holdings
@@ -227,8 +250,11 @@ export default function PortfolioReport({
     id: p.id,
     name: p.name,
     holdings: Number(p.holding_count || 0),
-    invested: p.invested_thb != null || p.invested_usd != null
-      ? convertToDisplay(Number(p.invested_usd || 0), 'USD') + convertToDisplay(Number(p.invested_thb || 0), 'THB')
+    invested: p.invested_thb != null || p.invested_usd != null || p.invested_hkd != null || p.invested_cny != null
+      ? convertToDisplay(Number(p.invested_usd || 0), 'USD')
+        + convertToDisplay(Number(p.invested_thb || 0), 'THB')
+        + convertToDisplay(Number(p.invested_hkd || 0), 'HKD')
+        + convertToDisplay(Number(p.invested_cny || 0), 'CNY')
       : convertToDisplay(Number(p.total_invested || 0), p.currency || 'USD'),
     isActive: Number(p.id) === Number(activePort?.id),
   }))

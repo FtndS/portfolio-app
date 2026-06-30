@@ -97,14 +97,23 @@ router.put('/:id', async (req, res) => {
   const parsed = parseBody(req.body)
   if (parsed.error) return res.status(400).json({ error: parsed.error })
   try {
+    const existing = await pool.query(
+      'SELECT portfolio_id FROM dividends WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    )
+    if (!existing.rows.length) return res.status(404).json({ error: 'ไม่พบรายการ' })
+
+    const portfolioId = existing.rows[0].portfolio_id
+      ?? await resolvePortfolioId(req.userId, req.body.portfolio_id)
+
     const result = await pool.query(
       `UPDATE dividends
        SET ticker = $1, amount = $2, currency = $3, shares_held = $4, pay_date = $5, note = $6
-       WHERE id = $7 AND user_id = $8
+       WHERE id = $7 AND user_id = $8 AND portfolio_id = $9
        RETURNING *`,
       [
         parsed.ticker, parsed.amount, parsed.currency, parsed.shares_held,
-        parsed.pay_date, parsed.note, req.params.id, req.userId,
+        parsed.pay_date, parsed.note, req.params.id, req.userId, portfolioId,
       ],
     )
     if (!result.rows.length) return res.status(404).json({ error: 'ไม่พบรายการ' })

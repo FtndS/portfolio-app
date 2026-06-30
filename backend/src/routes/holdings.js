@@ -138,12 +138,26 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { ticker, name, shares, avg_cost, currency, market } = req.body
   const existing = await pool.query(
-    'SELECT portfolio_id FROM holdings WHERE id = $1 AND user_id = $2',
+    'SELECT portfolio_id, ticker FROM holdings WHERE id = $1 AND user_id = $2',
     [req.params.id, req.userId]
   )
   if (!existing.rows.length) {
     return res.status(404).json({ error: 'ไม่พบ holding' })
   }
+  const portfolioId = existing.rows[0].portfolio_id
+  const oldTicker = existing.rows[0].ticker
+
+  const txCheck = await pool.query(
+    `SELECT 1 FROM transactions
+     WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3 LIMIT 1`,
+    [req.userId, portfolioId, oldTicker]
+  )
+  if (txCheck.rows.length) {
+    return res.status(400).json({
+      error: 'หุ้นนี้มี Transaction อยู่แล้ว — แก้จำนวนหุ้น/ราคาทุนผ่าน Transaction ไม่ใช่แก้ Holding โดยตรง',
+    })
+  }
+
   const portfolio = await pool.query(
     'SELECT currency FROM portfolios WHERE id = $1 AND user_id = $2',
     [existing.rows[0].portfolio_id, req.userId]

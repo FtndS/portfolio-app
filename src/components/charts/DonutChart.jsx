@@ -1,11 +1,11 @@
 import { SECTOR_COLORS } from '../../lib/constants'
+import { convertAmount } from '../../lib/currency'
 
 export default function DonutChart({ holdings, prices, displayCurrency, fxRate }) {
   const getVal = (h) => {
     const p = prices[h.ticker] || Number(h.avg_cost)
     const v = Number(h.shares) * p
-    if (displayCurrency === 'THB') return h.currency === 'THB' ? v : v * fxRate
-    return h.currency === 'THB' ? v / fxRate : v
+    return convertAmount(v, h.currency || 'USD', displayCurrency, fxRate)
   }
   const total = holdings.reduce((s, h) => s + getVal(h), 0)
   if (!holdings.length || total === 0) return null

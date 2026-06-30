@@ -9,6 +9,7 @@ import { validateHoldingId } from '../lib/holdingAccess.js'
 import { parseTransactionCsv } from '../lib/csvImport.js'
 import { parseFee } from '../lib/validate.js'
 import { csvImportLimiter } from '../middleware/rateLimit.js'
+import { getNetSharesForTicker, validateSellQuantity } from '../lib/transactionValidation.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -87,13 +88,17 @@ router.post('/import', csvImportLimiter, async (req, res) => {
         tickers.add(row.ticker)
       }
 
+      const currencyByTicker = new Map()
+      for (const row of sorted) {
+        currencyByTicker.set(row.ticker, row.currency || defaultCurrency)
+      }
+
       for (const ticker of tickers) {
         const holdingRow = await client.query(
           'SELECT currency FROM holdings WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3 LIMIT 1',
           [req.userId, portfolioId, ticker]
         )
-        const rowMatch = sorted.find((r) => r.ticker === ticker)
-        const txCurrency = rowMatch?.currency
+        const txCurrency = currencyByTicker.get(ticker)
           || holdingRow.rows[0]?.currency
           || defaultCurrency
         await syncHoldingFromTransactions(client, req.userId, portfolioId, ticker, null, txCurrency)
@@ -154,6 +159,15 @@ router.post('/', async (req, res) => {
 
     const sanitizedTicker = storageTicker(ticker, market || null, txCurrency)
     const total = shareNum * priceNum
+
+    if (type === 'SELL') {
+      const netShares = await getNetSharesForTicker(client, req.userId, portfolioId, sanitizedTicker)
+      const sellErr = validateSellQuantity(netShares, shareNum)
+      if (sellErr) {
+        return res.status(400).json({ error: sellErr })
+      }
+    }
+
     await client.query('BEGIN')
 
     const txResult = await client.query(
@@ -246,6 +260,17 @@ router.put('/:id', async (req, res) => {
 
     const sanitizedTicker = storageTicker(ticker, market || null, txCurrency)
     const total = shareNum * priceNum
+
+    if (type === 'SELL') {
+      const netShares = await getNetSharesForTicker(
+        client, req.userId, portfolioId, sanitizedTicker, req.params.id
+      )
+      const sellErr = validateSellQuantity(netShares, shareNum)
+      if (sellErr) {
+        await client.query('ROLLBACK')
+        return res.status(400).json({ error: sellErr })
+      }
+    }
 
     const txResult = await client.query(
       `UPDATE transactions
