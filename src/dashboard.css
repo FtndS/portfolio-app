@@ -1964,6 +1964,11 @@
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
   body,
   #root,
   .dash-shell,
@@ -2021,8 +2026,8 @@
   }
 
   .dash-report-charts {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
   }
 
   .dash-report-chart-card--wide {
@@ -2071,10 +2076,41 @@
   .dash-report-table td {
     border-color: #ddd !important;
     color: #111 !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    white-space: normal !important;
+    word-break: break-word;
   }
 
   .dash-report-ticker {
     color: #333 !important;
+  }
+
+  .dash-report-title {
+    font-size: 20px !important;
+  }
+
+  .dash-report-meta,
+  .dash-report-asof,
+  .dash-report-kpi-label,
+  .dash-report-chart-caption,
+  .dash-report-line-legend,
+  .dash-report-line-tick,
+  .dash-report-donut-legend li {
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  .dash-report-kpi-value,
+  .dash-report-line-stat-value {
+    font-size: 18px !important;
+  }
+
+  .dash-report-donut-legend-label {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word;
   }
 
   .dash-report-bar-track {
@@ -2100,6 +2136,16 @@
 
   .dash-report-disclaimer {
     color: #666 !important;
+  }
+
+  /* Keep each row/card readable and avoid mid-block clipping. */
+  .dash-report-kpi,
+  .dash-report-card,
+  .dash-report-chart-card,
+  .dash-report-mini-list li,
+  .dash-report-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 
