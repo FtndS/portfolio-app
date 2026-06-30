@@ -6,6 +6,7 @@ import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
 
 import { MARKETS, symFor, sanitizeTicker, SECTOR_COLORS, JOURNAL_TAGS, currencyForMarket } from '../../lib/constants'
+import { storageTicker, tickerPlaceholder } from '../../lib/ticker'
 
 export default function HoldingModal({holding,onClose,onSave,portfolioId}){
   const [f,setF]=useState({
@@ -30,6 +31,8 @@ export default function HoldingModal({holding,onClose,onSave,portfolioId}){
     if(r.id){onSave();onClose()}
   }
   const sym=symFor(f.currency)
+  const savedTicker = f.ticker.trim() ? storageTicker(f.ticker, f.market, f.currency) : ''
+  const showTickerHint = savedTicker && savedTicker !== sanitizeTicker(f.ticker)
   return(
     <Modal title={isEdit?'แก้ไข Holding':'เพิ่ม Holding'} onClose={onClose}>
       <Field label="ตลาด">
@@ -40,7 +43,21 @@ export default function HoldingModal({holding,onClose,onSave,portfolioId}){
           {MARKETS.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}
         </select>
       </Field>
-      <Field label="Ticker"><input style={inp()} placeholder={f.market==='SET'?'PTT':'AAPL, 0700'} value={f.ticker} onChange={e=>setF({...f,ticker:e.target.value})} disabled={isEdit}/></Field>
+      <Field label="Ticker">
+        <input
+          style={inp()}
+          placeholder={tickerPlaceholder(f.market)}
+          value={f.ticker}
+          onChange={e=>setF({...f,ticker:e.target.value})}
+          disabled={isEdit}
+        />
+        {showTickerHint && (
+          <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '6px', marginBottom: 0 }}>
+            จะบันทึกเป็น <strong>{savedTicker}</strong>
+            {f.market === 'SET' ? ' (หุ้น SET — ไม่ต้องพิมพ์ -BK เอง)' : ''}
+          </p>
+        )}
+      </Field>
       <Field label="ชื่อเต็ม (optional)"><input style={inp()} placeholder="เช่น Apple Inc." value={f.name} onChange={e=>setF({...f,name:e.target.value})}/></Field>
       <Field label="สกุลเงิน">
         <div className="dash-chip-group">

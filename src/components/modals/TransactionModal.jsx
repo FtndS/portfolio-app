@@ -6,6 +6,7 @@ import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
 import DateInput from '../ui/DateInput'
 import { sanitizeTicker, MARKETS, symFor, currencyForMarket } from '../../lib/constants'
+import { storageTicker, tickerPlaceholder } from '../../lib/ticker'
 import { todayIso, fmtShares, SHARES_EPS } from '../../lib/format'
 
 const SELL_PCT_PRESETS = [25, 50, 75, 100]
@@ -200,6 +201,10 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
   const total = f.shares && f.price ? parseFloat(f.shares) * parseFloat(f.price) : 0
   const feeNum = f.fee === '' ? 0 : parseFloat(f.fee) || 0
   const marketDef = MARKETS.find((m) => m.id === f.market) || MARKETS[0]
+  const savedTicker = f.ticker.trim()
+    ? storageTicker(f.ticker, f.market, f.currency)
+    : ''
+  const showTickerHint = savedTicker && savedTicker !== sanitizeTicker(f.ticker)
 
   return (
     <Modal title={isEdit ? 'แก้ไข Transaction' : 'บันทึก Transaction'} onClose={onClose}>
@@ -236,7 +241,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
           <Field label="Ticker">
             <input
               style={inp({ marginBottom: 0 })}
-              placeholder="เช่น VOO"
+              placeholder={tickerPlaceholder(f.market)}
               value={f.ticker}
               onChange={(e) => {
                 const ticker = e.target.value
@@ -258,6 +263,12 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
               }}
               disabled={isEdit}
             />
+            {showTickerHint && (
+              <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '6px', marginBottom: 0 }}>
+                จะบันทึกเป็น <strong>{savedTicker}</strong>
+                {f.market === 'SET' ? ' (หุ้น SET — ไม่ต้องพิมพ์ -BK เอง)' : ''}
+              </p>
+            )}
           </Field>
         </div>
         <div style={{ flex: 'none', width: '120px' }} className="dash-modal-type">
