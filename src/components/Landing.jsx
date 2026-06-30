@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Logo from './Logo'
+import ThemeToggle from './ThemeToggle'
 import './Landing.css'
 
 const FEATURES = [
