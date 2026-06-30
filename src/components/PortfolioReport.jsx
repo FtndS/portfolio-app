@@ -10,6 +10,8 @@ import {
   normalizeHistoryResponse,
   convertHistoryToDisplay,
   portfolioNameById,
+  inferPortfolioCurrency,
+  extractBenchmark,
 } from '../lib/reportScope'
 import ReportDonut from './report/ReportDonut'
 import ReportBarChart, { shouldUseBarChart } from './report/ReportBarChart'
@@ -58,38 +60,48 @@ export default function PortfolioReport({
   const [scope, setScope] = useState('active')
   const [scoped, setScoped] = useState(null)
   const [loadingScope, setLoadingScope] = useState(false)
+  const [compareSp500, setCompareSp500] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-
-    if (scope === 'active') {
-      setScoped({
-        holdings,
-        transactions,
-        dividends,
-        portfolioHistory: convertHistoryToDisplay(
-          portfolioHistory,
-          activePort?.currency || 'USD',
-          displayCurrency,
-          fxRate
-        ),
-        title: activePort?.name || 'พอร์ต',
-        subtitle: null,
-        showAllPortsSummary: portfolios.length > 1,
-        portfolioCurrency: activePort?.currency || 'USD',
-      })
-      setLoadingScope(false)
-      return () => { cancelled = true }
-    }
+    const benchmarkParam = compareSp500 ? 'sp500' : 'none'
 
     setLoadingScope(true)
     ;(async () => {
       try {
+        if (scope === 'active') {
+          const portId = Number(activePortfolioId)
+          const hist = await api.get(`/portfolios/${portId}/history`, { days: 3650, benchmarks: benchmarkParam })
+          if (cancelled) return
+          const portCcy = inferPortfolioCurrency(activePort, holdings)
+          setScoped({
+            holdings,
+            transactions,
+            dividends,
+            portfolioHistory: convertHistoryToDisplay(
+              normalizeHistoryResponse(hist),
+              portCcy,
+              displayCurrency,
+              fxRate
+            ),
+            benchmark: compareSp500 ? extractBenchmark(hist) : null,
+            title: activePort?.name || 'พอร์ต',
+            subtitle: null,
+            showAllPortsSummary: portfolios.length > 1,
+            portfolioCurrency: portCcy,
+          })
+          return
+        }
+
         if (scope === 'all') {
           const [txRes, divRes, histRes] = await Promise.all([
             Promise.all(portfolios.map((p) => api.get('/transactions', { portfolio_id: p.id }))),
             Promise.all(portfolios.map((p) => api.get('/dividends', { portfolio_id: p.id }))),
-            Promise.all(portfolios.map((p) => api.get(`/portfolios/${p.id}/history`, { days: 3650, benchmark: 'none' }))),
+            Promise.all(
+              portfolios.map((p) =>
+                api.get(`/portfolios/${p.id}/history`, { days: 3650, benchmarks: benchmarkParam })
+              )
+            ),
           ])
           if (cancelled) return
           const aggHoldings = aggregateHoldingsByTicker(allHoldings)
@@ -104,42 +116,46 @@ export default function PortfolioReport({
             portfolioHistory: mergePortfolioHistories(
               portfolios.map((p, i) => ({
                 batch: histRes[i],
-                portfolioCurrency: p.currency || 'USD',
+                portfolioCurrency: inferPortfolioCurrency(p, allHoldings),
               })),
               { displayCurrency, usdThb: fxRate }
             ),
+            benchmark: compareSp500 ? histRes.map(extractBenchmark).find(Boolean) || null : null,
             title: 'ทุกพอร์ตรวม',
             subtitle: `${portfolios.length} พอร์ต · ${aggHoldings.length} หลักทรัพย์`,
             showAllPortsSummary: false,
             portfolioCurrency: displayCurrency,
           })
-        } else {
-          const portId = Number(scope)
-          const [h, t, d, hist] = await Promise.all([
-            api.get('/holdings', { portfolio_id: portId }),
-            api.get('/transactions', { portfolio_id: portId }),
-            api.get('/dividends', { portfolio_id: portId }),
-            api.get(`/portfolios/${portId}/history`, { days: 3650, benchmark: 'none' }),
-          ])
-          if (cancelled) return
-          const hl = Array.isArray(h) ? h : []
-          const port = portfolios.find((p) => Number(p.id) === portId)
-          setScoped({
-            holdings: hl,
-            transactions: Array.isArray(t) ? t : [],
-            dividends: Array.isArray(d) ? d : [],
-            portfolioHistory: convertHistoryToDisplay(
-              normalizeHistoryResponse(hist),
-              port?.currency || 'USD',
-              displayCurrency,
-              fxRate
-            ),
-            title: portfolioNameById(portfolios, portId),
-            subtitle: null,
-            showAllPortsSummary: portfolios.length > 1,
-            portfolioCurrency: port?.currency || 'USD',
-          })
+          return
         }
+
+        const portId = Number(scope)
+        const [h, t, d, hist] = await Promise.all([
+          api.get('/holdings', { portfolio_id: portId }),
+          api.get('/transactions', { portfolio_id: portId }),
+          api.get('/dividends', { portfolio_id: portId }),
+          api.get(`/portfolios/${portId}/history`, { days: 3650, benchmarks: benchmarkParam }),
+        ])
+        if (cancelled) return
+        const hl = Array.isArray(h) ? h : []
+        const port = portfolios.find((p) => Number(p.id) === portId)
+        const portCcy = inferPortfolioCurrency(port, hl)
+        setScoped({
+          holdings: hl,
+          transactions: Array.isArray(t) ? t : [],
+          dividends: Array.isArray(d) ? d : [],
+          portfolioHistory: convertHistoryToDisplay(
+            normalizeHistoryResponse(hist),
+            portCcy,
+            displayCurrency,
+            fxRate
+          ),
+          benchmark: compareSp500 ? extractBenchmark(hist) : null,
+          title: portfolioNameById(portfolios, portId),
+          subtitle: null,
+          showAllPortsSummary: portfolios.length > 1,
+          portfolioCurrency: portCcy,
+        })
       } catch (err) {
         console.error('Report scope load error:', err)
         if (!cancelled) {
@@ -148,6 +164,7 @@ export default function PortfolioReport({
             transactions: [],
             dividends: [],
             portfolioHistory: [],
+            benchmark: null,
             title: scope === 'all' ? 'ทุกพอร์ตรวม' : portfolioNameById(portfolios, scope),
             subtitle: null,
             showAllPortsSummary: false,
@@ -161,11 +178,12 @@ export default function PortfolioReport({
     return () => { cancelled = true }
   }, [
     scope,
+    compareSp500,
     holdings,
     transactions,
     dividends,
-    portfolioHistory,
     activePort,
+    activePortfolioId,
     portfolios,
     allHoldings,
     displayCurrency,
@@ -175,7 +193,8 @@ export default function PortfolioReport({
   const reportHoldings = scoped?.holdings ?? holdings
   const reportTransactions = scoped?.transactions ?? transactions
   const reportDividends = scoped?.dividends ?? dividends
-  const reportHistory = scoped?.portfolioHistory ?? portfolioHistory
+  const reportHistory = scoped?.portfolioHistory ?? []
+  const reportBenchmark = scoped?.benchmark ?? null
   const reportTitle = scoped?.title ?? activePort?.name ?? 'พอร์ต'
   const reportSubtitle = scoped?.subtitle
   const showAllPortsSummary = scoped?.showAllPortsSummary ?? portfolios.length > 1
@@ -463,8 +482,11 @@ export default function PortfolioReport({
             <h3>แนวโน้มมูลค่าพอร์ต (Time series)</h3>
             <ReportLineChart
               history={reportHistory}
+              benchmark={reportBenchmark}
+              compareSp500={compareSp500}
+              onCompareSp500Change={setCompareSp500}
+              displayCurrency={displayCurrency}
               hideValues={hideValues}
-              sym={symFor(displayCurrency)}
             />
           </section>
         )}

@@ -71,3 +71,27 @@ export function convertHistoryToDisplay(history, portfolioCurrency, displayCurre
 export function portfolioNameById(portfolios, id) {
   return portfolios.find((p) => Number(p.id) === Number(id))?.name || 'พอร์ต'
 }
+
+/** Infer native currency from holdings when portfolios.currency is stale (e.g. THB port still marked USD). */
+export function inferPortfolioCurrency(portfolio, holdings = []) {
+  const portHoldings = holdings.filter((h) => Number(h.portfolio_id) === Number(portfolio?.id))
+  if (!portHoldings.length) return portfolio?.currency || 'USD'
+
+  const counts = {}
+  for (const h of portHoldings) {
+    const c = String(h.currency || 'USD').toUpperCase()
+    counts[c] = (counts[c] || 0) + 1
+  }
+  const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'USD'
+  const explicit = String(portfolio?.currency || '').toUpperCase()
+
+  if ((counts[dominant] || 0) >= portHoldings.length * 0.5) return dominant
+  return explicit || dominant || 'USD'
+}
+
+export function extractBenchmark(res) {
+  if (!res || res.ok === false) return null
+  if (Array.isArray(res.benchmarks) && res.benchmarks.length) return res.benchmarks[0]
+  if (res.benchmark?.series?.length) return res.benchmark
+  return null
+}
