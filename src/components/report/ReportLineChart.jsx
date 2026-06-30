@@ -127,7 +127,7 @@ export default function ReportLineChart({
     let bmChg = 0
     if (compareSp500 && benchmark?.series?.length) {
       const indexed = alignBenchmarkSeries(dates, benchmark)
-      bmReturn = rebaseIndexedSeries(indexed, baselineIdx)
+      bmReturn = rebaseIndexedSeries(indexed, compareSp500 ? 0 : baselineIdx)
       const last = [...bmReturn].reverse().find((v) => Number.isFinite(v)) ?? 0
       bmChg = last
     }

@@ -134,7 +134,8 @@ export default function PortfolioChart({
     const perf = hasPerf ? allPerf.slice(trimFrom) : null
 
     const baselineIdx = Math.max(0, compareBaselineIndex(vals, costs))
-    const naiveReturn = periodReturnSeries(vals, baselineIdx)
+    const chartBaselineIdx = anyToggleOn ? 0 : baselineIdx
+    const naiveReturn = periodReturnSeries(vals, chartBaselineIdx)
     const perfSlice = hasPerf ? allPerf.slice(trimFrom) : null
     const portReturn = perfSlice
       ? (() => {
@@ -151,7 +152,7 @@ export default function PortfolioChart({
 
     const benchmarkLines = benchmarks.map((bm) => {
       const indexedVals = alignBenchmarkSeries(dates, bm)
-      const bmVals = rebaseIndexedSeries(indexedVals, baselineIdx)
+      const bmVals = rebaseIndexedSeries(indexedVals, chartBaselineIdx)
       const last = [...bmVals].reverse().find((v) => Number.isFinite(v)) ?? 0
       return {
         ...bm,
@@ -161,6 +162,8 @@ export default function PortfolioChart({
       }
     })
     const comparePortChg = portReturn[portReturn.length - 1] ?? 0
+    const latestCost = costs[costs.length - 1] ?? 0
+    const costReturnPct = latestCost > 0 ? ((latest - latestCost) / latestCost) * 100 : 0
 
     return {
       vals,
@@ -169,8 +172,10 @@ export default function PortfolioChart({
       portReturn,
       benchmarkLines,
       latest,
+      latestCost,
       portChg,
       comparePortChg,
+      costReturnPct,
       trimFrom,
       fullRangeStart: allDates[0],
       fullRangeEnd: allDates[allDates.length - 1],
@@ -178,7 +183,7 @@ export default function PortfolioChart({
       skippedEnd: trimFrom > 0 ? allDates[trimFrom - 1] : null,
       usesTwr: !!perfSlice,
     }
-  }, [history, benchmarks, displayCurrency, fxRate, portfolioCurrency])
+  }, [history, benchmarks, displayCurrency, fxRate, portfolioCurrency, anyToggleOn])
 
   if (!history?.length) {
     return (
@@ -201,6 +206,7 @@ export default function PortfolioChart({
     latest,
     portChg,
     comparePortChg,
+    costReturnPct,
     trimFrom,
     fullRangeStart,
     fullRangeEnd,
@@ -298,8 +304,8 @@ export default function PortfolioChart({
           <p className="dash-chart-sub">
             {compareMode
               ? usesTwr
-                ? 'กราฟ % ผลตอบแทนจากราคาหุ้น (ไม่นับเงินซื้อเพิ่ม) — เทียบกับดัชนี'
-                : 'กราฟ % การเปลี่ยนแปลงจากต้นช่วงที่เลือก (0% = จุดเริ่ม) — ไม่ใช่กำไรรวมจากทุน'
+                ? 'กราฟ % จากราคาหุ้น (หุ้นตั้งต้นช่วง) — ไม่นับเงินซื้อเพิ่ม'
+                : 'กราฟ % การเปลี่ยนแปลงจากต้นช่วงที่เลือก (0% = จุดเริ่ม)'
               : `กราฟมูลค่าพอร์ต (${currencyLabel}) = ราคา × จำนวนหุ้น${portfolioName ? ` · ${portfolioName}` : ''}`}
           </p>
         </div>
@@ -315,7 +321,7 @@ export default function PortfolioChart({
             {compareMode
               ? (hideValues
                   ? 'ในช่วงที่เลือก'
-                  : `มูลค่าล่าสุด ${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)
+                  : `มูลค่า ${sym}${latest.toLocaleString('en-US', { minimumFractionDigits: 2 })} · กำไรจากทุน ${costReturnPct >= 0 ? '+' : ''}${costReturnPct.toFixed(2)}%`)
               : `${portChg >= 0 ? '+' : ''}${portChg.toFixed(2)}%`}
             {!compareMode && usesTwr && (
               <span className="dash-text-muted" style={{ marginLeft: '6px', fontSize: '11px' }}>

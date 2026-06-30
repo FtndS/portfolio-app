@@ -95,22 +95,60 @@ async function fetchBenchmarkPriceMap(benchmark, days) {
   return {}
 }
 
-async function fetchHistoricalPrices(ticker, days, meta = {}, portfolioCurrency = 'USD') {
+async function fetchHistoricalPrices(ticker, days, meta = {}, portfolioCurrency = 'USD', txPrices = {}) {
   const market = resolveMarket(ticker, meta.market, meta.currency, portfolioCurrency)
   const symbols = yahooSymbolsForHolding(ticker, market, meta.currency, portfolioCurrency)
-  const merged = {}
+
+  const mergeMaps = (...maps) => {
+    const merged = {}
+    for (const map of maps) {
+      for (const [d, px] of Object.entries(map || {})) {
+        if (merged[d] == null) merged[d] = px
+      }
+    }
+    return merged
+  }
+
+  const uniqCount = (map) => new Set(Object.values(map || {}).map((v) => Number(v).toFixed(4))).size
+
+  let merged = {}
   for (const sym of symbols) {
     const map = await fetchYahooDailyCloses(sym, days)
-    for (const [d, px] of Object.entries(map)) {
-      if (merged[d] == null) merged[d] = px
-    }
-    if (Object.keys(merged).length > 10) break
+    merged = mergeMaps(merged, map)
+    if (Object.keys(merged).length > 10 && uniqCount(merged) >= 2) break
   }
   if (!Object.keys(merged).length) {
     const yahoo = toYahooTicker(ticker, market)
-    return fetchYahooDailyCloses(yahoo, days)
+    merged = await fetchYahooDailyCloses(yahoo, days)
   }
-  return merged
+
+  if (uniqCount(merged) < 2) {
+    const wider = Math.min(Math.max(days * 2, 365), 3650)
+    if (wider > days) {
+      for (const sym of symbols) {
+        const map = await fetchYahooDailyCloses(sym, wider)
+        merged = mergeMaps(merged, map)
+      }
+      if (!Object.keys(merged).length) {
+        const yahoo = toYahooTicker(ticker, market)
+        merged = mergeMaps(merged, await fetchYahooDailyCloses(yahoo, wider))
+      }
+    }
+  }
+
+  return mergeMaps(txPrices, merged)
+}
+
+function txPricesForTicker(transactions, ticker) {
+  const map = {}
+  for (const tx of transactions) {
+    if (tx.ticker !== ticker) continue
+    const d = txDateStr(tx)
+    const px = parseFloat(tx.price)
+    if (!Number.isFinite(px) || px <= 0) continue
+    if (map[d] == null) map[d] = px
+  }
+  return map
 }
 
 async function livePortfolioTotals(positions, avgCosts, holdingMeta, portfolioCurrency) {
@@ -161,6 +199,41 @@ function cashFlowOnDate(transactions, dateStr) {
     else if (tx.type === 'SELL') cf -= amount
   }
   return cf
+}
+
+/** Price return for holdings at period start (fixed shares, live prices) — fair vs index. */
+export function attachPriceIndexPerformance(points, transactions, priceMaps) {
+  if (!points.length) return points
+
+  const startDate = points[0].date
+  const { positions: basePos, avgCosts: baseAvg } = positionsAtDate(transactions, startDate)
+  const baseTickers = Object.keys(basePos)
+  if (!baseTickers.length) return attachPerformancePct(points, transactions)
+
+  const basePrices = {}
+  let baseTotal = 0
+  for (const t of baseTickers) {
+    const sh = basePos[t]
+    const px = priceOnDate(priceMaps[t] || {}, startDate, baseAvg[t] || 0)
+    basePrices[t] = px
+    baseTotal += sh * px
+  }
+
+  if (baseTotal <= 0) return attachPerformancePct(points, transactions)
+
+  return points.map((p, i) => {
+    if (i === 0) return { ...p, performance_pct: 0 }
+
+    let indexed = 0
+    for (const t of baseTickers) {
+      indexed += basePos[t] * priceOnDate(priceMaps[t] || {}, p.date, basePrices[t])
+    }
+
+    return {
+      ...p,
+      performance_pct: Math.round(((indexed / baseTotal) - 1) * 10000) / 100,
+    }
+  })
 }
 
 /** Chain-linked return excluding net deposits/withdrawals (TWR-style). */
@@ -285,7 +358,13 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   const tickers = [...new Set(transactions.map(t => t.ticker))]
   const priceMaps = {}
   await Promise.all(tickers.map(async (t) => {
-    priceMaps[t] = await fetchHistoricalPrices(t, days, holdingMeta[t] || {}, portfolioCurrency)
+    priceMaps[t] = await fetchHistoricalPrices(
+      t,
+      days,
+      holdingMeta[t] || {},
+      portfolioCurrency,
+      txPricesForTicker(transactions, t)
+    )
   }))
 
   const sampleDates = buildSampleDates(transactions, days)
@@ -337,7 +416,11 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
     else unique.push(todayPoint)
   }
 
-  return attachPerformancePct(unique.sort((a, b) => a.date.localeCompare(b.date)), transactions)
+  return attachPriceIndexPerformance(
+    unique.sort((a, b) => a.date.localeCompare(b.date)),
+    transactions,
+    priceMaps
+  )
 }
 
 export async function computeBenchmarkHistory(benchmark, historyDates, days) {
