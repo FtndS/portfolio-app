@@ -3,10 +3,43 @@ import { fetchCompanyProfile, needsSectorRefresh } from './profile.js'
 
 const SHARES_EPS = 1e-9
 
+const TX_ORDER_SQL = `ORDER BY date ASC, created_at ASC, id ASC`
+
+/**
+ * Average-cost basis from ordered transaction rows (matches portfolioHistory / frontend PnL).
+ * @param {Array<{ type: string, shares: number|string, price?: number|string, fee?: number|string }>} rows
+ */
+export function computeHoldingFromTxRows(rows) {
+  let netShares = 0
+  let avgCost = 0
+
+  for (const r of rows) {
+    const sh = parseFloat(r.shares)
+    const price = parseFloat(r.price)
+    const fee = parseFloat(r.fee || 0)
+
+    if (r.type === 'BUY') {
+      const prevCost = netShares * avgCost
+      const nextShares = netShares + sh
+      netShares = nextShares
+      avgCost = nextShares > SHARES_EPS ? (prevCost + sh * price + fee) / nextShares : 0
+    } else if (r.type === 'SELL') {
+      netShares -= sh
+      if (netShares <= SHARES_EPS) {
+        netShares = 0
+        avgCost = 0
+      }
+    }
+  }
+
+  return { netShares, avgCost }
+}
+
 export async function syncHoldingFromTransactions(client, userId, portfolioId, ticker, profile = null, txCurrency) {
   const allTx = await client.query(
     `SELECT type, shares, price, fee FROM transactions
-     WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3`,
+     WHERE user_id = $1 AND portfolio_id = $2 AND ticker = $3
+     ${TX_ORDER_SQL}`,
     [userId, portfolioId, ticker]
   )
 
@@ -18,20 +51,7 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
     return null
   }
 
-  let netShares = 0
-  let totalBuyShares = 0
-  let totalBuyCost = 0
-
-  for (const r of allTx.rows) {
-    const sh = parseFloat(r.shares)
-    if (r.type === 'BUY') {
-      netShares += sh
-      totalBuyShares += sh
-      totalBuyCost += sh * parseFloat(r.price) + parseFloat(r.fee || 0)
-    } else {
-      netShares -= sh
-    }
-  }
+  const { netShares, avgCost } = computeHoldingFromTxRows(allTx.rows)
 
   if (netShares <= SHARES_EPS) {
     await client.query(
@@ -40,8 +60,6 @@ export async function syncHoldingFromTransactions(client, userId, portfolioId, t
     )
     return null
   }
-
-  const avgCost = totalBuyShares > 0 ? totalBuyCost / totalBuyShares : 0
 
   const existing = await client.query(
     `SELECT id, name, sector, currency, market FROM holdings

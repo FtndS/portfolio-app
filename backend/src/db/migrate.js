@@ -494,6 +494,13 @@ const migrations = [
       ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS receipt_data BYTEA;
     `,
   },
+  {
+    name: '024_rebuild_holdings_avg_cost',
+    sql: `SELECT 1`,
+    async after() {
+      await rebuildHoldingsFromTransactions(pool)
+    },
+  },
 ]
 
 export async function runMigrations() {
