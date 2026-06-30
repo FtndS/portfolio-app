@@ -4,7 +4,7 @@ function txDateStr(tx) {
   return String(tx?.date || '').split('T')[0]
 }
 
-function cashFlowOnDate(transactions, dateStr) {
+function cashFlowOnDate(transactions, dateStr, displayCurrency = 'USD', usdThb = 35) {
   let cf = 0
   for (const tx of transactions || []) {
     if (txDateStr(tx) !== dateStr) continue
@@ -12,14 +12,16 @@ function cashFlowOnDate(transactions, dateStr) {
     const price = Number(tx.price)
     const fee = Number(tx.fee || 0)
     const amount = sh * price + fee
-    if (tx.type === 'BUY') cf += amount
-    else if (tx.type === 'SELL') cf -= amount
+    const ccy = String(tx.currency || 'USD').toUpperCase()
+    const converted = convertAmount(amount, ccy, displayCurrency, usdThb)
+    if (tx.type === 'BUY') cf += converted
+    else if (tx.type === 'SELL') cf -= converted
   }
   return cf
 }
 
 /** Chain-linked return excluding net deposits/withdrawals (matches backend). */
-export function attachPerformancePct(points, transactions = []) {
+export function attachPerformancePct(points, transactions = [], { displayCurrency = 'USD', usdThb = 35 } = {}) {
   if (!points?.length) return points || []
 
   const result = [{ ...points[0], performance_pct: 0 }]
@@ -29,7 +31,7 @@ export function attachPerformancePct(points, transactions = []) {
     const p = points[i]
     const v0 = Number(points[i - 1].total_value) || 0
     const v1 = Number(p.total_value) || 0
-    const cf = cashFlowOnDate(transactions, p.date)
+    const cf = cashFlowOnDate(transactions, p.date, displayCurrency, usdThb)
 
     if (v0 > 0) {
       chain *= 1 + (v1 - v0 - cf) / v0
@@ -104,9 +106,9 @@ export function mergePortfolioHistories(entries, { displayCurrency = 'USD', usdT
 }
 
 export function mergePortfolioHistoriesWithPerformance(entries, options = {}) {
-  const merged = mergePortfolioHistories(entries, options)
-  const transactions = options.transactions || []
-  return attachPerformancePct(merged, transactions)
+  const { displayCurrency = 'USD', usdThb = 35, transactions = [] } = options
+  const merged = mergePortfolioHistories(entries, { displayCurrency, usdThb })
+  return attachPerformancePct(merged, transactions, { displayCurrency, usdThb })
 }
 
 export function convertHistoryToDisplay(history, portfolioCurrency, displayCurrency, usdThb = 35) {

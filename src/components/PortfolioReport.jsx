@@ -114,10 +114,18 @@ export default function PortfolioReport({
             transactions: allTx,
             dividends: allDiv,
             portfolioHistory: mergePortfolioHistoriesWithPerformance(
-              portfolios.map((p, i) => ({
-                batch: histRes[i],
-                portfolioCurrency: inferPortfolioCurrency(p, allHoldings),
-              })),
+              portfolios.map((p, i) => {
+                const portCcy = inferPortfolioCurrency(p, allHoldings)
+                return {
+                  batch: convertHistoryToDisplay(
+                    normalizeHistoryResponse(histRes[i]),
+                    portCcy,
+                    displayCurrency,
+                    fxRate
+                  ),
+                  portfolioCurrency: displayCurrency,
+                }
+              }),
               { displayCurrency, usdThb: fxRate, transactions: allTx }
             ),
             benchmark: compareSp500 ? histRes.map(extractBenchmark).find(Boolean) || null : null,
