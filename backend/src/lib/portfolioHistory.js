@@ -51,13 +51,15 @@ export function resolveBenchmark(holdings, portfolioCurrency, preference = 'auto
 }
 
 async function fetchYahooDailyCloses(yahooSymbol, days) {
-  const range = daysToYahooRange(days)
-  const cacheKey = `${yahooSymbol}:${range}`
+  const d = Math.max(typeof days === 'number' ? days : 90, 30)
+  const period2 = Math.floor(Date.now() / 1000)
+  const period1 = period2 - Math.ceil(d * 1.15) * 86400
+  const cacheKey = `${yahooSymbol}:p${period1}:${period2}`
   const cached = priceHistoryCache.get(cacheKey)
   if (cached && Date.now() - cached.ts < PRICE_HIST_TTL) return cached.data
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=${range}`
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&period1=${period1}&period2=${period2}`
     const res = await yahooGet(url)
     if (!res.ok) return {}
     const data = await res.json()
@@ -173,14 +175,40 @@ async function livePortfolioTotals(positions, avgCosts, holdingMeta, portfolioCu
   )
 }
 
-function priceOnDate(priceMap, dateStr, fallback = 0) {
+export function priceOnDate(priceMap, dateStr, fallback = 0) {
   if (!priceMap || !Object.keys(priceMap).length) return fallback
   if (priceMap[dateStr] != null) return priceMap[dateStr]
   const sorted = Object.keys(priceMap).sort()
   const before = sorted.filter((d) => d <= dateStr)
   if (before.length) return priceMap[before[before.length - 1]]
-  // Forward-fill from earliest quote — avoids cliff from avg-cost fallback to market price
-  return priceMap[sorted[0]]
+  // Before first market quote: use cost/tx fallback — never forward-fill future prices into the past
+  return fallback
+}
+
+/** Carry last close forward between quote dates (not before first quote). */
+export function densifyPriceMap(priceMap, sampleDates, fallback = 0) {
+  if (!sampleDates?.length) return priceMap || {}
+  const sorted = Object.keys(priceMap || {}).sort()
+  if (!sorted.length) return priceMap || {}
+
+  const firstQuote = sorted[0]
+  const dense = { ...priceMap }
+  let last = null
+
+  for (const d of sampleDates) {
+    if (priceMap[d] != null) {
+      last = priceMap[d]
+      dense[d] = last
+      continue
+    }
+    if (d < firstQuote) {
+      if (fallback > 0) dense[d] = fallback
+      continue
+    }
+    if (last != null) dense[d] = last
+  }
+
+  return dense
 }
 
 function txDateStr(tx) {
@@ -356,18 +384,25 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
   }
 
   const tickers = [...new Set(transactions.map(t => t.ticker))]
+  const sampleDates = buildSampleDates(transactions, days)
+  const firstTxDate = txDateStr(transactions[0])
+  const spanDays = firstTxDate
+    ? Math.ceil((Date.now() - new Date(`${firstTxDate}T12:00:00`).getTime()) / 86400000) + 30
+    : days
+  const fetchDays = Math.min(Math.max(days, spanDays, 120), 3650)
+
   const priceMaps = {}
   await Promise.all(tickers.map(async (t) => {
-    priceMaps[t] = await fetchHistoricalPrices(
+    const raw = await fetchHistoricalPrices(
       t,
-      days,
+      fetchDays,
       holdingMeta[t] || {},
       portfolioCurrency,
       txPricesForTicker(transactions, t)
     )
+    const { avgCosts } = positionsAtDate(transactions, sampleDates[0] || today)
+    priceMaps[t] = densifyPriceMap(raw, sampleDates, avgCosts[t] || 0)
   }))
-
-  const sampleDates = buildSampleDates(transactions, days)
   const points = []
 
   for (const dateStr of sampleDates) {
@@ -416,10 +451,9 @@ export async function computePortfolioHistory(userId, portfolioId, days = 90) {
     else unique.push(todayPoint)
   }
 
-  return attachPriceIndexPerformance(
+  return attachPerformancePct(
     unique.sort((a, b) => a.date.localeCompare(b.date)),
-    transactions,
-    priceMaps
+    transactions
   )
 }
 
@@ -428,7 +462,7 @@ export async function computeBenchmarkHistory(benchmark, historyDates, days) {
     return { label: benchmark?.label, symbol: benchmark?.symbol, series: [], changePct: 0 }
   }
 
-  const priceMap = await fetchBenchmarkPriceMap(benchmark, days)
+  const priceMap = await fetchBenchmarkPriceMap(benchmark, Math.max(days, 120))
   const series = historyDates
     .map((date) => {
       const dateStr = String(date).split('T')[0]

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   attachPerformancePct,
   attachPriceIndexPerformance,
+  priceOnDate,
+  densifyPriceMap,
 } from '../src/lib/portfolioHistory.js'
 import { inferPortfolioCurrency } from '../src/lib/currency.js'
 
@@ -27,6 +29,26 @@ describe('attachPerformancePct', () => {
     ]
     const out = attachPerformancePct(points, [])
     expect(out[1].performance_pct).toBeCloseTo(10, 2)
+  })
+})
+
+describe('priceOnDate', () => {
+  it('does not forward-fill future quotes into past dates', () => {
+    const map = { '2025-06-01': 100, '2025-06-02': 110 }
+    expect(priceOnDate(map, '2025-05-01', 50)).toBe(50)
+    expect(priceOnDate(map, '2025-06-01', 50)).toBe(100)
+    expect(priceOnDate(map, '2025-06-03', 50)).toBe(110)
+  })
+})
+
+describe('densifyPriceMap', () => {
+  it('carries last quote forward within range but not before first quote', () => {
+    const map = { '2025-06-01': 100, '2025-06-03': 105 }
+    const dates = ['2025-05-15', '2025-06-01', '2025-06-02', '2025-06-03']
+    const dense = densifyPriceMap(map, dates, 80)
+    expect(dense['2025-05-15']).toBe(80)
+    expect(dense['2025-06-02']).toBe(100)
+    expect(dense['2025-06-03']).toBe(105)
   })
 })
 
