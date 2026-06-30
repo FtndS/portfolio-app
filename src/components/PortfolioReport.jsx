@@ -566,7 +566,7 @@ export default function PortfolioReport({
                 <li key={p.id}>
                   <span>{p.name}{p.isActive ? ' ★' : ''}</span>
                   <span className="dash-report-muted">
-                    {p.holdings} หลัก
+                    {p.holdings} สินทรัพย์
                     {!hideValues && ` · ${fmtMoney(p.invested)}`}
                   </span>
                 </li>
