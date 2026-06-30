@@ -63,3 +63,19 @@ export const csvImportLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'นำเข้า CSV บ่อยเกินไป กรุณาลองใหม่ภายหลัง' },
 })
+
+export const exportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'ส่งออกข้อมูลบ่อยเกินไป กรุณาลองใหม่ภายหลัง' },
+})
+
+export const historyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'โหลดประวัติพอร์ตบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่' },
+})

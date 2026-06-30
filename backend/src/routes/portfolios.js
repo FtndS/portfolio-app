@@ -2,6 +2,7 @@ import express from 'express'
 import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { historyLimiter } from '../middleware/rateLimit.js'
 import { computePortfolioHistory, computeBenchmarkHistory, resolveBenchmark, resolveDaysParam, BENCHMARKS } from '../lib/portfolioHistory.js'
 
 const router = express.Router()
@@ -127,7 +128,7 @@ router.delete('/:id', async (req, res) => {
 })
 
 // Portfolio value history (Google Finance style)
-router.get('/:id/history', async (req, res) => {
+router.get('/:id/history', historyLimiter, async (req, res) => {
   const days = resolveDaysParam(req.query.days ?? 90)
   try {
     const owns = await pool.query(

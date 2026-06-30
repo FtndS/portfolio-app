@@ -116,6 +116,10 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
       const enabled = Object.entries(benchmarkToggles).filter(([, on]) => on).map(([k]) => k)
       const benchmarkParam = enabled.length ? enabled.join(',') : 'none'
       const r = await api.get(`/portfolios/${portfolioId}/history`, { days, benchmarks: benchmarkParam })
+      if (r?.ok === false) {
+        console.error('History fetch error:', r.error)
+        return
+      }
       if (Array.isArray(r)) {
         setPortfolioHistory(r)
         setBenchmarksData([])
@@ -155,16 +159,16 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     if(!hl?.length) return
     setLoadingP(true)
     try{
-      const params=new URLSearchParams()
-      params.set('tickers',hl.map(h=>h.ticker).join(','))
-      params.set('markets',hl.map(h=>h.market||'').join(','))
-      params.set('currencies',hl.map(h=>h.currency||'').join(','))
-      params.set('portfolio_currencies',hl.map(h=>{
-        const port=portList.find(x=>Number(x.id)===Number(h.portfolio_id))
-        return port?.currency||'USD'
-      }).join(','))
-      const r=await fetch(`/api/prices?${params}`)
-      const p=await r.json()
+      const p = await api.get('/prices', {
+        tickers: hl.map((h) => h.ticker).join(','),
+        markets: hl.map((h) => h.market || '').join(','),
+        currencies: hl.map((h) => h.currency || '').join(','),
+        portfolio_currencies: hl.map((h) => {
+          const port = portList.find((x) => Number(x.id) === Number(h.portfolio_id))
+          return port?.currency || 'USD'
+        }).join(','),
+      })
+      if (p?.ok === false) return
       setPrices(prev=>({...prev,...p}))
       if(portfolioIdForSnapshot){
         const snapHl=hl.filter(h=>Number(h.portfolio_id)===Number(portfolioIdForSnapshot))

@@ -6,6 +6,7 @@ import { signAuthToken } from '../lib/authToken.js'
 import { authMiddleware } from '../middleware/auth.js'
 import {
   authLimiter,
+  exportLimiter,
   forgotPasswordLimiter,
   otpSendLimiter,
   otpVerifyLimiter,
@@ -245,7 +246,7 @@ router.post('/login', authLimiter, async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
 
     if (user.email_verified === false) {
-      return res.status(403).json({ error: 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ' })
+      return res.status(401).json({ error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
     }
 
     try {
@@ -502,7 +503,7 @@ router.put('/change-password', authMiddleware, authLimiter, async (req, res) => 
   }
 })
 
-router.get('/export', authMiddleware, async (req, res) => {
+router.get('/export', authMiddleware, exportLimiter, async (req, res) => {
   try {
     const userId = req.userId
     const [userResult, portfolios, holdings, transactions, journal, dividends, thesisRows] = await Promise.all([

@@ -31,6 +31,9 @@ export default function Login({onLogin,onGoRegister,onGoForgot,onGoHome}){
         <span onClick={onGoForgot} className="dash-link">ลืมรหัสผ่าน?</span>
       </p>
       <button onClick={go} style={{...btnPrimary,marginTop:'12px'}}>เข้าสู่ระบบ</button>
+      <p className="dash-text-muted" style={{textAlign:'center',marginTop:'12px',fontSize:'12px'}}>
+        สมัครแล้วแต่เข้าไม่ได้? <span onClick={onGoRegister} className="dash-link">ลองยืนยันอีเมลด้วย OTP</span>
+      </p>
       <p className="dash-text-muted" style={{textAlign:'center',marginTop:'16px',fontSize:'13px'}}>ยังไม่มีบัญชี? <span onClick={onGoRegister} className="dash-link">สมัครสมาชิก</span></p>
       {onGoHome&&<p className="dash-text-faint" style={{textAlign:'center',marginTop:'12px',fontSize:'12px'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
     </div></div>

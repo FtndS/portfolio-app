@@ -17,6 +17,7 @@ import subscriptionRoutes from './routes/subscription.js'
 import adminRoutes from './routes/admin.js'
 import portfoliosRoutes from './routes/portfolios.js'
 import { fetchHoldingQuote, fetchLiveQuote } from './lib/yahooPrices.js'
+import { authMiddleware } from './middleware/auth.js'
 import { pricesLimiter } from './middleware/rateLimit.js'
 
 dotenv.config()
@@ -86,7 +87,7 @@ app.get('/api/health', async (req, res) => {
   }
 })
 
-app.get('/api/prices', pricesLimiter, async (req, res) => {
+app.get('/api/prices', authMiddleware, pricesLimiter, async (req, res) => {
   const { tickers, markets, currencies, portfolio_currencies } = req.query
   if (!tickers) return res.json({})
 
