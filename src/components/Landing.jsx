@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import ThemeToggle from './ThemeToggle'
+import Logo from './Logo'
 import './Landing.css'
 
 const FEATURES = [
@@ -57,10 +57,7 @@ export default function Landing({ onLogin, onRegister }) {
   return (
     <div className="landing">
       <nav className={`landing-nav${scrolled ? ' scrolled' : ''}`}>
-        <div className="landing-logo">
-          <span>📓</span>
-          <span>Port Diary</span>
-        </div>
+        <Logo size={28} className="landing-logo" />
         <div className="landing-nav-actions">
           <ThemeToggle />
           <button type="button" className="landing-btn-ghost" onClick={onLogin}>

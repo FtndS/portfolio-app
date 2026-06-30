@@ -17,6 +17,7 @@ import ImportCsvModal from '../modals/ImportCsvModal'
 import PortfolioManageModal from '../modals/PortfolioManageModal'
 import SettingsModal from '../modals/SettingsModal'
 import SupportModal from '../modals/SupportModal'
+import SubscriptionPage from '../subscription/SubscriptionPage'
 import TickerStoryModal from '../modals/TickerStoryModal'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
@@ -66,6 +67,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const [dataReady, setDataReady] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  const [supportInitial, setSupportInitial] = useState(null)
 
   const fxRate=prices['USDTHB=X']||35
   const pid=activePortfolioId
@@ -415,6 +417,16 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     setSidebarOpen(false)
   }
 
+  const openSupport = (initial) => {
+    setSupportInitial(initial || null)
+    setModal('support')
+  }
+
+  const openSubscription = () => {
+    setModal(null)
+    selectTab('subscription')
+  }
+
   return(
     <div className="dash-shell">
       {sidebarOpen && (
@@ -489,7 +501,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
               >
                 {hideValues ? 'แสดงมูลค่า' : 'ซ่อนมูลค่า'}
               </button>
-              <button type="button" className="dash-util-btn dash-util-btn--help" onClick={() => setModal('support')} title="ช่วยเหลือ / แจ้งปัญหา" aria-label="ช่วยเหลือ">ช่วยเหลือ</button>
+              <button type="button" className="dash-util-btn dash-util-btn--help" onClick={() => openSupport()} title="ช่วยเหลือ / แจ้งปัญหา" aria-label="ช่วยเหลือ">ช่วยเหลือ</button>
               <button type="button" className="dash-util-btn" onClick={() => setModal('settings')} title="ตั้งค่าบัญชี" aria-label="ตั้งค่าบัญชี">ตั้งค่า</button>
               {onOpenAdmin && (
                 <button type="button" className="dash-util-btn dash-util-btn--admin" onClick={onOpenAdmin} title="Admin" aria-label="Admin">Admin</button>
@@ -776,6 +788,10 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         {/* News Tab Section */}
         {tab==='news' && renderNewsGrid()}
 
+        {tab==='subscription' && (
+          <SubscriptionPage user={user} onOpenSupport={openSupport} />
+        )}
+
         </div>
 
         <AIDrawer open={aiOpen} onClose={() => setAiOpen(false)}>
@@ -859,7 +875,10 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         </Modal>
       )}
       {modal==='support'&&(
-        <SupportModal onClose={()=>setModal(null)} />
+        <SupportModal
+          initial={supportInitial}
+          onClose={() => { setModal(null); setSupportInitial(null) }}
+        />
       )}
       {modal==='settings'&&(
         <SettingsModal
@@ -867,7 +886,8 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           onClose={()=>setModal(null)}
           onUserUpdate={onUserUpdate}
           onLogout={onLogout}
-          onOpenSupport={()=>setModal('support')}
+          onOpenSupport={() => openSupport()}
+          onOpenSubscription={openSubscription}
         />
       )}
       {modal==='managePort'&&activePort&&(

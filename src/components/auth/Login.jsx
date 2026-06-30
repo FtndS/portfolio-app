@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
+import Logo from '../Logo'
 import ThemeToggle from '../ThemeToggle'
 
 export default function Login({onLogin,onGoRegister,onGoForgot,onGoHome}){
@@ -20,8 +21,8 @@ export default function Login({onLogin,onGoRegister,onGoForgot,onGoHome}){
     <div className="auth-wrap"><div className="auth-card">
       <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'12px'}}><ThemeToggle /></div>
       <div style={{marginBottom:'28px'}}>
-        <h1 style={{color:'var(--text)',fontSize:'22px',fontWeight:600,marginBottom:'6px'}}>📓 Port Diary</h1>
-        <p className="dash-text-muted" style={{fontSize:'13px'}}>บันทึกพอร์ตการลงทุน</p>
+        <Logo size={36} className="auth-logo" />
+        <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '6px' }}>บันทึกพอร์ตการลงทุน</p>
       </div>
       {error&&<p className="dash-text-loss" style={{fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
       <Field label="Email"><input type="email" style={inp()} placeholder="you@email.com" onChange={e=>setForm({...form,email:e.target.value})} onKeyDown={onKeyDown}/></Field>

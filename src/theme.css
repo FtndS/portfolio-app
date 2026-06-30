@@ -1119,6 +1119,18 @@ body,
 .dash-admin-status--resolved { background: rgba(46, 204, 113, 0.12); color: var(--gain); }
 .dash-admin-status--closed { background: var(--surface-subtle); color: var(--text-faint); }
 
+.dash-admin-user-search {
+  min-width: 200px;
+  flex: 1;
+  max-width: 320px;
+}
+
+.dash-admin-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 /* Ticker story — thesis + timeline */
 .dash-story-section {
   margin-bottom: 20px;

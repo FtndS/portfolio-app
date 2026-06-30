@@ -18,10 +18,10 @@ const TICKET_STATUS = {
   closed: 'ปิด',
 }
 
-export default function SupportModal({ onClose }) {
-  const [category, setCategory] = useState('bug')
-  const [subject, setSubject] = useState('')
-  const [message, setMessage] = useState('')
+export default function SupportModal({ onClose, initial = null }) {
+  const [category, setCategory] = useState(initial?.category || 'bug')
+  const [subject, setSubject] = useState(initial?.subject || '')
+  const [message, setMessage] = useState(initial?.message || '')
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(false)

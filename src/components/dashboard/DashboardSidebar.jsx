@@ -1,3 +1,5 @@
+import Logo from '../Logo'
+
 export const DASH_TABS = [
   ['overview', 'Overview'],
   ['report', 'Report'],
@@ -6,6 +8,7 @@ export const DASH_TABS = [
   ['dividends', 'ปันผล'],
   ['journal', 'Journal'],
   ['news', 'News'],
+  ['subscription', 'แผน Pro'],
 ]
 
 export function tabLabel(key) {
@@ -35,9 +38,14 @@ export default function DashboardSidebar({
           title="กลับหน้า Overview"
           aria-label="Port Diary — กลับหน้า Overview"
         >
-          <span className="dash-sidebar-title">📓 Port Diary</span>
+          <Logo size={24} className="dash-sidebar-logo" />
         </button>
-        <p className="dash-sidebar-sub">สวัสดี, {user.name}</p>
+        <p className="dash-sidebar-sub">
+          สวัสดี, {user.name}
+          {user.plan === 'pro' && (
+            <span className="dash-plan-badge dash-plan-badge--pro">Pro</span>
+          )}
+        </p>
       </div>
 
       <div className="dash-sidebar-section">

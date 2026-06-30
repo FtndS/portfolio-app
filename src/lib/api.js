@@ -58,6 +58,7 @@ export const api = {
   post: (path, body) => request('POST', path, body),
   get: (path, params) => request('GET', path, null, params),
   put: (path, body) => request('PUT', path, body),
+  patch: (path, body) => request('PATCH', path, body),
   delete: (path, body) => request('DELETE', path, body),
   fetch: (path, params) =>
     fetch(withQuery(`${BASE}${path}`, params), { headers: headers() }),

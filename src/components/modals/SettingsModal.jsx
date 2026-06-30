@@ -5,7 +5,7 @@ import ThemeToggle from '../ThemeToggle'
 import Field from '../ui/Field'
 import Modal from '../ui/Modal'
 
-export default function SettingsModal({ user, onClose, onUserUpdate, onLogout, onOpenSupport }) {
+export default function SettingsModal({ user, onClose, onUserUpdate, onLogout, onOpenSupport, onOpenSubscription }) {
   const [name, setName] = useState(user.name || '')
   const [profileMsg, setProfileMsg] = useState('')
   const [profileErr, setProfileErr] = useState('')
@@ -109,6 +109,26 @@ export default function SettingsModal({ user, onClose, onUserUpdate, onLogout, o
   return (
     <Modal title="ตั้งค่าบัญชี" onClose={onClose}>
       <div style={{ marginBottom: '20px' }}>
+        <h3 className="dash-settings-section-title">แผนการใช้งาน</h3>
+        <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
+          แผนปัจจุบัน:{' '}
+          <strong className={user.plan === 'pro' ? 'dash-text-gain' : 'dash-text-secondary'}>
+            {user.plan === 'pro' ? 'Pro' : 'Free'}
+          </strong>
+          {user.planExpiresAt && user.plan === 'pro' && (
+            <span className="dash-text-faint">
+              {' '}· หมดอายุ {new Date(user.planExpiresAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          )}
+        </p>
+        {onOpenSubscription && (
+          <button type="button" onClick={() => { onClose(); onOpenSubscription() }} style={btnGhost}>
+            ดูแผนและโควต้า AI
+          </button>
+        )}
+      </div>
+
+      <div className="dash-settings-divider" style={{ marginBottom: '20px' }}>
         <h3 className="dash-settings-section-title">ธีมการแสดงผล</h3>
         <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
           เลือก Light หรือ Dark — บันทึกในเครื่องนี้

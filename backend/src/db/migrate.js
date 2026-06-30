@@ -480,6 +480,13 @@ const migrations = [
       ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    name: '022_plan_admin_fields',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_note TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_updated_at TIMESTAMPTZ;
+    `,
+  },
 ]
 
 export async function runMigrations() {
