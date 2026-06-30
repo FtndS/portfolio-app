@@ -96,13 +96,23 @@ function compareBaselineIndex(vals, costs) {
   return vals.findIndex((v) => v > 0)
 }
 
+function convertPortfolioAmount(amount, portfolioCurrency, displayCurrency, fxRate) {
+  const n = Number(amount) || 0
+  if (displayCurrency === 'THB') {
+    return portfolioCurrency === 'THB' ? n : n * fxRate
+  }
+  return portfolioCurrency === 'THB' ? n / fxRate : n
+}
+
 export default function PortfolioChart({
   history,
   portfolioName,
+  portfolioCurrency = 'USD',
   benchmark = [],
   benchmarkToggles = {},
   onBenchmarkToggle,
   displayCurrency,
+  fxRate = 1,
   chartRange,
   onChartRangeChange,
   loading,
@@ -117,8 +127,9 @@ export default function PortfolioChart({
   const chartData = useMemo(() => {
     if (!history?.length) return null
 
-    const allVals = history.map((d) => Number(d.total_value))
-    const allCosts = history.map((d) => Number(d.total_cost || 0))
+    const convert = (n) => convertPortfolioAmount(n, portfolioCurrency, displayCurrency, fxRate)
+    const allVals = history.map((d) => convert(d.total_value))
+    const allCosts = history.map((d) => convert(d.total_cost || 0))
     const allDates = history.map((d) => dateKey(d.date))
 
     const trimFrom = leadingZeroEnd(allVals)
@@ -160,7 +171,7 @@ export default function PortfolioChart({
       firstValueDate: dates[0] ?? null,
       skippedEnd: trimFrom > 0 ? allDates[trimFrom - 1] : null,
     }
-  }, [history, benchmarks])
+  }, [history, benchmarks, displayCurrency, fxRate, portfolioCurrency])
 
   if (!history?.length) {
     return (

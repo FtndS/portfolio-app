@@ -139,11 +139,19 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
 
   const recordSnapshot=useCallback(async(portfolioId,hl,pricesMap)=>{
     if(!portfolioId||!hl?.length) return
+    const port=portfolios.find((p)=>Number(p.id)===Number(portfolioId))
+    const portCcy=port?.currency||'USD'
+    const toPortCcy=(amount,holdingCcy)=>{
+      const ccy=holdingCcy||'USD'
+      if(portCcy===ccy) return amount
+      if(portCcy==='THB') return ccy==='THB'?amount:amount*fxRate
+      return ccy==='THB'?amount/fxRate:amount
+    }
     const getVal=h=>{
       const p=pricesMap[h.ticker]||Number(h.avg_cost)
-      return Number(h.shares)*p
+      return toPortCcy(Number(h.shares)*p,h.currency)
     }
-    const getCost=h=>Number(h.shares)*Number(h.avg_cost)
+    const getCost=h=>toPortCcy(Number(h.shares)*Number(h.avg_cost),h.currency)
     const totalValue=hl.reduce((s,h)=>s+getVal(h),0)
     const totalCost=hl.reduce((s,h)=>s+getCost(h),0)
     const sectorMap={}
@@ -156,7 +164,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     }))
     await api.post(`/portfolios/${portfolioId}/snapshot`,{total_value:totalValue,total_cost:totalCost,sector_data:sectorData})
     fetchHistory(portfolioId)
-  },[fetchHistory])
+  },[fetchHistory, portfolios, fxRate])
 
   const fetchPricesForHoldings=useCallback(async(hl,portList,portfolioIdForSnapshot)=>{
     if(!hl?.length) return
@@ -548,9 +556,11 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           {holdings.length>0&&<>
             <div className="dash-overview-charts">
               <PortfolioChart
-                key={activePortfolioId}
+                key={`${activePortfolioId}-${displayCurrency}`}
                 history={portfolioHistory}
                 portfolioName={activePort?.name}
+                portfolioCurrency={activePort?.currency || 'USD'}
+                fxRate={fxRate}
                 benchmark={benchmarksData}
                 benchmarkToggles={benchmarkToggles}
                 onBenchmarkToggle={(id) => setBenchmarkToggles((prev) => ({ ...prev, [id]: !prev[id] }))}

@@ -135,9 +135,13 @@ async function livePortfolioTotals(positions, avgCosts, holdingMeta, portfolioCu
 }
 
 function priceOnDate(priceMap, dateStr, fallback = 0) {
+  if (!priceMap || !Object.keys(priceMap).length) return fallback
   if (priceMap[dateStr] != null) return priceMap[dateStr]
-  const dates = Object.keys(priceMap).filter(d => d <= dateStr).sort()
-  return dates.length ? priceMap[dates[dates.length - 1]] : fallback
+  const sorted = Object.keys(priceMap).sort()
+  const before = sorted.filter((d) => d <= dateStr)
+  if (before.length) return priceMap[before[before.length - 1]]
+  // Forward-fill from earliest quote — avoids cliff from avg-cost fallback to market price
+  return priceMap[sorted[0]]
 }
 
 function positionsAtDate(transactions, dateStr) {
