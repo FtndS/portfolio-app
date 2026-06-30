@@ -1,11 +1,17 @@
 export const MARKETS = [
-  { id: 'US', label: 'US / Global', currencies: ['USD'] },
-  { id: 'SET', label: 'Thailand (SET)', currencies: ['THB'] },
-  { id: 'CRYPTO', label: 'Crypto', currencies: ['USD'] },
-  { id: 'HK', label: 'Hong Kong', currencies: ['HKD'] },
-  { id: 'CN', label: 'China (Shanghai)', currencies: ['CNY'] },
-  { id: 'SZ', label: 'China (Shenzhen)', currencies: ['CNY'] },
+  { id: 'US', label: 'US / Global', currencies: ['USD', 'THB'] },
+  { id: 'SET', label: 'Thailand (SET)', currencies: ['THB', 'USD'] },
+  { id: 'CRYPTO', label: 'Crypto', currencies: ['USD', 'THB'] },
+  { id: 'HK', label: 'Hong Kong', currencies: ['HKD', 'THB', 'USD'] },
+  { id: 'CN', label: 'China (Shanghai)', currencies: ['CNY', 'THB', 'USD'] },
+  { id: 'SZ', label: 'China (Shenzhen)', currencies: ['CNY', 'THB', 'USD'] },
 ]
+
+export function currencyForMarket(marketId, preferred) {
+  const def = MARKETS.find((m) => m.id === marketId) || MARKETS[0]
+  if (preferred && def.currencies.includes(preferred)) return preferred
+  return def.currencies[0] || 'USD'
+}
 
 export const CURRENCY_SYMBOL = { USD: '$', THB: '฿', HKD: 'HK$', CNY: '¥' }
 export const symFor = (c) => CURRENCY_SYMBOL[c] || '$'

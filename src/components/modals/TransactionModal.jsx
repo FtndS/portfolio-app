@@ -5,7 +5,7 @@ import Field from '../ui/Field'
 import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
 import DateInput from '../ui/DateInput'
-import { sanitizeTicker, MARKETS } from '../../lib/constants'
+import { sanitizeTicker, MARKETS, symFor, currencyForMarket } from '../../lib/constants'
 import { todayIso, fmtShares, SHARES_EPS } from '../../lib/format'
 
 const SELL_PCT_PRESETS = [25, 50, 75, 100]
@@ -57,32 +57,43 @@ function inferTxMarket(ticker, holdings) {
   return 'US'
 }
 
-function syncMarketCurrency(market, currency) {
-  const def = MARKETS.find((m) => m.id === market) || MARKETS[0]
-  let nextMarket = market
-  let nextCurrency = currency
-
-  if (nextCurrency === 'THB' && nextMarket !== 'SET') nextMarket = 'SET'
-  if (nextCurrency === 'HKD' && nextMarket !== 'HK') nextMarket = 'HK'
-  if (nextCurrency === 'CNY' && nextMarket !== 'CN' && nextMarket !== 'SZ') nextMarket = 'CN'
-
-  const marketDef = MARKETS.find((m) => m.id === nextMarket) || MARKETS[0]
-  if (!marketDef.currencies.includes(nextCurrency)) {
-    nextCurrency = marketDef.currencies[0] || 'USD'
-  }
-
-  return { market: nextMarket, currency: nextCurrency }
+function hasExplicitMarketSuffix(ticker) {
+  const t = sanitizeTicker(ticker)
+  if (!t) return false
+  return (
+    t.includes('-BK') || t.includes('.BK')
+    || t.includes('-HK') || t.includes('.HK')
+    || t.includes('-SS') || t.includes('.SS')
+    || t.includes('-SZ') || t.includes('.SZ')
+    || /-USD$|-(USDT|THB|BTC|ETH)$/.test(t)
+  )
 }
 
-function applyTickerInference(ticker, holdings, isEdit, hasHoldingId) {
+function applyTickerInference(ticker, holdings, isEdit, hasHoldingId, currentMarket, currentCurrency) {
   if (isEdit || hasHoldingId) return null
   const clean = sanitizeTicker(ticker)
   if (!clean) return null
 
   const matched = findHoldingByTickerInput(clean, holdings)
-  const market = matched?.market || inferTxMarket(clean, holdings)
-  const currency = matched?.currency || inferTxCurrency(clean, holdings)
-  return syncMarketCurrency(market, currency)
+  if (matched) {
+    return {
+      market: matched.market || currentMarket,
+      currency: matched.currency || currencyForMarket(currentMarket, currentCurrency),
+    }
+  }
+
+  if (hasExplicitMarketSuffix(clean)) {
+    return {
+      market: inferTxMarket(clean, holdings),
+      currency: inferTxCurrency(clean, holdings),
+    }
+  }
+
+  const inferred = inferTxCurrency(clean, holdings)
+  return {
+    market: currentMarket,
+    currency: currencyForMarket(currentMarket, inferred === 'USD' ? currentCurrency : inferred),
+  }
 }
 
 export default function TransactionModal({ holdings, transaction, onClose, onSave, portfolioId }) {
@@ -185,7 +196,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     } else setError(r.error || 'บันทึกไม่สำเร็จ')
   }
 
-  const sym = f.currency === 'THB' ? '฿' : '$'
+  const sym = symFor(f.currency)
   const total = f.shares && f.price ? parseFloat(f.shares) * parseFloat(f.price) : 0
   const feeNum = f.fee === '' ? 0 : parseFloat(f.fee) || 0
   const marketDef = MARKETS.find((m) => m.id === f.market) || MARKETS[0]
@@ -209,9 +220,11 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
           value={f.market}
           onChange={(e) => {
             const nextMarket = e.target.value
-            const nextDef = MARKETS.find((m) => m.id === nextMarket) || MARKETS[0]
-            const synced = syncMarketCurrency(nextMarket, nextDef.currencies[0] || 'USD')
-            setF({ ...f, market: synced.market, currency: synced.currency })
+            setF({
+              ...f,
+              market: nextMarket,
+              currency: currencyForMarket(nextMarket, f.currency),
+            })
           }}
           disabled={isEdit}
         >
@@ -229,7 +242,14 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
                 const ticker = e.target.value
                 const next = { ...f, ticker }
                 setSellPctActive(null)
-                const inferred = applyTickerInference(ticker, holdings, isEdit, !!f.holding_id)
+                const inferred = applyTickerInference(
+                  ticker,
+                  holdings,
+                  isEdit,
+                  !!f.holding_id,
+                  f.market,
+                  f.currency
+                )
                 if (inferred) {
                   next.market = inferred.market
                   next.currency = inferred.currency
@@ -270,15 +290,10 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
               style={{ flex: 1 }}
               onClick={() => setF({ ...f, currency: c })}
             >
-              {c === 'USD' ? '$ USD' : c === 'THB' ? '฿ THB' : c}
+              {symFor(c)} {c}
             </button>
           ))}
         </div>
-        {f.market === 'US' && (
-          <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '6px', marginBottom: 0 }}>
-            หุ้นไทยใช้ ฿ THB — เลือกหมวด <strong>Thailand (SET)</strong> หรือพิมพ์ ticker แบบ <strong>TISCO-BK</strong>
-          </p>
-        )}
       </Field>
       <div style={{ display: 'flex', gap: '8px' }} className="dash-modal-row">
         <div style={{ flex: 1 }}>

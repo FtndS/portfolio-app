@@ -5,7 +5,7 @@ import Field from '../ui/Field'
 import AmountInput from '../ui/AmountInput'
 import Modal from '../ui/Modal'
 
-import { MARKETS, symFor, sanitizeTicker, SECTOR_COLORS, JOURNAL_TAGS } from '../../lib/constants'
+import { MARKETS, symFor, sanitizeTicker, SECTOR_COLORS, JOURNAL_TAGS, currencyForMarket } from '../../lib/constants'
 
 export default function HoldingModal({holding,onClose,onSave,portfolioId}){
   const [f,setF]=useState({
@@ -34,8 +34,8 @@ export default function HoldingModal({holding,onClose,onSave,portfolioId}){
     <Modal title={isEdit?'แก้ไข Holding':'เพิ่ม Holding'} onClose={onClose}>
       <Field label="ตลาด">
         <select style={inp()} value={f.market} onChange={e=>{
-          const m=MARKETS.find(x=>x.id===e.target.value)
-          setF({...f,market:e.target.value,currency:m?.currencies[0]||'USD'})
+          const nextMarket = e.target.value
+          setF({ ...f, market: nextMarket, currency: currencyForMarket(nextMarket, f.currency) })
         }}>
           {MARKETS.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}
         </select>
