@@ -15,25 +15,74 @@ function formatSellQty(n) {
   return parseFloat(n.toFixed(10)).toString()
 }
 
+function findHoldingByTickerInput(ticker, holdings) {
+  const t = sanitizeTicker(ticker)
+  if (!t) return null
+  const exact = holdings.find((h) => sanitizeTicker(h.ticker) === t)
+  if (exact) return exact
+  const withBk = holdings.find((h) => {
+    const ht = sanitizeTicker(h.ticker)
+    return ht === `${t}-BK` || ht === `${t}.BK`
+  })
+  if (withBk) return withBk
+  return (
+    holdings.find((h) => {
+      const ht = sanitizeTicker(h.ticker)
+      return ht.startsWith(`${t}-`) || ht.startsWith(`${t}.`)
+    }) || null
+  )
+}
+
 function inferTxCurrency(ticker, holdings) {
-  const h = holdings.find((x) => x.ticker === ticker)
+  const h = findHoldingByTickerInput(ticker, holdings)
   if (h?.currency) return h.currency
-  const t = (ticker || '').toUpperCase()
-  if (t.includes('-BK') || t.endsWith('.BK')) return 'THB'
-  if (t.includes('-HK')) return 'HKD'
+  const t = sanitizeTicker(ticker)
+  if (!t) return 'USD'
+  if (t.includes('-BK') || t.includes('.BK')) return 'THB'
+  if (t.includes('-HK') || t.includes('.HK')) return 'HKD'
+  if (t.includes('-SS') || t.includes('.SS') || t.includes('-SZ') || t.includes('.SZ')) return 'CNY'
   return 'USD'
 }
 
 function inferTxMarket(ticker, holdings) {
-  const h = holdings.find((x) => x.ticker === ticker)
+  const h = findHoldingByTickerInput(ticker, holdings)
   if (h?.market) return h.market
-  const t = (ticker || '').toUpperCase()
-  if (t.endsWith('-BK') || t.endsWith('.BK')) return 'SET'
-  if (t.endsWith('-HK') || t.endsWith('.HK')) return 'HK'
-  if (t.endsWith('-SS') || t.endsWith('.SS')) return 'CN'
-  if (t.endsWith('-SZ') || t.endsWith('.SZ')) return 'SZ'
+  const t = sanitizeTicker(ticker)
+  if (!t) return 'US'
+  if (t.includes('-BK') || t.includes('.BK')) return 'SET'
+  if (t.includes('-HK') || t.includes('.HK')) return 'HK'
+  if (t.includes('-SS') || t.includes('.SS')) return 'CN'
+  if (t.includes('-SZ') || t.includes('.SZ')) return 'SZ'
   if (/-USD$|-(USDT|THB|BTC|ETH)$/.test(t)) return 'CRYPTO'
   return 'US'
+}
+
+function syncMarketCurrency(market, currency) {
+  const def = MARKETS.find((m) => m.id === market) || MARKETS[0]
+  let nextMarket = market
+  let nextCurrency = currency
+
+  if (nextCurrency === 'THB' && nextMarket !== 'SET') nextMarket = 'SET'
+  if (nextCurrency === 'HKD' && nextMarket !== 'HK') nextMarket = 'HK'
+  if (nextCurrency === 'CNY' && nextMarket !== 'CN' && nextMarket !== 'SZ') nextMarket = 'CN'
+
+  const marketDef = MARKETS.find((m) => m.id === nextMarket) || MARKETS[0]
+  if (!marketDef.currencies.includes(nextCurrency)) {
+    nextCurrency = marketDef.currencies[0] || 'USD'
+  }
+
+  return { market: nextMarket, currency: nextCurrency }
+}
+
+function applyTickerInference(ticker, holdings, isEdit, hasHoldingId) {
+  if (isEdit || hasHoldingId) return null
+  const clean = sanitizeTicker(ticker)
+  if (!clean) return null
+
+  const matched = findHoldingByTickerInput(clean, holdings)
+  const market = matched?.market || inferTxMarket(clean, holdings)
+  const currency = matched?.currency || inferTxCurrency(clean, holdings)
+  return syncMarketCurrency(market, currency)
 }
 
 export default function TransactionModal({ holdings, transaction, onClose, onSave, portfolioId }) {
@@ -49,7 +98,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     date: transaction?.date?.split('T')[0] || today,
     holding_id: transaction?.holding_id ? String(transaction.holding_id) : '',
     currency: transaction?.currency || inferTxCurrency(transaction?.ticker, holdings),
-    market: inferTxMarket(transaction?.ticker, holdings),
+    market: transaction?.market || inferTxMarket(transaction?.ticker, holdings),
   }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -161,7 +210,8 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
           onChange={(e) => {
             const nextMarket = e.target.value
             const nextDef = MARKETS.find((m) => m.id === nextMarket) || MARKETS[0]
-            setF({ ...f, market: nextMarket, currency: nextDef.currencies[0] || 'USD' })
+            const synced = syncMarketCurrency(nextMarket, nextDef.currencies[0] || 'USD')
+            setF({ ...f, market: synced.market, currency: synced.currency })
           }}
           disabled={isEdit}
         >
@@ -179,10 +229,10 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
                 const ticker = e.target.value
                 const next = { ...f, ticker }
                 setSellPctActive(null)
-                if (!isEdit && !f.holding_id) {
-                  next.market = inferTxMarket(sanitizeTicker(ticker), holdings)
-                  const inferredMarket = MARKETS.find((m) => m.id === next.market) || MARKETS[0]
-                  next.currency = inferredMarket.currencies[0] || inferTxCurrency(sanitizeTicker(ticker), holdings)
+                const inferred = applyTickerInference(ticker, holdings, isEdit, !!f.holding_id)
+                if (inferred) {
+                  next.market = inferred.market
+                  next.currency = inferred.currency
                 }
                 setF(next)
               }}
@@ -224,6 +274,11 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
             </button>
           ))}
         </div>
+        {f.market === 'US' && (
+          <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '6px', marginBottom: 0 }}>
+            หุ้นไทยใช้ ฿ THB — เลือกหมวด <strong>Thailand (SET)</strong> หรือพิมพ์ ticker แบบ <strong>TISCO-BK</strong>
+          </p>
+        )}
       </Field>
       <div style={{ display: 'flex', gap: '8px' }} className="dash-modal-row">
         <div style={{ flex: 1 }}>
