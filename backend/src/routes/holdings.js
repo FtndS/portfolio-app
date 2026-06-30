@@ -140,12 +140,13 @@ router.put('/:id', async (req, res) => {
     'SELECT portfolio_id FROM holdings WHERE id = $1 AND user_id = $2',
     [req.params.id, req.userId]
   )
-  const portfolio = existing.rows[0]
-    ? await pool.query(
-        'SELECT currency FROM portfolios WHERE id = $1 AND user_id = $2',
-        [existing.rows[0].portfolio_id, req.userId]
-      )
-    : { rows: [] }
+  if (!existing.rows.length) {
+    return res.status(404).json({ error: 'ไม่พบ holding' })
+  }
+  const portfolio = await pool.query(
+    'SELECT currency FROM portfolios WHERE id = $1 AND user_id = $2',
+    [existing.rows[0].portfolio_id, req.userId]
+  )
   const portfolioCurrency = portfolio.rows[0]?.currency || 'USD'
   const mkt = resolveMarket(ticker, market, currency, portfolioCurrency)
   const sanitizedTicker = storageTicker(ticker, mkt, currency, portfolioCurrency)
@@ -161,6 +162,9 @@ router.put('/:id', async (req, res) => {
       [sanitizedTicker, finalName, shares, avg_cost, finalSector,
         currency || defaultCurrency(mkt), mkt, req.params.id, req.userId]
     )
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'ไม่พบ holding' })
+    }
     res.json(result.rows[0])
   } catch (err) {
     res.status(500).json({ error: err.message })
