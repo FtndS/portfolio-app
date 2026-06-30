@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { api } from '../../lib/api'
 import PortfolioReport from '../PortfolioReport'
 import OnboardingModal, { isOnboardingDone, markOnboardingDone } from '../OnboardingModal'
@@ -71,6 +71,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
 
   const fxRate=prices['USDTHB=X']||35
   const pid=activePortfolioId
+  const historyReqRef = useRef(0)
 
   const fetchPortfolios=useCallback(async()=>{
     const p=await api.get('/portfolios')
@@ -110,12 +111,14 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
 
   const fetchHistory=useCallback(async(portfolioId, range = chartRange)=>{
     if(!portfolioId) return
+    const reqId = ++historyReqRef.current
     setLoadingHistory(true)
     try {
       const days = CHART_RANGE_DAYS[range] ?? 90
       const enabled = Object.entries(benchmarkToggles).filter(([, on]) => on).map(([k]) => k)
       const benchmarkParam = enabled.length ? enabled.join(',') : 'none'
       const r = await api.get(`/portfolios/${portfolioId}/history`, { days, benchmarks: benchmarkParam })
+      if (reqId !== historyReqRef.current) return
       if (r?.ok === false) {
         console.error('History fetch error:', r.error)
         return
@@ -129,9 +132,9 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         setBenchmarksData(list)
       }
     } catch (e) {
-      console.error('History fetch error:', e)
+      if (reqId === historyReqRef.current) console.error('History fetch error:', e)
     }
-    setLoadingHistory(false)
+    if (reqId === historyReqRef.current) setLoadingHistory(false)
   },[chartRange, benchmarkToggles])
 
   const recordSnapshot=useCallback(async(portfolioId,hl,pricesMap)=>{
@@ -244,6 +247,8 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
 
   useEffect(() => {
     if (!activePortfolioId) return
+    setPortfolioHistory([])
+    setBenchmarksData([])
     fetchHistory(activePortfolioId, chartRange)
   }, [activePortfolioId, chartRange, benchmarkToggles, fetchHistory])
 
@@ -543,7 +548,9 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           {holdings.length>0&&<>
             <div className="dash-overview-charts">
               <PortfolioChart
+                key={activePortfolioId}
                 history={portfolioHistory}
+                portfolioName={activePort?.name}
                 benchmark={benchmarksData}
                 benchmarkToggles={benchmarkToggles}
                 onBenchmarkToggle={(id) => setBenchmarkToggles((prev) => ({ ...prev, [id]: !prev[id] }))}

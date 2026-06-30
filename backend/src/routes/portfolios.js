@@ -129,15 +129,18 @@ router.delete('/:id', async (req, res) => {
 
 // Portfolio value history (Google Finance style)
 router.get('/:id/history', historyLimiter, async (req, res) => {
+  const portfolioId = Number(req.params.id)
+  if (!Number.isFinite(portfolioId)) {
+    return res.status(400).json({ error: 'Invalid portfolio id' })
+  }
   const days = resolveDaysParam(req.query.days ?? 90)
   try {
     const owns = await pool.query(
       'SELECT id, currency FROM portfolios WHERE id = $1 AND user_id = $2',
-      [req.params.id, req.userId]
+      [portfolioId, req.userId]
     )
     if (!owns.rows.length) return res.status(404).json({ error: 'Not found' })
 
-    const portfolioId = Number(req.params.id)
     const [history, holdingsResult] = await Promise.all([
       computePortfolioHistory(req.userId, portfolioId, days),
       pool.query(

@@ -98,6 +98,7 @@ function compareBaselineIndex(vals, costs) {
 
 export default function PortfolioChart({
   history,
+  portfolioName,
   benchmark = [],
   benchmarkToggles = {},
   onBenchmarkToggle,
@@ -278,7 +279,7 @@ export default function PortfolioChart({
           <p className="dash-chart-sub">
             {compareMode
               ? 'กราฟ % การเปลี่ยนแปลงจากต้นช่วงที่เลือก (0% = จุดเริ่ม) — ไม่ใช่กำไรรวมจากทุน'
-              : `กราฟมูลค่าพอร์ต (${currencyLabel}) จาก transaction + ราคาย้อนหลัง`}
+              : `กราฟมูลค่าพอร์ต (${currencyLabel}) จาก transaction + ราคาย้อนหลัง${portfolioName ? ` · ${portfolioName}` : ''}`}
           </p>
         </div>
         <div className="dash-chart-stats">
