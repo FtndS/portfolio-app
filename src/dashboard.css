@@ -133,6 +133,11 @@
   height: var(--logo-size, 32px);
 }
 
+.pd-logo-mark--icon {
+  border-radius: 22%;
+  object-fit: cover;
+}
+
 .pd-logo-text {
   font-size: max(14px, calc(var(--logo-size, 32px) * 0.62));
   font-weight: 600;

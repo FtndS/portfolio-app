@@ -15,10 +15,6 @@ export function applyTheme(theme) {
   localStorage.setItem(STORAGE_KEY, theme)
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.content = theme === 'light' ? '#f3ede4' : '#0f0f12'
-  const favicon = document.querySelector('link[rel="icon"]')
-  if (favicon) {
-    favicon.href = theme === 'light' ? '/favicon-light.svg' : '/favicon.svg'
-  }
 }
 
 export function ThemeProvider({ children }) {
