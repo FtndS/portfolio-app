@@ -85,24 +85,59 @@ export function normalizeHistoryResponse(res) {
   return Array.isArray(res?.history) ? res.history : []
 }
 
+function forwardFillHistory(batch, portfolioCurrency, displayCurrency, usdThb) {
+  const portCcy = portfolioCurrency || 'USD'
+  const rows = normalizeHistoryResponse(batch)
+    .map((row) => {
+      const date = String(row.date || '').split('T')[0]
+      if (!date) return null
+      return {
+        date,
+        total_value: convertAmount(row.total_value, portCcy, displayCurrency, usdThb),
+        total_cost: convertAmount(row.total_cost || 0, portCcy, displayCurrency, usdThb),
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  const byDate = new Map(rows.map((r) => [r.date, r]))
+  return { byDate, rows }
+}
+
 /**
  * Sum portfolio value/cost by date across multiple portfolios (with FX).
+ * Forward-fills each portfolio so sparse sample grids do not drop holdings on gap dates.
  * @param {{ batch: unknown, portfolioCurrency: string }[]} entries
  */
 export function mergePortfolioHistories(entries, { displayCurrency = 'USD', usdThb = 35 } = {}) {
-  const byDate = new Map()
-  for (const { batch, portfolioCurrency } of entries) {
-    const portCcy = portfolioCurrency || 'USD'
-    for (const row of normalizeHistoryResponse(batch)) {
-      const date = String(row.date || '').split('T')[0]
-      if (!date) continue
-      const prev = byDate.get(date) || { date, total_value: 0, total_cost: 0 }
-      prev.total_value += convertAmount(row.total_value, portCcy, displayCurrency, usdThb)
-      prev.total_cost += convertAmount(row.total_cost || 0, portCcy, displayCurrency, usdThb)
-      byDate.set(date, prev)
-    }
+  const filled = entries.map(({ batch, portfolioCurrency }) =>
+    forwardFillHistory(batch, portfolioCurrency, displayCurrency, usdThb)
+  )
+
+  const dateSet = new Set()
+  for (const { rows } of filled) {
+    for (const row of rows) dateSet.add(row.date)
   }
-  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+  const allDates = [...dateSet].sort()
+  if (!allDates.length) return []
+
+  return allDates.map((date) => {
+    let total_value = 0
+    let total_cost = 0
+    for (const { byDate, rows } of filled) {
+      if (!rows.length) continue
+      let last = null
+      for (const row of rows) {
+        if (row.date > date) break
+        last = row
+      }
+      const point = byDate.get(date) || last
+      if (!point) continue
+      total_value += point.total_value
+      total_cost += point.total_cost
+    }
+    return { date, total_value, total_cost }
+  })
 }
 
 export function mergePortfolioHistoriesWithPerformance(entries, options = {}) {
