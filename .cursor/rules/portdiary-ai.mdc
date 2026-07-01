@@ -1,0 +1,38 @@
+---
+description: PortDiary AI endpoints — Copilot, analyze, news, quota, Claude prompts
+globs: backend/src/routes/ai.js,backend/src/lib/aiPlan.js,backend/src/lib/aiQuota.js,backend/src/lib/aiAnalyzeContext.js,backend/src/lib/aiCopilotContext.js,src/components/dashboard/AIPanel.jsx,src/components/dashboard/AIDrawer.jsx,backend/tests/ai*.test.js
+alwaysApply: false
+---
+
+# PortDiary AI (runtime)
+
+**Cursor rules do not change user-facing AI** — they guide dev edits to `ai.js` and context builders.
+
+## 4 features (weekly quota)
+| Feature | Route | Response |
+|---------|-------|----------|
+| Copilot | `POST /ai/copilot` | plain text |
+| Analyze | `POST /ai/analyze` | JSON (`parseClaudeJson`) |
+| News | `POST /ai/news-summary` | JSON |
+| Ticker journal | `POST /ai/ticker-journal` | plain text |
+
+## 2 plans + privileged
+- `free` / `pro` in `backend/src/lib/aiPlan.js`
+- Owner email (`AI_OWNER_EMAIL`) + `admin` → Pro limits, unlimited quota
+- Pro only: `allowCustomQuestion` on Copilot (`COPILOT_CUSTOM_PRO_ONLY`)
+
+## Required in every prompt
+- ภาษาไทย
+- อ้างอิงเฉพาะข้อมูลใน context — ห้ามแต่ง ticker/ตัวเลข
+- ไม่ใช่คำแนะนำซื้อขาย
+
+## Context builders
+- `buildAnalyzePayload` / `buildCopilotContext` — use `displayCurrency` + `fxRate` for values
+- Plan caps: `maxTransactions`, `maxJournal`, `maxHoldings`, `maxTokens`
+- UI presets: `COPILOT_PRESETS` in `aiCopilotContext.js` + mirror in `AIPanel.jsx`
+
+## Do not
+- Mix Copilot plain-text prompts with Analyze JSON schema
+- Change `weeklyLimit` without updating `subscriptionCatalog.js` labels
+- Skip `requireAiQuota` / `reserveAiQuota` on new AI routes
+- Edit only system prompt when bug is wrong numbers — fix context first

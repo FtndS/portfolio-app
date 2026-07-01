@@ -20,10 +20,11 @@ alwaysApply: true
 | FX | `src/lib/currency.js`, `backend/src/lib/currency.js` |
 | Tickers | `src/lib/ticker.js`, `backend/src/lib/ticker.js` |
 | Transactions | `src/components/modals/TransactionModal.jsx`, `backend/src/routes/transactions.js` |
+| AI | `backend/src/routes/ai.js`, `backend/src/lib/aiPlan.js`, `src/components/dashboard/AIPanel.jsx` |
 
 ## Defaults when changing money or charts
 - KPIs use live holdings (`price × shares`); history charts use transaction-derived series + TWR
 - Never sum THB + USD amounts without `convertAmount`
 - `portfolios.currency` in DB may be stale — use `inferPortfolioCurrency` from holdings
 - After fixing `holdingSync`, run or add migration `rebuildHoldingsFromTransactions` for existing users
-- Prefer project skills in `.cursor/skills/` for chart, holding, and deploy workflows
+- Prefer project skills in `.cursor/skills/` for chart, holding, AI, and deploy workflows
