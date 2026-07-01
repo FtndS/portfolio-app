@@ -5,6 +5,7 @@ import {
   validateName,
   validateOtpCode,
   parseFee,
+  normalizeEmail,
 } from '../src/lib/validate.js'
 
 describe('validateEmail', () => {

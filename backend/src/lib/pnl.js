@@ -1,5 +1,7 @@
 /** Average-cost P&L (matches holdingSync). Used by API/tests. */
 
+const SHARES_EPS = 1e-9
+
 function isoDate(value) {
   if (!value) return ''
   const s = String(value).trim()
@@ -48,9 +50,14 @@ export function computePortfolioPnL({ transactions, holdings, prices = {}, conve
 
   let unrealized = 0
   for (const h of holdings || []) {
-    const p = prices[h.ticker] ?? Number(h.avg_cost)
-    const val = Number(h.shares) * p
-    const cost = Number(h.shares) * Number(h.avg_cost)
+    const ticker = h.ticker
+    const st = state[ticker]
+    const shares = Number(h.shares)
+    const avgCost =
+      st && st.shares > SHARES_EPS ? st.avgCost : Number(h.avg_cost)
+    const p = prices[ticker] ?? avgCost
+    const val = shares * p
+    const cost = shares * avgCost
     unrealized += convert(val - cost, h.currency || 'USD')
   }
 
