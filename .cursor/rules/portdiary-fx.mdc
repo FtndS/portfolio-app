@@ -1,0 +1,27 @@
+---
+description: Multi-currency FX rules for PortDiary (THB/USD/HKD/CNY)
+globs: src/lib/currency.js,src/lib/reportScope.js,src/components/PortfolioReport.jsx,src/components/charts/PortfolioChart.jsx,backend/src/lib/currency.js,backend/src/lib/portfolioHistory.js
+alwaysApply: false
+---
+
+# PortDiary FX
+
+## Conversion
+- Use `convertAmount(amount, fromCcy, displayCcy, usdThb)` — never add raw THB + USD
+- Spot `usdThb` from live FX is used for all historical points (known limitation)
+
+## Per-portfolio native currency
+```javascript
+// ✅ infer from holdings when DB row is wrong
+const portCcy = inferPortfolioCurrency(portfolio, holdings)
+convertHistoryToDisplay(history, portCcy, displayCurrency, fxRate)
+```
+
+## Merged "ทุกพอร์ตรวม"
+1. Convert each portfolio history to display currency **before** summing `total_value`
+2. Forward-fill each portfolio on the union timeline (sparse sample dates drop holdings otherwise)
+3. TWR cash flows: convert each transaction to display currency on its date
+
+## Regression signals
+- Chart % near -100% or +10,000% while KPIs look sane → merge/FX/TWR bug
+- THB portfolio shown as USD → ~33× wrong scale

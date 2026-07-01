@@ -1,0 +1,20 @@
+---
+description: Thai SET tickers, -BK suffix, market and currency on transactions
+globs: src/lib/ticker.js,backend/src/lib/ticker.js,src/components/modals/TransactionModal.jsx,backend/src/routes/transactions.js,backend/src/routes/holdings.js
+alwaysApply: false
+---
+
+# Thai tickers (SET)
+
+## Storage / Yahoo
+- SET symbols stored/displayed with `-BK` suffix (e.g. `TISCO-BK`)
+- `storageTicker()` / `toYahooTicker()` handle normalization — do not strip suffix blindly
+
+## Transaction form
+- Typing plain `TISCO` should preview `TISCO-BK`; changing ticker must not reset market from SET → US
+- Currency follows market: SET → THB; allow THB on other markets when user selects it
+- Persist `currency` on transaction rows; dividends default check `currency` field
+
+## Holdings metadata
+- `currency: THB`, `market: SET` for Thai holdings
+- Migrations `011`, `012` backfilled stale USD-on-Thai rows — new code should infer, not rely on DB alone

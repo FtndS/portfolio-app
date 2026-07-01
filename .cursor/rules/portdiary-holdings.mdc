@@ -1,0 +1,30 @@
+---
+description: Average-cost holdings sync from transactions
+globs: backend/src/lib/holdingSync.js,backend/src/lib/transactionValidation.js,backend/src/routes/transactions.js,src/lib/pnl.js
+alwaysApply: false
+---
+
+# Holdings & avg_cost
+
+## Average-cost method (required)
+```javascript
+// BUY: weighted average including fee
+nextAvg = (prevShares * prevAvg + shares * price + fee) / nextShares
+// SELL: reduce shares; avg per share unchanged until zero
+```
+
+## Forbidden
+```javascript
+// ❌ lifetime buy average — wrong after partial sells
+avgCost = totalBuyCost / totalBuyShares
+```
+
+## Transaction order
+```sql
+ORDER BY date ASC, created_at ASC, id ASC
+```
+Use `fetchOrderedTransactions` pattern for validation; `syncHoldingFromTransactions` must match.
+
+## Consistency
+- `computePortfolioPnL` (frontend) and `positionsAtDate` (backend history) use the same logic
+- `holding.avg_cost` in DB must match — run `rebuildHoldingsFromTransactions` after logic changes

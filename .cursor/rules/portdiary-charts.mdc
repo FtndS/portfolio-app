@@ -1,0 +1,28 @@
+---
+description: Report and Overview chart / TWR / merge history rules
+globs: src/lib/reportScope.js,src/components/PortfolioReport.jsx,src/components/report/**,src/components/charts/PortfolioChart.jsx,backend/src/lib/portfolioHistory.js
+alwaysApply: false
+---
+
+# PortDiary charts
+
+## Value series
+- `total_value` = Σ (`shares × price` per holding), not total invested or cash balance
+- Backend: `priceOnDate` must not forward-fill **future** quotes into past dates
+
+## TWR (`attachPerformancePct`)
+```javascript
+chain *= 1 + (v1 - v0 - cf) / v0   // only when v0 > 0
+```
+- `cf` = net BUY/SELL cash flow on that date, in display currency
+- Single-portfolio % comes from backend; merged all-ports recomputes on frontend in `mergePortfolioHistoriesWithPerformance`
+
+## Merge timelines
+```javascript
+// ❌ sum only rows that exist on date D — port missing row → value vanishes
+// ✅ forward-fill each port to last known value before summing
+```
+
+## Compare / benchmark
+- S&P 500 vs mixed THB+US portfolio is approximate; SET may fit Thai-heavy scopes
+- Report PDF: print styles in `src/dashboard.css` `@media print` — avoid ellipsis on legend labels

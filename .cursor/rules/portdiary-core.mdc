@@ -1,0 +1,29 @@
+---
+description: PortDiary stack, paths, and safe-change defaults
+alwaysApply: true
+---
+
+# PortDiary core
+
+## Stack
+- Frontend: React + Vite (`src/`)
+- Backend: Node + Express + Postgres (`backend/`)
+- Prices: Yahoo Finance; Thai tickers use `-BK` / SET market
+
+## Key paths
+| Area | Paths |
+|------|--------|
+| Report | `src/components/PortfolioReport.jsx`, `src/lib/reportScope.js`, `src/components/report/` |
+| Overview chart | `src/components/charts/PortfolioChart.jsx` |
+| History / TWR | `backend/src/lib/portfolioHistory.js` |
+| Holdings sync | `backend/src/lib/holdingSync.js` |
+| FX | `src/lib/currency.js`, `backend/src/lib/currency.js` |
+| Tickers | `src/lib/ticker.js`, `backend/src/lib/ticker.js` |
+| Transactions | `src/components/modals/TransactionModal.jsx`, `backend/src/routes/transactions.js` |
+
+## Defaults when changing money or charts
+- KPIs use live holdings (`price × shares`); history charts use transaction-derived series + TWR
+- Never sum THB + USD amounts without `convertAmount`
+- `portfolios.currency` in DB may be stale — use `inferPortfolioCurrency` from holdings
+- After fixing `holdingSync`, run or add migration `rebuildHoldingsFromTransactions` for existing users
+- Prefer project skills in `.cursor/skills/` for chart, holding, and deploy workflows
