@@ -160,8 +160,8 @@ export default function ReportLineChart({
   const yAt = (v) => pad.t + innerH - ((Number(v) - min) / range) * innerH
 
   const fmtY = (v) => {
-    if (hideValues) return '••'
     if (compareMode) return `${Number(v).toFixed(1)}%`
+    if (hideValues) return '••'
     return fmtChartAxis(v, sym, { hideValues })
   }
 
@@ -217,7 +217,7 @@ export default function ReportLineChart({
           </div>
           <div className={`dash-report-line-stat-chg ${portChg >= 0 ? 'dash-text-gain' : 'dash-text-loss'}`}>
             {compareMode
-              ? (hideValues ? 'ในช่วงที่เลือก' : `vs S&P 500 ${bmChg >= 0 ? '+' : ''}${bmChg.toFixed(2)}%`)
+              ? `vs S&P 500 ${bmChg >= 0 ? '+' : ''}${bmChg.toFixed(2)}%`
               : `${portChg >= 0 ? '+' : ''}${portChg.toFixed(2)}% ตั้งแต่ต้นช่วง`}
           </div>
         </div>
