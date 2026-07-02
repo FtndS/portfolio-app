@@ -1403,6 +1403,38 @@ body,
   margin-bottom: 12px;
 }
 
+.dash-tx-infer-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+
+.dash-tx-advanced-toggle {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.dash-tx-advanced-toggle:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.dash-tx-advanced {
+  padding: 12px 0 4px;
+  border-top: 1px dashed var(--border);
+  margin-bottom: 4px;
+}
+
 /* Workflow guide */
 .dash-workflow {
   background: var(--surface);

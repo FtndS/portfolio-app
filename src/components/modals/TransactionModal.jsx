@@ -97,6 +97,10 @@ function applyTickerInference(ticker, holdings, isEdit, hasHoldingId, currentMar
   }
 }
 
+function hasAdvancedData(f) {
+  return !!(f.holding_id || f.fee || f.note?.trim())
+}
+
 export default function TransactionModal({ holdings, transaction, onClose, onSave, portfolioId }) {
   const today = todayIso()
   const isEdit = !!transaction
@@ -112,6 +116,11 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     currency: transaction?.currency || inferTxCurrency(transaction?.ticker, holdings),
     market: transaction?.market || inferTxMarket(transaction?.ticker, holdings),
   }))
+  const [showAdvanced, setShowAdvanced] = useState(() => isEdit || hasAdvancedData({
+    holding_id: transaction?.holding_id ? String(transaction.holding_id) : '',
+    fee: transaction?.fee != null && Number(transaction.fee) > 0 ? String(transaction.fee) : '',
+    note: transaction?.note || '',
+  }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sellPctActive, setSellPctActive] = useState(null)
@@ -124,7 +133,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     if (!ticker) return null
     const h = f.holding_id
       ? holdings.find((x) => String(x.id) === f.holding_id)
-      : holdings.find((x) => x.ticker === ticker)
+      : findHoldingByTickerInput(ticker, holdings)
     if (!h) return null
     let available = Number(h.shares)
     if (isEdit && transaction?.type === 'SELL' && sanitizeTicker(transaction.ticker) === ticker) {
@@ -159,7 +168,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
   }
 
   const save = async () => {
-    if (!f.ticker || !f.shares || !f.price) return setError('กรุณากรอกข้อมูลให้ครบ')
+    if (!f.ticker || !f.shares || !f.price) return setError('กรุณากรอกรหัสหุ้น จำนวน และราคา')
     const dateIso = dateRef.current?.commit()
     if (!dateIso) return setError('รูปแบบวันที่ผิด กรุณากรอกใหม่ — ใช้ วัน/เดือน/ปี เช่น 30/04/2025')
     const shares = parseFloat(f.shares)
@@ -174,6 +183,15 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     setLoading(true)
     setError('')
     const cleanTicker = sanitizeTicker(f.ticker)
+    let market = f.market
+    let currency = f.currency
+    if (!isEdit) {
+      const inferred = applyTickerInference(cleanTicker, holdings, false, !!f.holding_id, market, currency)
+      if (inferred) {
+        market = inferred.market
+        currency = inferred.currency
+      }
+    }
     const body = {
       ticker: cleanTicker,
       type: f.type,
@@ -184,8 +202,8 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
       date: dateIso,
       holding_id: f.holding_id || null,
       portfolio_id: portfolioId,
-      currency: f.currency,
-      market: f.market,
+      currency,
+      market,
     }
     const r = isEdit
       ? await api.put(`/transactions/${transaction.id}`, body)
@@ -205,40 +223,15 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
     ? storageTicker(f.ticker, f.market, f.currency)
     : ''
   const showTickerHint = savedTicker && savedTicker !== sanitizeTicker(f.ticker)
+  const marketLabel = marketDef.label
 
   return (
-    <Modal title={isEdit ? 'แก้ไข Transaction' : 'บันทึก Transaction'} onClose={onClose}>
+    <Modal title={isEdit ? 'แก้ไขรายการซื้อ/ขาย' : 'บันทึกซื้อ/ขาย'} onClose={onClose}>
       {error && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
-      <Field label="เลือก Holding ที่มีอยู่ (optional)">
-        <select style={inp()} value={f.holding_id} onChange={selHolding}>
-          <option value="">-- หรือพิมพ์ Ticker เองด้านล่าง --</option>
-          {holdings.map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.ticker} [{h.market || 'US'}] — {h.name || h.ticker}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="หมวดตลาด">
-        <select
-          style={inp()}
-          value={f.market}
-          onChange={(e) => {
-            const nextMarket = e.target.value
-            setF({
-              ...f,
-              market: nextMarket,
-              currency: currencyForMarket(nextMarket, f.currency),
-            })
-          }}
-          disabled={isEdit}
-        >
-          {MARKETS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-        </select>
-      </Field>
+
       <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }} className="dash-modal-row">
         <div style={{ flex: 1 }}>
-          <Field label="Ticker">
+          <Field label="รหัสหุ้น">
             <input
               style={inp({ marginBottom: 0 })}
               placeholder={tickerPlaceholder(f.market)}
@@ -271,7 +264,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
             )}
           </Field>
         </div>
-        <div style={{ flex: 'none', width: '120px' }} className="dash-modal-type">
+        <div style={{ flex: 'none', width: '140px' }} className="dash-modal-type">
           <Field label="ประเภท">
             <div className="dash-type-toggle">
               {['BUY', 'SELL'].map((t) => (
@@ -284,28 +277,14 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
                     setF({ ...f, type: t })
                   }}
                 >
-                  {t === 'BUY' ? '🟢 BUY' : '🔴 SELL'}
+                  {t === 'BUY' ? '🟢 ซื้อ' : '🔴 ขาย'}
                 </button>
               ))}
             </div>
           </Field>
         </div>
       </div>
-      <Field label="สกุลเงิน">
-        <div className="dash-segment" style={{ width: '100%' }}>
-          {marketDef.currencies.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={`dash-segment-btn${f.currency === c ? ' dash-segment-btn--active' : ''}`}
-              style={{ flex: 1 }}
-              onClick={() => setF({ ...f, currency: c })}
-            >
-              {symFor(c)} {c}
-            </button>
-          ))}
-        </div>
-      </Field>
+
       <div style={{ display: 'flex', gap: '8px' }} className="dash-modal-row">
         <div style={{ flex: 1 }}>
           <Field label="จำนวนหุ้น">
@@ -345,10 +324,10 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
               </div>
             )}
             {f.type === 'SELL' && !sellContext && sanitizeTicker(f.ticker) && (
-              <p className="dash-sell-pct-hint dash-sell-pct-hint--warn">ไม่พบหุ้นในพอร์ต — เลือกจาก Holding หรือตรวจ ticker</p>
+              <p className="dash-sell-pct-hint dash-sell-pct-hint--warn">ไม่พบหุ้นในพอร์ต — ตรวจรหัสหุ้น หรือเลือกจากหุ้นที่ถือในเมนูเพิ่มเติม</p>
             )}
             <AmountInput
-              suffix="shares"
+              suffix="หุ้น"
               placeholder="100"
               value={f.shares}
               nonNegative
@@ -371,18 +350,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
           </Field>
         </div>
       </div>
-      <Field label="ค่าธรรมเนียม (optional)">
-        <AmountInput
-          prefix={sym}
-          placeholder="0.00"
-          value={f.fee}
-          nonNegative
-          onChange={(e) => setF({ ...f, fee: e.target.value })}
-        />
-        <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '4px', marginBottom: 0 }}>
-          รวมในราคาทุนเฉลี่ยเมื่อซื้อ (BUY) — เว้นว่างได้ถ้าไม่มี
-        </p>
-      </Field>
+
       {total > 0 && (
         <div className="dash-tx-total">
           <span className="dash-text-gain" style={{ fontSize: '12px' }}>มูลค่ารวม: </span>
@@ -394,13 +362,96 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
           )}
         </div>
       )}
+
       <Field label="วันที่">
         <DateInput ref={dateRef} style={inp()} value={f.date} onChange={(date) => setF({ ...f, date })} />
-        <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '4px', marginBottom: 0 }}>รูปแบบ วัน/เดือน/ปี เช่น 30/04/2025</p>
       </Field>
-      <Field label="หมายเหตุ (optional)">
-        <input style={inp({ marginBottom: 0 })} placeholder="เช่น DCA รายเดือน" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
-      </Field>
+
+      {sanitizeTicker(f.ticker) && (
+        <p className="dash-tx-infer-hint">
+          ตลาด: <strong>{marketLabel}</strong> · สกุลเงิน: <strong>{f.currency}</strong>
+          {!showAdvanced && ' — ปรับได้ในเมนูเพิ่มเติม'}
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="dash-tx-advanced-toggle"
+        onClick={() => setShowAdvanced((v) => !v)}
+        aria-expanded={showAdvanced}
+      >
+        {showAdvanced ? '▼ ซ่อนตัวเลือกเพิ่มเติม' : '▶ ตัวเลือกเพิ่มเติม (ตลาด, ค่าธรรมเนียม, หมายเหตุ)'}
+      </button>
+
+      {showAdvanced && (
+        <div className="dash-tx-advanced">
+          {holdings.length > 0 && (
+            <Field label="เลือกจากหุ้นที่ถือ">
+              <select style={inp()} value={f.holding_id} onChange={selHolding}>
+                <option value="">— พิมพ์รหัสหุ้นเอง —</option>
+                {holdings.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.ticker} [{h.market || 'US'}] — {h.name || h.ticker}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <Field label="หมวดตลาด">
+            <select
+              style={inp()}
+              value={f.market}
+              onChange={(e) => {
+                const nextMarket = e.target.value
+                setF({
+                  ...f,
+                  market: nextMarket,
+                  currency: currencyForMarket(nextMarket, f.currency),
+                })
+              }}
+              disabled={isEdit}
+            >
+              {MARKETS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </Field>
+          <Field label="สกุลเงิน">
+            <div className="dash-segment" style={{ width: '100%' }}>
+              {marketDef.currencies.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`dash-segment-btn${f.currency === c ? ' dash-segment-btn--active' : ''}`}
+                  style={{ flex: 1 }}
+                  onClick={() => setF({ ...f, currency: c })}
+                >
+                  {symFor(c)} {c}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="ค่าธรรมเนียม">
+            <AmountInput
+              prefix={sym}
+              placeholder="0.00"
+              value={f.fee}
+              nonNegative
+              onChange={(e) => setF({ ...f, fee: e.target.value })}
+            />
+            <p className="dash-text-faint" style={{ fontSize: '11px', marginTop: '4px', marginBottom: 0 }}>
+              รวมในราคาทุนเฉลี่ยเมื่อซื้อ — เว้นว่างได้ถ้าไม่มี
+            </p>
+          </Field>
+          <Field label="หมายเหตุ">
+            <input
+              style={inp({ marginBottom: 0 })}
+              placeholder="เช่น DCA รายเดือน — เพิ่มทีหลังได้"
+              value={f.note}
+              onChange={(e) => setF({ ...f, note: e.target.value })}
+            />
+          </Field>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }} className="dash-modal-actions">
         <button type="button" onClick={onClose} style={btnGhost}>ยกเลิก</button>
         <button type="button" onClick={save} style={btnPrimary} disabled={loading}>

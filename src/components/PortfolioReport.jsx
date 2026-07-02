@@ -494,7 +494,7 @@ export default function PortfolioReport({
 
       <div className="dash-report-grid">
         <section className="dash-report-card dash-report-card--wide">
-          <h3>สัดส่วนการลงทุน (Holdings)</h3>
+          <h3>สัดส่วนการลงทุน (หุ้นที่ถือ)</h3>
           <div className="dash-report-table-wrap">
             <table className="dash-report-table">
               <thead>
@@ -577,7 +577,7 @@ export default function PortfolioReport({
 
         {recentTx.length > 0 && (
           <section className="dash-report-card dash-report-card--wide">
-            <h3>กิจกรรมล่าสุด (Transactions)</h3>
+            <h3>กิจกรรมล่าสุด (ซื้อ/ขาย)</h3>
             <div className="dash-report-table-wrap">
               <table className="dash-report-table">
                 <thead>

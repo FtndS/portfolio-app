@@ -188,7 +188,7 @@ export default function PortfolioChart({
   if (!history?.length) {
     return (
       <div className="dash-chart-card dash-chart-card--empty">
-        📈 บันทึก Transaction เพื่อดูกราฟมูลค่าพอร์ต
+        📈 บันทึกซื้อ/ขายเพื่อดูกราฟมูลค่าพอร์ต
       </div>
     )
   }

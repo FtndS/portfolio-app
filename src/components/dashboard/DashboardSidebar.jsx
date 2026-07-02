@@ -1,13 +1,13 @@
 import Logo from '../Logo'
 
 export const DASH_TABS = [
-  ['overview', 'Overview'],
-  ['report', 'Report'],
-  ['holdings', 'Holdings'],
-  ['transactions', 'Transactions'],
+  ['overview', 'ภาพรวม'],
+  ['report', 'รายงาน'],
+  ['holdings', 'หุ้นที่ถือ'],
+  ['transactions', 'ซื้อ/ขาย'],
   ['dividends', 'ปันผล'],
-  ['journal', 'Journal'],
-  ['news', 'News'],
+  ['journal', 'บันทึกเหตุผล'],
+  ['news', 'ข่าว'],
 ]
 
 export const SUBSCRIPTION_TAB = 'subscription'
@@ -105,7 +105,7 @@ export default function DashboardSidebar({
 
       <div className="dash-sidebar-footer">
         <button type="button" className="dash-sidebar-cta" onClick={onAddTransaction}>
-          + บันทึก Transaction
+          + บันทึกซื้อ/ขาย
         </button>
       </div>
 

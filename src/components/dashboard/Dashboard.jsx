@@ -586,8 +586,8 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           </>}
           {holdings.length===0&&<div className="dash-empty-state">
             <p style={{fontSize:'36px',marginBottom:'12px'}}>📊</p>
-            <p style={{fontSize:'14px',marginBottom:'20px'}}>เริ่มบันทึก Transaction แรกเพื่อสร้าง portfolio</p>
-            <button type="button" onClick={openAddTransaction} style={{...btnPrimary,width:'auto',padding:'10px 24px'}}>+ บันทึก Transaction แรก</button>
+            <p style={{fontSize:'14px',marginBottom:'20px'}}>เริ่มบันทึกรายการซื้อ/ขายแรกเพื่อสร้างพอร์ต</p>
+            <button type="button" onClick={openAddTransaction} style={{...btnPrimary,width:'auto',padding:'10px 24px'}}>+ บันทึกซื้อ/ขายแรก</button>
           </div>}
         </>}
 
@@ -617,11 +617,11 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         {/* Holdings */}
         {tab==='holdings'&&<>
           <p className="dash-holdings-hint">
-            กดที่ <strong>Ticker</strong> เพื่อดู Investment Thesis และ timeline ของหุ้น — ส่วนใหญ่ไม่ต้องใช้แท็บนี้ ยอดหุ้นอัปเดตจาก <button type="button" className="dash-link" onClick={()=>selectTab('transactions')}>Transactions</button> อัตโนมัติ
+            กดที่ <strong>รหัสหุ้น</strong> เพื่อดู thesis และ timeline — ส่วนใหญ่ไม่ต้องใช้แท็บนี้ ยอดหุ้นอัปเดตจาก <button type="button" className="dash-link" onClick={()=>selectTab('transactions')}>ซื้อ/ขาย</button> อัตโนมัติ
           </p>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
-              <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} holdings</p>
+              <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredHoldings.length} / {holdings.length} รายการ</p>
               <input type="text" className="dash-search" placeholder="ค้นหา Ticker หรือชื่อหุ้นในพอร์ต..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <button onClick={()=>setModal('h')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เพิ่ม Holding ตรงๆ</button>
@@ -634,7 +634,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
                 ))}
               </tr></thead>
               <tbody>
-                {filteredHoldings.length===0?<tr><td colSpan={9} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ holdings</td></tr>
+                {filteredHoldings.length===0?<tr><td colSpan={9} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบหุ้นที่ถือ</td></tr>
                 :filteredHoldings.map(h=>{
                   const cur=prices[h.ticker]||Number(h.avg_cost)
                   const val=getVal(h),cost=getCost(h),pnl=val-cost,pct=cost>0?(pnl/cost)*100:0
@@ -670,7 +670,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
           />
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
-              <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} transactions</p>
+              <p className="dash-text-muted" style={{fontSize:'13px',whiteSpace:'nowrap'}}>{filteredTransactions.length} / {transactions.length} รายการ</p>
               <input type="text" className="dash-search" placeholder="ค้นหา Ticker หรือข้อความ..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
             </div>
             <div className="dash-toolbar-actions">
@@ -687,7 +687,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
                 ))}
               </div>
               <button type="button" onClick={()=>setModal('import')} style={{...btnGhost,width:'auto',padding:'7px 16px',fontSize:'13px',borderColor:'var(--accent)',color:'var(--accent-text)'}}>Import CSV</button>
-              <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึก Transaction</button>
+              <button onClick={()=>setModal('tx')} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ บันทึกซื้อ/ขาย</button>
             </div>
           </div>
           <div className="dash-table-wrap">
@@ -698,7 +698,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
                 ))}
               </tr></thead>
               <tbody>
-                {filteredTransactions.length===0?<tr><td colSpan={10} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการ transactions</td></tr>
+                {filteredTransactions.length===0?<tr><td colSpan={10} className="dash-text-faint" style={{padding:'28px',textAlign:'center'}}>ไม่พบรายการซื้อ/ขาย</td></tr>
                 :filteredTransactions.map(t=>(
                   <tr key={t.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(t.date)}</td>
@@ -776,7 +776,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         {tab==='journal'&&<>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">
-              <p className="dash-text-muted" style={{fontSize:'13px'}}>{filteredJournal.length} entries</p>
+              <p className="dash-text-muted" style={{fontSize:'13px'}}>{filteredJournal.length} รายการ</p>
               <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
                 <button type="button" onClick={()=>setJournalFilter('')} className={`dash-chart-segment-btn${journalFilter===''?' dash-chart-segment-btn--active':''}`} style={{borderRadius:'999px'}}>ทั้งหมด</button>
                 {journalTags.map(tag=>(
@@ -784,9 +784,9 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
                 ))}
               </div>
             </div>
-            <button onClick={()=>{setJournalDraft(null);setModal('j')}} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เขียน Journal</button>
+            <button onClick={()=>{setJournalDraft(null);setModal('j')}} style={{...btnPrimary,width:'auto',padding:'7px 16px',fontSize:'13px'}}>+ เขียนบันทึกเหตุผล</button>
           </div>
-          {filteredJournal.length===0?<p className="dash-text-faint" style={{fontSize:'13px',textAlign:'center',padding:'40px'}}>ไม่มี entry {journalFilter?`ใน tag "${journalFilter}"`:''}</p>
+          {filteredJournal.length===0?<p className="dash-text-faint" style={{fontSize:'13px',textAlign:'center',padding:'40px'}}>ไม่มีบันทึก{journalFilter?` ในแท็ก "${journalFilter}"`:''}</p>
           :filteredJournal.map(j=>(
             <div key={j.id} className="dash-journal-card">
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>

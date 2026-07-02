@@ -34,20 +34,20 @@ export const WORKFLOW_STEPS = [
   {
     key: 'transactions',
     icon: '✏️',
-    tabLabel: 'Transactions',
-    action: 'ซื้อ / ขายหุ้น',
+    tabLabel: 'ซื้อ/ขาย',
+    action: 'บันทึกซื้อ / ขายหุ้น',
     primary: true,
     optional: false,
-    desc: 'บันทึก BUY/SELL หรือ Import CSV',
+    desc: 'กรอกแค่รหัสหุ้น จำนวน ราคา — หรือ Import CSV',
   },
   {
     key: 'journal',
     icon: '📓',
-    tabLabel: 'Journal',
-    action: 'บันทึกเหตุผล',
+    tabLabel: 'บันทึกเหตุผล',
+    action: 'เขียนเหตุผลทีหลัง',
     primary: false,
     optional: true,
-    desc: 'ทำไมถึงซื้อ/ขาย — แนะนำหลังเทรด',
+    desc: 'ทำไมถึงซื้อ/ขาย — ไม่บังคับ',
   },
   {
     key: 'dividends',
@@ -63,12 +63,12 @@ export const WORKFLOW_STEPS = [
 export const WORKFLOW_EXTRA = {
   key: 'holdings',
   icon: '⚙️',
-  tabLabel: 'Holdings',
+  tabLabel: 'หุ้นที่ถือ',
   action: 'แก้ยอดตรงๆ',
   desc: 'ใช้เฉพาะกรณีพิเศษ — ส่วนใหญ่ไม่ต้อง',
 }
 
 export const WORKFLOW_VIEWS = [
-  { key: 'overview', icon: '📊', title: 'Overview', desc: 'ดูกราฟและภาพรวมพอร์ต' },
-  { key: 'report', icon: '📄', title: 'Report', desc: 'สรุปพอร์ต / พิมพ์ PDF' },
+  { key: 'overview', icon: '📊', title: 'ภาพรวม', desc: 'ดูกราฟและมูลค่าพอร์ต' },
+  { key: 'report', icon: '📄', title: 'รายงาน', desc: 'สรุปพอร์ต / พิมพ์ PDF' },
 ]

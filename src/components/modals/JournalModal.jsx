@@ -66,16 +66,16 @@ export default function JournalModal({
   }
 
   const title = isEdit
-    ? 'แก้ไข Journal'
+    ? 'แก้ไขบันทึกเหตุผล'
     : fromTransaction
-      ? 'บันทึก Journal หลังเทรด'
-      : 'เขียน Journal ใหม่'
+      ? 'เขียนเหตุผลหลังซื้อ/ขาย'
+      : 'เขียนบันทึกเหตุผลใหม่'
 
   return (
     <Modal title={title} onClose={closeModal}>
       {fromTransaction && !isEdit && (
         <p className="dash-workflow-journal-hint">
-          Transaction บันทึกแล้ว — เขียนเหตุผลสั้นๆ ว่าทำไม{ f.tag === 'ขาย' ? 'ขาย' : 'ซื้อ' } (ข้ามได้โดยกดปุ่ม ข้าม)
+          บันทึกซื้อ/ขายเรียบร้อย — เขียนเหตุผลสั้นๆ ว่าทำไม{f.tag === 'ขาย' ? 'ขาย' : 'ซื้อ'} (ข้ามได้โดยกดปุ่ม ข้าม)
         </p>
       )}
       {error && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
@@ -93,12 +93,12 @@ export default function JournalModal({
           autoFocus={fromTransaction}
         />
       </Field>
-      <Field label="Tickers ที่เกี่ยวข้อง">
-        <input style={inp()} placeholder="เช่น VOO, SCB-BK" value={f.tickers} onChange={(e) => setF({ ...f, tickers: e.target.value })} />
+      <Field label="รหัสหุ้นที่เกี่ยวข้อง">
+        <input style={inp()} placeholder="เช่น VOO, SCB" value={f.tickers} onChange={(e) => setF({ ...f, tickers: e.target.value })} />
       </Field>
       <div style={{ display: 'flex', gap: '8px' }} className="dash-modal-row">
         <div style={{ flex: 1 }}>
-          <Field label="Tag">
+          <Field label="แท็ก">
             <select style={inp({ marginBottom: 0 })} value={f.tag} onChange={(e) => setF({ ...f, tag: e.target.value })}>
               <option value="">-- ไม่มี Tag --</option>
               {journalTags.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -120,7 +120,7 @@ export default function JournalModal({
           />
           <span>
             <span className="dash-checkbox-label">ไม่ต้องเตือนอีก</span>
-            <span className="dash-checkbox-hint">จะไม่เปิดหน้านี้หลังบันทึก transaction</span>
+            <span className="dash-checkbox-hint">จะไม่เปิดหน้านี้หลังบันทึกซื้อ/ขาย</span>
           </span>
         </label>
       )}
@@ -129,7 +129,7 @@ export default function JournalModal({
           {fromTransaction && !isEdit ? 'ข้าม' : 'ยกเลิก'}
         </button>
         <button type="button" onClick={save} style={btnPrimary} disabled={loading}>
-          {loading ? 'กำลังบันทึก...' : 'บันทึก Journal'}
+          {loading ? 'กำลังบันทึก...' : 'บันทึก'}
         </button>
       </div>
     </Modal>

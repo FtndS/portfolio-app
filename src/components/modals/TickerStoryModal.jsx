@@ -117,7 +117,7 @@ export default function TickerStoryModal({
         <div key={event.id} className="dash-timeline-item">
           <div className="dash-timeline-dot dash-timeline-dot--tx" />
           <div className="dash-timeline-body">
-            <div className="dash-timeline-meta">{fmtDate(event.date)} · Transaction</div>
+            <div className="dash-timeline-meta">{fmtDate(event.date)} · ซื้อ/ขาย</div>
             <div className={`dash-timeline-title ${isBuy ? 'dash-text-gain' : 'dash-text-loss'}`}>
               {t.type} {fmtShares(t.shares)} หุ้น
               {!hideValues && <> @ {fmtTx(t, t.price)}</>}
@@ -133,7 +133,7 @@ export default function TickerStoryModal({
         <div key={event.id} className="dash-timeline-item">
           <div className="dash-timeline-dot dash-timeline-dot--journal" />
           <div className="dash-timeline-body">
-            <div className="dash-timeline-meta">{fmtDate(event.date)} · Journal{j.tag ? ` · ${j.tag}` : ''}</div>
+            <div className="dash-timeline-meta">{fmtDate(event.date)} · บันทึกเหตุผล{j.tag ? ` · ${j.tag}` : ''}</div>
             <div className="dash-timeline-title">{j.title || 'บันทึก'}</div>
             {j.content && <p className="dash-timeline-note">{j.content}</p>}
           </div>
@@ -218,7 +218,7 @@ export default function TickerStoryModal({
       {journalEntries.length > 0 && (
         <section className="dash-story-section">
           <div className="dash-story-heading-row">
-            <h3 className="dash-story-heading">AI สรุปจาก Journal</h3>
+            <h3 className="dash-story-heading">AI สรุปจากบันทึกเหตุผล</h3>
             <button type="button" className="dash-btn-ghost-accent" style={{ width: 'auto', padding: '6px 12px', fontSize: '12px' }} onClick={summarizeJournal} disabled={loadingAi}>
               {loadingAi ? 'กำลังสรุป...' : 'สรุปให้หน่อย'}
             </button>

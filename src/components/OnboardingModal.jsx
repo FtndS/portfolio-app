@@ -14,7 +14,7 @@ const STEPS = [
   },
   {
     title: 'บันทึกการลงทุนครั้งแรก',
-    body: 'เพิ่ม Transaction ซื้อ/ขาย ที่แท็บ Transactions (หรือ Import CSV) — ระบบจะคำนวณ Holdings และกราฟให้อัตโนมัติ จากนั้นเขียน Journal ได้ถ้าต้องการบันทึกเหตุผล',
+    body: 'เพิ่มรายการซื้อ/ขาย ที่แท็บ ซื้อ/ขาย (หรือ Import CSV) — ระบบจะคำนวณหุ้นที่ถือและกราฟให้อัตโนมัติ จากนั้นเขียนบันทึกเหตุผลได้ถ้าต้องการ',
     icon: '✏️',
   },
   {
@@ -25,12 +25,12 @@ const STEPS = [
 ]
 
 const TABS_TOUR = [
-  { key: 'overview', label: 'Overview', desc: 'กราฟมูลค่า, sector, heatmap และ AI — ดูภาพรวม' },
-  { key: 'report', label: 'Report', desc: 'สรุปพอร์ตแบบรายงาน — พิมพ์หรือบันทึก PDF' },
-  { key: 'transactions', label: 'Transactions', desc: '★ จุดเริ่มหลัก — บันทึกซื้อ/ขายหรือ Import CSV' },
-  { key: 'journal', label: 'Journal', desc: 'บันทึกเหตุผลหลังเทรด (แนะนำ ไม่บังคับ)' },
+  { key: 'overview', label: 'ภาพรวม', desc: 'กราฟมูลค่า, sector, heatmap และ AI — ดูภาพรวม' },
+  { key: 'report', label: 'รายงาน', desc: 'สรุปพอร์ตแบบรายงาน — พิมพ์หรือบันทึก PDF' },
+  { key: 'transactions', label: 'ซื้อ/ขาย', desc: '★ จุดเริ่มหลัก — บันทึกซื้อ/ขายหรือ Import CSV' },
+  { key: 'journal', label: 'บันทึกเหตุผล', desc: 'เขียนเหตุผลหลังเทรด (แนะนำ ไม่บังคับ)' },
   { key: 'dividends', label: 'ปันผล', desc: 'เมื่อได้รับเงินปันผล — แยกจากการซื้อขาย' },
-  { key: 'holdings', label: 'Holdings', desc: 'ดูยอดหุ้น — แก้ตรงๆ เฉพาะกรณีพิเศษ' },
+  { key: 'holdings', label: 'หุ้นที่ถือ', desc: 'ดูยอดหุ้น — แก้ตรงๆ เฉพาะกรณีพิเศษ' },
 ]
 
 export function onboardingKey(userId) {
@@ -124,7 +124,7 @@ export default function OnboardingModal({
             <p className="onboarding-body">{current.body}</p>
             <div className="onboarding-actions">
               <button type="button" className="onboarding-btn-primary" onClick={() => { finish(); onAddTransaction() }}>
-                + บันทึก Transaction
+                + บันทึกซื้อ/ขาย
               </button>
               <button type="button" className="onboarding-btn-ghost" onClick={() => { finish(); onImportCsv() }}>
                 📥 Import CSV

@@ -34,7 +34,7 @@ export default function WorkflowGuide({
         <span className="dash-workflow-bar-lead">
           <strong>ซื้อ/ขาย</strong>
           <span className="dash-workflow-bar-arrow" aria-hidden>→</span>
-          <span className="dash-workflow-bar-tab">Transactions</span>
+          <span className="dash-workflow-bar-tab">ซื้อ/ขาย</span>
         </span>
         <span className="dash-workflow-bar-more">ดูขั้นตอนทั้งหมด</span>
       </button>
@@ -49,7 +49,7 @@ export default function WorkflowGuide({
           <h3 className="dash-workflow-title">
             {onTransactions
               ? 'บันทึกซื้อ/ขายที่แท็บนี้'
-              : 'ซื้อ/ขายหุ้น → เริ่มที่ Transactions'}
+              : 'ซื้อ/ขายหุ้น → เริ่มที่แท็บ ซื้อ/ขาย'}
           </h3>
         </div>
         <button type="button" className="dash-workflow-collapse" onClick={toggleCollapsed}>
@@ -93,7 +93,7 @@ export default function WorkflowGuide({
                     onKeyDown={(e) => e.stopPropagation()}
                     role="presentation"
                   >
-                    + บันทึก Transaction
+                    + บันทึกซื้อ/ขาย
                   </span>
                 )}
               </button>
@@ -124,7 +124,7 @@ export default function WorkflowGuide({
         {!here && compact && (
           <p className="dash-workflow-view dash-workflow-view--muted">
             <span aria-hidden>📊</span>
-            <strong>Overview / Report</strong> — ดูภาพรวมและสรุปพอร์ต
+            <strong>ภาพรวม / รายงาน</strong> — ดูภาพรวมและสรุปพอร์ต
           </p>
         )}
       </div>
