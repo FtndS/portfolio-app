@@ -243,11 +243,11 @@ export default function PortfolioChart({
   const yAt = (v) => pad.t + innerH - ((Number(v) - min) / range) * innerH
 
   const fmtY = (v) => {
-    if (hideValues) return '••'
     if (compareMode) {
       const n = Number(v)
       return `${n.toFixed(Math.abs(n) >= 100 ? 0 : 1)}%`
     }
+    if (hideValues) return '••'
     return fmtChartAxis(v, sym, { hideValues })
   }
 
