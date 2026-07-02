@@ -104,6 +104,7 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
       fxRate,
       transactions = [],
       journal = [],
+      inSectorNews = [],
       preset,
       question,
     } = req.body
@@ -130,13 +131,29 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
       planConfig,
     })
 
+    const relevantNews = (Array.isArray(inSectorNews) ? inSectorNews : [])
+      .slice(0, planConfig.copilot.maxNews || 8)
+      .map((n) => ({
+        title: String(n?.title || '').trim(),
+        source: String(n?.source?.name || n?.source || 'Unknown'),
+        publishedAt: String(n?.publishedAt || ''),
+        url: String(n?.url || ''),
+      }))
+      .filter((n) => n.title)
+
     const systemPrompt = `คุณคือ Copilot ผู้ช่วยนักลงทุนระยะยาวของ PortDiary
 ตอบเป็นภาษาไทย กระชับ อ่านง่าย ใช้ bullet ได้ถ้าเหมาะสม
-อ้างอิงเฉพาะข้อมูลพอร์ตที่ให้ — ห้ามแต่งตัวเลขหรือหุ้นที่ไม่มีในข้อมูล
+อ้างอิงเฉพาะข้อมูลพอร์ตและข่าวที่ให้ — ห้ามแต่งตัวเลข/ข่าว/เหตุการณ์
+ถ้าคำถามเกี่ยวกับ "ทำไมราคาขึ้น/ลง" ให้เน้นเหตุผลเชิงเหตุการณ์จากข่าวล่าสุดก่อนทฤษฎีทั่วไป
+ถ้ามีข่าวรองรับ ให้ยก headline สั้นๆ พร้อมแหล่งข่าว/เวลา
+ถ้าข่าวที่ให้ยังไม่พอหรือไม่เจอเหตุผลชัด ให้บอกตรงๆ ว่า "ยังไม่พบหลักฐานข่าวที่ยืนยัน"
 ไม่ใช่คำแนะนำซื้อขาย — ช่วยทบทวนและสรุปเท่านั้น
 ตอบ plain text ไม่ใช่ JSON ไม่เกิน ${Math.floor(planConfig.copilot.maxTokens / 3)} คำโดยประมาณ`
 
     const userMessage = `${context}
+
+ข่าวล่าสุดที่เกี่ยวข้องจากอินเทอร์เน็ต:
+${compactJson(relevantNews)}
 
 คำถาม: ${resolved.question}`
 
@@ -144,7 +161,10 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
     res.json({
       answer: text.trim(),
       preset: resolved.preset,
-      dataScope,
+      dataScope: {
+        ...dataScope,
+        internetNewsIncluded: relevantNews.length,
+      },
     })
   } catch (err) {
     console.error('AI copilot error:', err)

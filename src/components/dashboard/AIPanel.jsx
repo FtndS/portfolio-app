@@ -110,6 +110,7 @@ export default function AIPanel({
         fxRate,
         transactions,
         journal,
+        inSectorNews,
         preset: question?.trim() ? undefined : preset,
         question: question?.trim() || undefined,
       }
@@ -252,6 +253,7 @@ export default function AIPanel({
               <p className="dash-text-faint" style={{ fontSize: '11px', marginBottom: '10px' }}>
                 จากหุ้น {copilotAnswer.dataScope.holdingsShown}/{copilotAnswer.dataScope.holdingsTotal} ตัว
                 · transaction {copilotAnswer.dataScope.transactionsIncluded}/{copilotAnswer.dataScope.transactionsTotal}
+                {copilotAnswer.dataScope.internetNewsIncluded ? ` · ข่าว ${copilotAnswer.dataScope.internetNewsIncluded} รายการ` : ''}
               </p>
             )}
             <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
