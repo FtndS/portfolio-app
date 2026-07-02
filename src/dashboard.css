@@ -1348,8 +1348,8 @@
 }
 
 .dash-report-kpi-value--accent { color: var(--accent-text); }
-.dash-report-kpi-value--gain { color: var(--gain); }
-.dash-report-kpi-value--loss { color: var(--loss); }
+.dash-report-kpi-value.dash-report-kpi-value--gain { color: var(--gain); }
+.dash-report-kpi-value.dash-report-kpi-value--loss { color: var(--loss); }
 
 .dash-report-print-btn {
   padding: 8px 18px;
@@ -2118,9 +2118,20 @@
     color: #666 !important;
   }
 
-  .dash-report-title,
-  .dash-report-kpi-value {
+  .dash-report-title {
     color: #111 !important;
+  }
+
+  .dash-report-kpi-value:not(.dash-report-kpi-value--gain):not(.dash-report-kpi-value--loss):not(.dash-report-kpi-value--accent) {
+    color: #111 !important;
+  }
+
+  .dash-report-kpi-value.dash-report-kpi-value--gain {
+    color: #15803d !important;
+  }
+
+  .dash-report-kpi-value.dash-report-kpi-value--loss {
+    color: #b91c1c !important;
   }
 
   .dash-report-meta,
