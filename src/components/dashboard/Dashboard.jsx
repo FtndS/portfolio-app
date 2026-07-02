@@ -617,7 +617,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         {/* Holdings */}
         {tab==='holdings'&&<>
           <p className="dash-holdings-hint">
-            กดที่ <strong>รหัสหุ้น</strong> เพื่อดู thesis และ timeline — ส่วนใหญ่ไม่ต้องใช้แท็บนี้ ยอดหุ้นอัปเดตจาก <button type="button" className="dash-link" onClick={()=>selectTab('transactions')}>ซื้อ/ขาย</button> อัตโนมัติ
+            กดที่ <strong>ชื่อย่อหุ้น</strong> เพื่อดู thesis และ timeline — ส่วนใหญ่ไม่ต้องใช้แท็บนี้ ยอดหุ้นอัปเดตจาก <button type="button" className="dash-link" onClick={()=>selectTab('transactions')}>ซื้อ/ขาย</button> อัตโนมัติ
           </p>
           <div className="dash-toolbar">
             <div className="dash-toolbar-left">

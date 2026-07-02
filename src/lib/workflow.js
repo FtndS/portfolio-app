@@ -38,7 +38,7 @@ export const WORKFLOW_STEPS = [
     action: 'บันทึกซื้อ / ขายหุ้น',
     primary: true,
     optional: false,
-    desc: 'กรอกแค่รหัสหุ้น จำนวน ราคา — หรือ Import CSV',
+    desc: 'กรอกแค่ชื่อย่อหุ้น จำนวน ราคา — หรือ Import CSV',
   },
   {
     key: 'journal',

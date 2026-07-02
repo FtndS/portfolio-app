@@ -75,7 +75,7 @@ export function tickerPlaceholder(market) {
     CN: 'เช่น 600519',
     SZ: 'เช่น 000001',
     CRYPTO: 'เช่น BTC',
-    US: 'เช่น VOO',
+    US: 'เช่น VOO, AAPL, SCB',
   }
   return map[market] || 'เช่น AAPL'
 }

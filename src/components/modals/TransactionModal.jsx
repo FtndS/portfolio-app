@@ -168,7 +168,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
   }
 
   const save = async () => {
-    if (!f.ticker || !f.shares || !f.price) return setError('กรุณากรอกรหัสหุ้น จำนวน และราคา')
+    if (!f.ticker || !f.shares || !f.price) return setError('กรุณากรอกชื่อย่อหุ้น จำนวน และราคา')
     const dateIso = dateRef.current?.commit()
     if (!dateIso) return setError('รูปแบบวันที่ผิด กรุณากรอกใหม่ — ใช้ วัน/เดือน/ปี เช่น 30/04/2025')
     const shares = parseFloat(f.shares)
@@ -231,7 +231,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }} className="dash-modal-row">
         <div style={{ flex: 1 }}>
-          <Field label="รหัสหุ้น">
+          <Field label="ชื่อย่อหุ้น (Ticker)">
             <input
               style={inp({ marginBottom: 0 })}
               placeholder={tickerPlaceholder(f.market)}
@@ -324,7 +324,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
               </div>
             )}
             {f.type === 'SELL' && !sellContext && sanitizeTicker(f.ticker) && (
-              <p className="dash-sell-pct-hint dash-sell-pct-hint--warn">ไม่พบหุ้นในพอร์ต — ตรวจรหัสหุ้น หรือเลือกจากหุ้นที่ถือในเมนูเพิ่มเติม</p>
+              <p className="dash-sell-pct-hint dash-sell-pct-hint--warn">ไม่พบหุ้นในพอร์ต — ตรวจชื่อย่อหุ้น หรือเลือกจากหุ้นที่ถือในเมนูเพิ่มเติม</p>
             )}
             <AmountInput
               suffix="หุ้น"
@@ -388,7 +388,7 @@ export default function TransactionModal({ holdings, transaction, onClose, onSav
           {holdings.length > 0 && (
             <Field label="เลือกจากหุ้นที่ถือ">
               <select style={inp()} value={f.holding_id} onChange={selHolding}>
-                <option value="">— พิมพ์รหัสหุ้นเอง —</option>
+                <option value="">— พิมพ์ชื่อย่อหุ้นเอง —</option>
                 {holdings.map((h) => (
                   <option key={h.id} value={h.id}>
                     {h.ticker} [{h.market || 'US'}] — {h.name || h.ticker}

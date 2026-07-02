@@ -93,7 +93,7 @@ export default function JournalModal({
           autoFocus={fromTransaction}
         />
       </Field>
-      <Field label="รหัสหุ้นที่เกี่ยวข้อง">
+      <Field label="ชื่อย่อหุ้น (Ticker) ที่เกี่ยวข้อง">
         <input style={inp()} placeholder="เช่น VOO, SCB" value={f.tickers} onChange={(e) => setF({ ...f, tickers: e.target.value })} />
       </Field>
       <div style={{ display: 'flex', gap: '8px' }} className="dash-modal-row">
