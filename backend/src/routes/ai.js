@@ -80,13 +80,19 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 4096) {
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }]
-    })
+    }),
+    signal: AbortSignal.timeout(180_000),
   })
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.error?.message || `AI request failed (${res.status})`)
+  }
   if (data.error) throw new Error(data.error.message)
   if (!data.content?.[0]?.text) throw new Error('Empty response from AI')
   return data.content[0].text
 }
+
+const compactJson = (value) => JSON.stringify(value)
 
 // Copilot Lite — คำถามสั้นๆ จากข้อมูลพอร์ต (context กระชับ ไม่ใช่แชทยาว)
 router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) => {
@@ -142,6 +148,9 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
     })
   } catch (err) {
     console.error('AI copilot error:', err)
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      return res.status(504).json({ error: 'AI ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง', code: 'AI_TIMEOUT' })
+    }
     serverError(res, err)
   }
 })
@@ -190,26 +199,26 @@ router.post('/analyze', requireAiQuota(AI_FEATURES.ANALYZE), async (req, res) =>
     const userMessage = `วิเคราะห์พอร์ตนี้อย่างละเอียดและตอบด้วย JSON ตามรูปแบบที่กำหนด:
 
 พอร์ตการลงทุน (${displayCurrency}):
-${JSON.stringify(portfolioWithPct, null, 2)}
+${compactJson(portfolioWithPct)}
 
 การกระจาย Sector:
-${JSON.stringify(sectorAlloc, null, 2)}
+${compactJson(sectorAlloc)}
 
 มูลค่ารวม: ${totalValue.toFixed(2)} ${displayCurrency}
 
 สถิติ Transaction (ซื้อ/ขาย):
-${JSON.stringify(txSummary.stats, null, 2)}
+${compactJson(txSummary.stats)}
 
 สรุปรายหุ้นจาก Transaction:
-${JSON.stringify(txSummary.byTicker, null, 2)}
+${compactJson(txSummary.byTicker)}
 
 Transaction ล่าสุด (${txSummary.recent.length} รายการ):
-${JSON.stringify(txSummary.recent, null, 2)}
+${compactJson(txSummary.recent)}
 
 Journal (${journalSummary.entries.length} รายการล่าสุด จากทั้งหมด ${journalSummary.stats.total}):
-${JSON.stringify(journalSummary.entries, null, 2)}
+${compactJson(journalSummary.entries)}
 
-ขอบเขตข้อมูลที่ส่ง (แผน ${dataScope.plan}): ${JSON.stringify(dataScope)}
+ขอบเขตข้อมูลที่ส่ง (แผน ${dataScope.plan}): ${compactJson(dataScope)}
 
 ตอบในรูปแบบ JSON นี้เท่านั้น:
 {
@@ -245,6 +254,9 @@ ${JSON.stringify(journalSummary.entries, null, 2)}
     res.json({ ...analysis, dataScope })
   } catch (err) {
     console.error('AI analyze error:', err)
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      return res.status(504).json({ error: 'AI ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง', code: 'AI_TIMEOUT' })
+    }
     serverError(res, err)
   }
 })

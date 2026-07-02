@@ -16,6 +16,21 @@ describe('aiAnalyzeContext', () => {
     expect(result.recent).toHaveLength(3)
   })
 
+  it('limits recent transactions separately from stats', () => {
+    const txs = Array.from({ length: 10 }, (_, i) => ({
+      date: `2026-01-${String(i + 1).padStart(2, '0')}`,
+      ticker: 'VOO',
+      type: 'BUY',
+      shares: 1,
+      price: 100,
+      total: 100,
+      currency: 'USD',
+    }))
+    const result = summarizeTransactions(txs, { maxRecent: 3 })
+    expect(result.stats.total).toBe(10)
+    expect(result.recent).toHaveLength(3)
+  })
+
   it('summarizes journal entries with limits', () => {
     const entries = Array.from({ length: 5 }, (_, i) => ({
       date: `2026-01-0${i + 1}`,

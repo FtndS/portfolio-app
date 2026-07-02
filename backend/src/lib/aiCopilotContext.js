@@ -67,19 +67,19 @@ export function buildCopilotContext({
 มูลค่ารวม: ${totalValue.toFixed(2)} ${displayCurrency}
 
 หุ้นหลัก:
-${JSON.stringify(topHoldings, null, 2)}
+${JSON.stringify(topHoldings)}
 
 Sector:
-${JSON.stringify(sectorAlloc, null, 2)}
+${JSON.stringify(sectorAlloc)}
 
 สถิติ Transaction:
-${JSON.stringify(txSummary.stats, null, 2)}
+${JSON.stringify(txSummary.stats)}
 
 Transaction ล่าสุด:
-${JSON.stringify(txSummary.recent.slice(0, planConfig.copilot.maxTransactions), null, 2)}
+${JSON.stringify(txSummary.recent.slice(0, planConfig.copilot.maxTransactions))}
 
 Journal ล่าสุด:
-${JSON.stringify(journalSummary.entries, null, 2)}`
+${JSON.stringify(journalSummary.entries)}`
 
   return {
     context,

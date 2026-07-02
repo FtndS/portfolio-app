@@ -22,6 +22,7 @@ export const AI_PLANS = {
     },
     analyze: {
       maxTransactions: 30,
+      maxRecentInPrompt: 20,
       maxJournal: 12,
       maxTokens: 4096,
       maxRecommendations: 5,
@@ -47,6 +48,7 @@ export const AI_PLANS = {
     },
     analyze: {
       maxTransactions: 120,
+      maxRecentInPrompt: 45,
       maxJournal: 40,
       maxTokens: 6144,
       maxRecommendations: 8,

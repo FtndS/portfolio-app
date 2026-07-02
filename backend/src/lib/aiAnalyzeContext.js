@@ -10,7 +10,8 @@ function num(v) {
   return Number.isFinite(n) ? n : 0
 }
 
-export function summarizeTransactions(transactions, { maxItems = 30 } = {}) {
+export function summarizeTransactions(transactions, { maxItems = 30, maxRecent } = {}) {
+  const recentLimit = maxRecent ?? maxItems
   const list = Array.isArray(transactions) ? [...transactions] : []
   if (!list.length) {
     return {
@@ -73,7 +74,7 @@ export function summarizeTransactions(transactions, { maxItems = 30 } = {}) {
   const buys = list.filter((t) => String(t.type).toUpperCase() === 'BUY').length
   const sells = list.filter((t) => String(t.type).toUpperCase() === 'SELL').length
 
-  const recent = sorted.slice(0, maxItems).map((t) => ({
+  const recent = sorted.slice(0, recentLimit).map((t) => ({
     date: isoDate(t.date),
     ticker: String(t.ticker || '').toUpperCase(),
     type: String(t.type || '').toUpperCase(),
@@ -140,7 +141,7 @@ export function buildAnalyzePayload({
   planConfig,
 }) {
   const txSummary = summarizeTransactions(transactions, {
-    maxItems: planConfig.analyze.maxTransactions,
+    maxRecent: planConfig.analyze.maxRecentInPrompt ?? planConfig.analyze.maxTransactions,
   })
   const journalSummary = summarizeJournal(journal, {
     maxItems: planConfig.analyze.maxJournal,

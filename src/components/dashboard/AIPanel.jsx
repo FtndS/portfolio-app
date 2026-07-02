@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../lib/api'
 
+function formatAiError(message) {
+  if (!message) return 'เกิดข้อผิดพลาด กรุณาลองใหม่'
+  if (/gateway time-out|timed out|timeout/i.test(message)) {
+    return 'ใช้เวลานานเกินไป — ลองใหม่อีกครั้งในอีกสักครู่'
+  }
+  return message
+}
+
 const COPILOT_PRESETS = [
   { id: 'portfolio_summary', label: 'สรุปภาพรวมพอร์ต', icon: '📊' },
   { id: 'sector_risk', label: 'Sector ไหนเสี่ยงเกิน', icon: '⚖️' },
@@ -75,7 +83,7 @@ export default function AIPanel({
         journal,
       })
       if (res.error) {
-        setError(res.error)
+        setError(formatAiError(res.error))
         if (res.code === 'AI_QUOTA_EXCEEDED') await loadQuota()
       } else {
         setAnalysis(res)
@@ -107,7 +115,7 @@ export default function AIPanel({
       }
       const res = await api.post('/ai/copilot', body)
       if (res.error) {
-        setCopilotError(res.error)
+        setCopilotError(formatAiError(res.error))
         if (res.code === 'AI_QUOTA_EXCEEDED') await loadQuota()
       } else {
         setCopilotAnswer(res)
@@ -126,7 +134,7 @@ export default function AIPanel({
     try {
       const res = await api.post('/ai/news-summary', { holdings, news: inSectorNews })
       if (res.error) {
-        setNewsError(res.error)
+        setNewsError(formatAiError(res.error))
         if (res.code === 'AI_QUOTA_EXCEEDED') await loadQuota()
       } else {
         setNewsSummary(res)
