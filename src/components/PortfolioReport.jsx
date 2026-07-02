@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
-import { MASKED, fmtPct, fmtDate, fmtShares } from '../lib/format'
+import { MASKED, fmtPct, fmtDate, fmtShares, reportPdfBasename } from '../lib/format'
 import { symFor } from '../lib/constants'
 import { usePrivacy } from '../lib/privacy'
 import { computePortfolioPnL, sumDividends, computeTotalReturn } from '../lib/pnl'
@@ -358,6 +358,17 @@ export default function PortfolioReport({
   const useHoldingBars = shouldUseBarChart(holdingSlices.length)
   const useSectorBars = shouldUseBarChart(sectorSlices.length)
 
+  const handlePrintReport = () => {
+    const prevTitle = document.title
+    document.title = reportPdfBasename({ scope, portName: reportTitle })
+    const restore = () => {
+      document.title = prevTitle
+      window.removeEventListener('afterprint', restore)
+    }
+    window.addEventListener('afterprint', restore)
+    window.print()
+  }
+
   return (
     <div className="dash-report">
       <div className="dash-report-toolbar report-no-print">
@@ -386,7 +397,7 @@ export default function PortfolioReport({
         <button
           type="button"
           className="dash-report-print-btn"
-          onClick={() => window.print()}
+          onClick={handlePrintReport}
           disabled={loadingScope}
         >
           🖨️ พิมพ์ / บันทึก PDF

@@ -71,6 +71,21 @@ export function todayIso() {
   return new Date().toISOString().split('T')[0]
 }
 
+const REPORT_MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Default PDF filename when printing a report (browser uses document.title). */
+export function reportPdfBasename({ scope, portName }) {
+  const d = new Date()
+  const dateStr = `${String(d.getDate()).padStart(2, '0')}-${REPORT_MONTH_ABBR[d.getMonth()]}-${d.getFullYear()}`
+  const safe = String(portName || '')
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80)
+  const label = scope === 'all' ? 'ทุกพอร์ตรวม' : (safe || 'พอร์ต')
+  return `PortDiary - ${label} ${dateStr}`
+}
+
 /** Max decimal places stored for share quantities. */
 export const SHARES_DECIMALS = 10
 
