@@ -1432,6 +1432,16 @@
   max-width: 11rem;
 }
 
+.dash-report-table td.dash-text-gain,
+.dash-report-table .dash-text-gain {
+  color: var(--gain);
+}
+
+.dash-report-table td.dash-text-loss,
+.dash-report-table .dash-text-loss {
+  color: var(--loss);
+}
+
 .dash-report-ticker {
   font-weight: 600;
   color: var(--accent-text);
@@ -1751,8 +1761,8 @@
 
 .dash-report-line-cost {
   stroke: var(--chart-cost);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 4;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
   stroke-linejoin: round;
 }
 
@@ -2202,9 +2212,21 @@
   .dash-report-allocation-seg,
   .dash-report-donut-svg path,
   .dash-report-donut-svg circle,
-  .dash-report-line-svg path {
+  .dash-report-line-svg path,
+  .dash-report-line-svg polyline,
+  .dash-chart-svg polyline {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .dash-report-table td.dash-text-gain,
+  .dash-report-table .dash-text-gain {
+    color: #15803d !important;
+  }
+
+  .dash-report-table td.dash-text-loss,
+  .dash-report-table .dash-text-loss {
+    color: #b91c1c !important;
   }
 
   .dash-text-gain {

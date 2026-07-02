@@ -442,7 +442,7 @@ export default function PortfolioChart({
         {portAreaPath && <path d={portAreaPath} fill={`url(#${gradId})`} />}
 
         {!compareMode && costPts && (
-          <polyline points={costPts} fill="none" stroke="var(--chart-cost)" strokeWidth="1.5" strokeDasharray="4,4" strokeLinejoin="round" />
+          <polyline points={costPts} fill="none" stroke="var(--chart-cost)" strokeWidth="2" strokeDasharray="6,4" strokeLinejoin="round" />
         )}
         {portPts && (
           <polyline points={portPts} fill="none" stroke="var(--chart-port)" strokeWidth="2.5" strokeLinejoin="round" />
