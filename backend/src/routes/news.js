@@ -1,6 +1,11 @@
 import express from 'express'
 import { serverError } from '../lib/httpErrors.js'
 import { authMiddleware } from '../middleware/auth.js'
+import {
+  SECTOR_KEYWORDS,
+  THAI_BANK_TICKER_HINTS,
+  THAI_FINANCE_HINTS,
+} from '../config/newsHints.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -8,6 +13,29 @@ router.use(authMiddleware)
 // Cache 15 นาที
 const cache = new Map()
 const CACHE_TTL = 15 * 60 * 1000
+
+function normalizeArticle(article, fallbackSource = 'Unknown') {
+  return {
+    title: String(article?.title || '').trim(),
+    url: String(article?.url || '').trim(),
+    publishedAt: String(article?.publishedAt || '').trim(),
+    source: { name: String(article?.source?.name || article?.source || fallbackSource).trim() || fallbackSource },
+  }
+}
+
+function dedupeArticles(articles) {
+  const seen = new Set()
+  const out = []
+  for (const item of articles) {
+    const a = normalizeArticle(item)
+    if (!a.title || !a.url) continue
+    const key = `${a.url.toLowerCase()}|${a.title.toLowerCase()}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(a)
+  }
+  return out
+}
 
 async function fetchRSS(url) {
   const cached = cache.get(url)
@@ -43,26 +71,33 @@ router.get('/dashboard', async (req, res) => {
     const { sectors = '', tickers = '' } = req.query
     const mySectors = sectors.split(',').filter(Boolean).map(s => s.toLowerCase())
     const myTickers = tickers.split(',').filter(Boolean).map(t => t.toLowerCase())
+    const plainTickers = myTickers.map((t) => t.replace(/-bk$/i, '').toUpperCase())
 
-    const articles = await fetchRSS('https://finance.yahoo.com/news/rssindex')
+    const tickerHints = plainTickers.flatMap((t) => THAI_BANK_TICKER_HINTS[t] || [t]).filter(Boolean)
+    const queryHints = [...new Set([
+      ...tickerHints,
+      ...mySectors.flatMap((s) => SECTOR_KEYWORDS[s] || [s]),
+      ...THAI_FINANCE_HINTS,
+    ])].slice(0, 14)
+
+    const googleQuery = encodeURIComponent(queryHints.join(' OR '))
+    const [yahooArticles, googleArticles] = await Promise.all([
+      fetchRSS('https://finance.yahoo.com/news/rssindex'),
+      fetchRSS(`https://news.google.com/rss/search?q=${googleQuery}&hl=th&gl=TH&ceid=TH:th`),
+    ])
+    const articles = dedupeArticles([
+      ...yahooArticles.map((a) => normalizeArticle(a, 'Yahoo Finance')),
+      ...googleArticles.map((a) => normalizeArticle(a, 'Google News')),
+    ])
 
     const inSector = []
     const outSector = []
 
-    const SECTOR_KEYWORDS = {
-      technology: ['tech','ai','chip','semiconductor','nvidia','apple','google','microsoft','software','cloud','meta','amazon'],
-      finance: ['bank','fed','rate','inflation','finance','market','interest','bond','treasury','jpmorgan','goldman'],
-      healthcare: ['health','drug','medical','pharma','biotech','fda','vaccine','lilly','pfizer','merck'],
-      energy: ['oil','energy','gas','crude','opec','exxon','chevron','solar','wind','renewable'],
-      consumer: ['retail','consumer','spend','walmart','amazon','target','shop'],
-      'real estate': ['reit','real estate','property','housing','mortgage'],
-      'bonds & gold': ['gold','bond','treasury','yield','silver','commodity'],
-      diversified: ['etf','index','fund','vanguard','blackrock','sp500','nasdaq'],
-    }
-
     articles.forEach(a => {
       const text = a.title.toLowerCase()
       const matchTicker = myTickers.some(t => text.includes(t))
+        || plainTickers.some((t) => text.includes(t.toLowerCase()))
+        || tickerHints.some((t) => text.includes(String(t).toLowerCase()))
       const matchSector = mySectors.some(s => {
         const keywords = SECTOR_KEYWORDS[s] || [s]
         return keywords.some(kw => text.includes(kw))
@@ -84,8 +119,13 @@ router.get('/dashboard', async (req, res) => {
 router.get('/ticker/:symbol', async (req, res) => {
   try {
     const symbol = req.params.symbol.replace('.', '-').replace('/', '-')
-    const articles = await fetchRSS(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}`)
-    res.json(articles.slice(0, 15))
+    const plainSymbol = symbol.replace(/-BK$/i, '')
+    const hintQuery = encodeURIComponent(`${plainSymbol} OR ${plainSymbol}-BK OR หุ้น ${plainSymbol}`)
+    const [yahoo, google] = await Promise.all([
+      fetchRSS(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}`),
+      fetchRSS(`https://news.google.com/rss/search?q=${hintQuery}&hl=th&gl=TH&ceid=TH:th`),
+    ])
+    res.json(dedupeArticles([...yahoo, ...google]).slice(0, 15))
   } catch (err) {
     serverError(res, err)
   }

@@ -147,6 +147,10 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
 ถ้าคำถามเกี่ยวกับ "ทำไมราคาขึ้น/ลง" ให้เน้นเหตุผลเชิงเหตุการณ์จากข่าวล่าสุดก่อนทฤษฎีทั่วไป
 ถ้ามีข่าวรองรับ ให้ยก headline สั้นๆ พร้อมแหล่งข่าว/เวลา
 ถ้าข่าวที่ให้ยังไม่พอหรือไม่เจอเหตุผลชัด ให้บอกตรงๆ ว่า "ยังไม่พบหลักฐานข่าวที่ยืนยัน"
+รูปแบบที่ต้องการ:
+1) เหตุผลที่เป็นไปได้ (เฉพาะที่มีหลักฐานข่าว)
+2) หลักฐานข่าว (bullet: หัวข้อ | แหล่งข่าว | เวลา)
+3) ระดับความมั่นใจ: สูง/กลาง/ต่ำ
 ไม่ใช่คำแนะนำซื้อขาย — ช่วยทบทวนและสรุปเท่านั้น
 ตอบ plain text ไม่ใช่ JSON ไม่เกิน ${Math.floor(planConfig.copilot.maxTokens / 3)} คำโดยประมาณ`
 
@@ -161,6 +165,7 @@ ${compactJson(relevantNews)}
     res.json({
       answer: text.trim(),
       preset: resolved.preset,
+      newsUsed: relevantNews,
       dataScope: {
         ...dataScope,
         internetNewsIncluded: relevantNews.length,

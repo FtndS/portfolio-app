@@ -259,6 +259,25 @@ export default function AIPanel({
             <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
               {copilotAnswer.answer}
             </p>
+            {Array.isArray(copilotAnswer.newsUsed) && copilotAnswer.newsUsed.length > 0 && (
+              <div style={{ marginTop: '12px' }}>
+                <div className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '6px' }}>หลักฐานข่าวที่ใช้</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {copilotAnswer.newsUsed.slice(0, 5).map((n, i) => (
+                    <a
+                      key={`${n.url}-${i}`}
+                      href={n.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="dash-text-accent"
+                      style={{ fontSize: '12px', textDecoration: 'underline' }}
+                    >
+                      {i + 1}. {n.title} · {n.source || 'Unknown'}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
