@@ -4,6 +4,12 @@ This repo includes Cursor **Rules** and **Skills** under `.cursor/`.
 
 **Start here:** [.cursor/README.md](.cursor/README.md) (Thai usage guide)
 
+## Memos (deferred work)
+
+| Tag | File | Resume |
+|-----|------|--------|
+| Security#1 | [.cursor/memos/Security-1.md](.cursor/memos/Security-1.md) | `ใช้ Security#1 — ทำเฟส 1` |
+
 ## Quick prompts
 
 | Task | Prompt |
