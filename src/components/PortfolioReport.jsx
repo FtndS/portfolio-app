@@ -507,17 +507,17 @@ export default function PortfolioReport({
               <tbody>
                 {allocation.map((h) => (
                   <tr key={h.id}>
-                    <td className="dash-report-ticker">{h.ticker}</td>
-                    <td className="dash-report-muted">{h.name || '—'}</td>
-                    <td>{h.weight.toFixed(1)}%</td>
-                    <td>{fmtMoney(h.val)}</td>
-                    <td className="dash-report-muted">{fmtMoney(h.cost)}</td>
-                    <td className={`dash-text-${pnlTone(h.pnl)}`}>
+                    <td className="dash-report-ticker dash-report-num">{h.ticker}</td>
+                    <td className="dash-report-muted dash-report-wrap">{h.name || '—'}</td>
+                    <td className="dash-report-num">{h.weight.toFixed(1)}%</td>
+                    <td className="dash-report-num">{fmtMoney(h.val)}</td>
+                    <td className="dash-report-muted dash-report-num">{fmtMoney(h.cost)}</td>
+                    <td className={`dash-report-num dash-text-${pnlTone(h.pnl)}`}>
                       {hideValues ? fmtPct(h.pnlPct) : fmtMoney(h.pnl)}
                     </td>
-                    <td className={`dash-text-${pnlTone(h.pnl)}`}>{fmtPct(h.pnlPct)}</td>
-                    <td className={`dash-text-${pnlTone(h.dayChg)}`}>{fmtPct(h.dayChg)}</td>
-                    <td className="dash-report-muted">{h.sector || 'Other'}</td>
+                    <td className={`dash-report-num dash-text-${pnlTone(h.pnl)}`}>{fmtPct(h.pnlPct)}</td>
+                    <td className={`dash-report-num dash-text-${pnlTone(h.dayChg)}`}>{fmtPct(h.dayChg)}</td>
+                    <td className="dash-report-muted dash-report-wrap">{h.sector || 'Other'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -590,29 +590,29 @@ export default function PortfolioReport({
                 <tbody>
                   {recentTx.map((t) => (
                     <tr key={t.id}>
-                      <td className="dash-report-muted">{fmtDate(t.date)}</td>
-                      <td className="dash-report-ticker">{t.ticker}</td>
-                      <td className={t.type === 'BUY' ? 'dash-text-gain' : 'dash-text-loss'}>{t.type}</td>
-                      <td><CcyChip ccy={t.currency} /></td>
-                      <td>{fmtShares(t.shares)}</td>
-                      <td>
+                      <td className="dash-report-muted dash-report-num">{fmtDate(t.date)}</td>
+                      <td className="dash-report-ticker dash-report-num">{t.ticker}</td>
+                      <td className={`dash-report-num ${t.type === 'BUY' ? 'dash-text-gain' : 'dash-text-loss'}`}>{t.type}</td>
+                      <td className="dash-report-num"><CcyChip ccy={t.currency} /></td>
+                      <td className="dash-report-num">{fmtShares(t.shares)}</td>
+                      <td className="dash-report-num">
                         {hideValues
                           ? MASKED
                           : `${symFor(t.currency || 'USD')}${Number(t.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                       </td>
-                      <td>
+                      <td className="dash-report-num">
                         {hideValues
                           ? MASKED
                           : `${symFor(t.currency || 'USD')}${Number(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                       </td>
-                      <td className="dash-report-muted">
+                      <td className="dash-report-muted dash-report-num">
                         {hideValues
                           ? MASKED
                           : Number(t.fee) > 0
                             ? `${symFor(t.currency || 'USD')}${Number(t.fee).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
                             : '—'}
                       </td>
-                      <td className="dash-report-muted">{t.note || '—'}</td>
+                      <td className="dash-report-muted dash-report-wrap">{t.note || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

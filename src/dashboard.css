@@ -1397,6 +1397,7 @@
 
 .dash-report-table {
   width: 100%;
+  min-width: 860px;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -1413,6 +1414,18 @@
 .dash-report-table td {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.dash-report-table td.dash-report-num,
+.dash-report-table th.dash-report-num {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-report-table td.dash-report-wrap {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 11rem;
 }
 
 .dash-report-ticker {
@@ -2078,6 +2091,15 @@
     color: #111 !important;
     font-size: 11px !important;
     line-height: 1.35 !important;
+  }
+
+  .dash-report-table td.dash-report-num,
+  .dash-report-table th.dash-report-num {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+
+  .dash-report-table td.dash-report-wrap {
     white-space: normal !important;
     word-break: break-word;
   }
