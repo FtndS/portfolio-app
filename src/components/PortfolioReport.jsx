@@ -496,28 +496,34 @@ export default function PortfolioReport({
         <section className="dash-report-card dash-report-card--wide">
           <h3>สัดส่วนการลงทุน (หุ้นที่ถือ)</h3>
           <div className="dash-report-table-wrap">
-            <table className="dash-report-table">
+            <table className="dash-report-table dash-report-table--holdings">
               <thead>
                 <tr>
-                  {['Ticker', 'ชื่อ', 'น้ำหนัก', 'มูลค่า', 'ทุน', 'กำไร/ขาดทุน', '%', 'วันนี้', 'Sector'].map((h) => (
-                    <th key={h}>{h}</th>
-                  ))}
+                  <th className="dash-report-col-ticker">Ticker</th>
+                  <th className="dash-report-col-print-hide">ชื่อ</th>
+                  <th className="dash-report-col-weight">น้ำหนัก</th>
+                  <th className="dash-report-col-value">มูลค่า</th>
+                  <th className="dash-report-col-print-hide">ทุน</th>
+                  <th className="dash-report-col-print-hide">กำไร/ขาดทุน</th>
+                  <th className="dash-report-col-pnl">กำไร%</th>
+                  <th className="dash-report-col-day">วันนี้</th>
+                  <th className="dash-report-col-print-hide">Sector</th>
                 </tr>
               </thead>
               <tbody>
                 {allocation.map((h) => (
                   <tr key={h.id}>
-                    <td className="dash-report-ticker dash-report-num">{h.ticker}</td>
-                    <td className="dash-report-muted dash-report-wrap">{h.name || '—'}</td>
-                    <td className="dash-report-num">{h.weight.toFixed(1)}%</td>
-                    <td className="dash-report-num">{fmtMoney(h.val)}</td>
-                    <td className="dash-report-muted dash-report-num">{fmtMoney(h.cost)}</td>
-                    <td className={`dash-report-num dash-text-${pnlTone(h.pnl)}`}>
+                    <td className="dash-report-ticker dash-report-num dash-report-col-ticker">{h.ticker}</td>
+                    <td className="dash-report-muted dash-report-wrap dash-report-col-print-hide">{h.name || '—'}</td>
+                    <td className="dash-report-num dash-report-col-weight">{h.weight.toFixed(1)}%</td>
+                    <td className="dash-report-num dash-report-col-value">{fmtMoney(h.val)}</td>
+                    <td className="dash-report-muted dash-report-num dash-report-col-print-hide">{fmtMoney(h.cost)}</td>
+                    <td className={`dash-report-num dash-report-col-print-hide dash-text-${pnlTone(h.pnl)}`}>
                       {hideValues ? fmtPct(h.pnlPct) : fmtMoney(h.pnl)}
                     </td>
-                    <td className={`dash-report-num dash-text-${pnlTone(h.pnl)}`}>{fmtPct(h.pnlPct)}</td>
-                    <td className={`dash-report-num dash-text-${pnlTone(h.dayChg)}`}>{fmtPct(h.dayChg)}</td>
-                    <td className="dash-report-muted dash-report-wrap">{h.sector || 'Other'}</td>
+                    <td className={`dash-report-num dash-report-col-pnl dash-text-${pnlTone(h.pnl)}`}>{fmtPct(h.pnlPct)}</td>
+                    <td className={`dash-report-num dash-report-col-day dash-text-${pnlTone(h.dayChg)}`}>{fmtPct(h.dayChg)}</td>
+                    <td className="dash-report-muted dash-report-wrap dash-report-col-print-hide">{h.sector || 'Other'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -525,6 +531,7 @@ export default function PortfolioReport({
           </div>
         </section>
 
+        <div className="dash-report-aside-grid">
         <section className="dash-report-card">
           <h3>Top กำไร / ขาดทุน</h3>
           {topGainers.length > 0 && (
@@ -574,45 +581,52 @@ export default function PortfolioReport({
             </ul>
           </section>
         )}
+        </div>
 
         {recentTx.length > 0 && (
           <section className="dash-report-card dash-report-card--wide">
             <h3>กิจกรรมล่าสุด (ซื้อ/ขาย)</h3>
             <div className="dash-report-table-wrap">
-              <table className="dash-report-table">
+              <table className="dash-report-table dash-report-table--tx">
                 <thead>
                   <tr>
-                    {['วันที่', 'Ticker', 'ประเภท', 'สกุลเงิน', 'Shares', 'ราคา', 'มูลค่า', 'ค่าธรรมเนียม', 'หมายเหตุ'].map((h) => (
-                      <th key={h}>{h}</th>
-                    ))}
+                    <th className="dash-report-col-date">วันที่</th>
+                    <th className="dash-report-col-ticker">Ticker</th>
+                    <th className="dash-report-col-type">ประเภท</th>
+                    <th className="dash-report-col-print-hide">สกุลเงิน</th>
+                    <th className="dash-report-col-shares">จำนวน</th>
+                    <th className="dash-report-col-print-hide">ราคา</th>
+                    <th className="dash-report-col-total">มูลค่า</th>
+                    <th className="dash-report-col-print-hide">ค่าธรรมเนียม</th>
+                    <th className="dash-report-col-print-hide">หมายเหตุ</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentTx.map((t) => (
                     <tr key={t.id}>
-                      <td className="dash-report-muted dash-report-num">{fmtDate(t.date)}</td>
-                      <td className="dash-report-ticker dash-report-num">{t.ticker}</td>
-                      <td className={`dash-report-num ${t.type === 'BUY' ? 'dash-text-gain' : 'dash-text-loss'}`}>{t.type}</td>
-                      <td className="dash-report-num"><CcyChip ccy={t.currency} /></td>
-                      <td className="dash-report-num">{fmtShares(t.shares)}</td>
-                      <td className="dash-report-num">
+                      <td className="dash-report-muted dash-report-num dash-report-col-date">{fmtDate(t.date)}</td>
+                      <td className="dash-report-ticker dash-report-num dash-report-col-ticker">{t.ticker}</td>
+                      <td className={`dash-report-num dash-report-col-type ${t.type === 'BUY' ? 'dash-text-gain' : 'dash-text-loss'}`}>{t.type}</td>
+                      <td className="dash-report-num dash-report-col-print-hide"><CcyChip ccy={t.currency} /></td>
+                      <td className="dash-report-num dash-report-col-shares">{fmtShares(t.shares)}</td>
+                      <td className="dash-report-num dash-report-col-print-hide">
                         {hideValues
                           ? MASKED
                           : `${symFor(t.currency || 'USD')}${Number(t.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                       </td>
-                      <td className="dash-report-num">
+                      <td className="dash-report-num dash-report-col-total">
                         {hideValues
                           ? MASKED
                           : `${symFor(t.currency || 'USD')}${Number(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                       </td>
-                      <td className="dash-report-muted dash-report-num">
+                      <td className="dash-report-muted dash-report-num dash-report-col-print-hide">
                         {hideValues
                           ? MASKED
                           : Number(t.fee) > 0
                             ? `${symFor(t.currency || 'USD')}${Number(t.fee).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
                             : '—'}
                       </td>
-                      <td className="dash-report-muted dash-report-wrap">{t.note || '—'}</td>
+                      <td className="dash-report-muted dash-report-wrap dash-report-col-print-hide">{t.note || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
