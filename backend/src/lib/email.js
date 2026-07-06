@@ -92,6 +92,88 @@ export function buildSupportTicketEmail({ ticket, user }) {
   return { subject, text, html }
 }
 
+function formatThaiDate(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('th-TH', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+export function buildSlipReceivedEmail({ userName, ticketId }) {
+  const appUrl = process.env.APP_URL || 'https://portdiary.com'
+  const subject = `รับสลิปแล้ว — คำขอ Pro #${ticketId}`
+  const text = [
+    `สวัสดี ${userName || ''}`.trim(),
+    '',
+    'เราได้รับสลิปการโอนของคุณแล้ว',
+    `หมายเลขคำขอ: #${ticketId}`,
+    '',
+    'ทีมงานจะตรวจสอบและเปิดแผน Pro ภายใน 1 วันทำการ',
+    'คุณจะได้รับอีเมลแจ้งอีกครั้งเมื่อเปิด Pro สำเร็จ',
+    '',
+    `ตรวจสอบสถานะ: ${appUrl}`,
+  ].join('\n')
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#222">
+      <h2 style="color:#6c5ce7">PortDiary</h2>
+      <p>สวัสดี${userName ? ` ${userName}` : ''}</p>
+      <p>เราได้รับสลิปการโอนของคุณแล้ว — <strong>คำขอ #${ticketId}</strong></p>
+      <p>ทีมงานจะตรวจสอบและเปิดแผน <strong>Pro</strong> ภายใน <strong>1 วันทำการ</strong></p>
+      <p style="font-size:13px;color:#666">คุณจะได้รับอีเมลแจ้งอีกครั้งเมื่อเปิด Pro สำเร็จ</p>
+      <p><a href="${appUrl}" style="color:#6c5ce7">เปิด PortDiary</a></p>
+    </div>
+  `
+  return { subject, text, html }
+}
+
+export function buildProActivatedEmail({ userName, planExpiresAt, source = 'manual' }) {
+  const appUrl = (process.env.APP_URL || 'https://portdiary.com').replace(/\/$/, '')
+  const expires = formatThaiDate(planExpiresAt)
+  const sourceNote = source === 'stripe'
+    ? 'การชำระด้วยบัตรสำเร็จ'
+    : 'การชำระผ่าน PromptPay'
+  const subject = 'เปิดแผน PortDiary Pro แล้ว'
+  const text = [
+    `สวัสดี ${userName || ''}`.trim(),
+    '',
+    `${sourceNote} — บัญชีของคุณเป็นแผน Pro แล้ว`,
+    `ใช้งานได้ถึง: ${expires}`,
+    '',
+    `เข้าใช้งาน: ${appUrl}`,
+  ].join('\n')
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#222">
+      <h2 style="color:#6c5ce7">PortDiary Pro</h2>
+      <p>สวัสดี${userName ? ` ${userName}` : ''}</p>
+      <p>${sourceNote} — บัญชีของคุณเป็นแผน <strong>Pro</strong> แล้ว</p>
+      <p>ใช้งานได้ถึง: <strong>${expires}</strong></p>
+      <p><a href="${appUrl}" style="color:#6c5ce7">เปิด PortDiary</a></p>
+    </div>
+  `
+  return { subject, text, html }
+}
+
+export async function sendSlipReceivedEmail(user, ticketId) {
+  if (!user?.email) return false
+  const { subject, html, text } = buildSlipReceivedEmail({
+    userName: user.name,
+    ticketId,
+  })
+  return sendEmail({ to: user.email, subject, html, text })
+}
+
+export async function sendProActivatedEmail(user, { source = 'manual' } = {}) {
+  if (!user?.email) return false
+  const { subject, html, text } = buildProActivatedEmail({
+    userName: user.name,
+    planExpiresAt: user.plan_expires_at,
+    source,
+  })
+  return sendEmail({ to: user.email, subject, html, text })
+}
+
 export function isSmtpConfigured() {
   return !!process.env.SMTP_HOST
 }

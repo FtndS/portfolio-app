@@ -2,8 +2,9 @@ import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
-import { computeProExpiry, normalizePlanId } from '../lib/subscriptionAdmin.js'
+import { computeProExpiry, normalizePlanId, grantProManually } from '../lib/subscriptionAdmin.js'
 import { resolveEffectivePlan } from '../lib/aiPlan.js'
+import { sendProActivatedEmail } from '../lib/email.js'
 import { serverError } from '../lib/httpErrors.js'
 
 const router = express.Router()
@@ -100,6 +101,11 @@ router.patch('/users/:id/plan', async (req, res) => {
     )
 
     const row = result.rows[0]
+    if (nextPlan === 'pro') {
+      sendProActivatedEmail(row, { source: 'manual' }).catch((e) => {
+        console.error('Pro activation email error:', e)
+      })
+    }
     res.json({
       id: row.id,
       email: row.email,
@@ -115,6 +121,77 @@ router.patch('/users/:id/plan', async (req, res) => {
     })
   } catch (err) {
     serverError(res, err, 'PATCH admin/users plan error:')
+  }
+})
+
+router.post('/tickets/:id/grant-pro', async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!id) return res.status(400).json({ error: 'รหัสคำร้องไม่ถูกต้อง' })
+
+    const extendMonths = Number(req.body.extendMonths) > 0 ? Number(req.body.extendMonths) : 1
+
+    const ticketRow = await pool.query(
+      `SELECT t.id, t.category, t.subject, t.message, t.status, t.admin_notes,
+              t.created_at, t.updated_at, t.user_id,
+              (t.receipt_data IS NOT NULL) AS has_legacy_receipt,
+              u.email AS user_email, u.name AS user_name, u.plan_expires_at
+       FROM support_tickets t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.id = $1`,
+      [id]
+    )
+    if (!ticketRow.rows.length) {
+      return res.status(404).json({ error: 'ไม่พบคำร้อง' })
+    }
+    const ticket = ticketRow.rows[0]
+    if (ticket.category !== 'upgrade') {
+      return res.status(400).json({ error: 'คำร้องนี้ไม่ใช่ขออัปเกรด Pro' })
+    }
+
+    const adminNote = [
+      ticket.admin_notes,
+      `[${new Date().toISOString()}] เปิด Pro ${extendMonths} เดือน`,
+    ].filter(Boolean).join('\n')
+
+    const user = await grantProManually(pool, ticket.user_id, {
+      extendMonths,
+      planNote: `PromptPay · ticket #${id}`,
+    })
+    if (!user) {
+      return res.status(500).json({ error: 'เปิด Pro ไม่สำเร็จ' })
+    }
+
+    const updated = await pool.query(
+      `UPDATE support_tickets
+       SET status = 'resolved',
+           admin_notes = $2,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, category, subject, message, status, admin_notes, created_at, updated_at,
+                 (receipt_data IS NOT NULL) AS has_receipt, user_id`,
+      [id, adminNote]
+    )
+
+    sendProActivatedEmail(user, { source: 'manual' }).catch((e) => {
+      console.error('Pro activation email error:', e)
+    })
+
+    const attCount = await pool.query(
+      'SELECT COUNT(*)::int AS cnt FROM support_ticket_attachments WHERE ticket_id = $1',
+      [id]
+    )
+
+    res.json({
+      ...updated.rows[0],
+      has_receipt: updated.rows[0].has_receipt || attCount.rows[0].cnt > 0,
+      user_email: ticket.user_email,
+      user_name: ticket.user_name,
+      planExpiresAt: user.plan_expires_at,
+      message: `เปิด Pro แล้ว — หมดอายุ ${new Date(user.plan_expires_at).toLocaleDateString('th-TH')}`,
+    })
+  } catch (err) {
+    serverError(res, err, 'POST admin/tickets grant-pro error:')
   }
 })
 

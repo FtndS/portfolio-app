@@ -2,7 +2,7 @@ import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { supportLimiter } from '../middleware/rateLimit.js'
-import { sendEmail, buildSupportTicketEmail } from '../lib/email.js'
+import { sendEmail, buildSupportTicketEmail, sendSlipReceivedEmail } from '../lib/email.js'
 import { serverError } from '../lib/httpErrors.js'
 import {
   parseAttachmentsInput,
@@ -183,6 +183,12 @@ router.post('/', supportLimiter, async (req, res) => {
     notifyAdmins(ticket, userResult.rows[0], attachments).catch((e) => {
       console.error('Support ticket email error:', e)
     })
+
+    if (category === 'upgrade') {
+      sendSlipReceivedEmail(userResult.rows[0], ticket.id).catch((e) => {
+        console.error('Slip received email error:', e)
+      })
+    }
 
     res.status(201).json(sanitizeTicketRow(ticket, attachments.length))
   } catch (err) {

@@ -1,5 +1,5 @@
 import { getStripe } from './stripeClient.js'
-import { sendEmail } from './email.js'
+import { sendProActivatedEmail } from './email.js'
 import { ensureStripeCustomer } from './stripeCustomer.js'
 
 export async function grantProToUser(pool, userId, {
@@ -30,29 +30,7 @@ export async function grantProToUser(pool, userId, {
 }
 
 export async function notifyProActivated(user) {
-  if (!user?.email) return
-  const expires = user.plan_expires_at
-    ? new Date(user.plan_expires_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '—'
-  const appUrl = (process.env.APP_URL || 'https://portdiary.com').replace(/\/$/, '')
-  const subject = 'เปิดแผน PortDiary Pro แล้ว'
-  const text = [
-    `สวัสดี ${user.name || ''}`.trim(),
-    '',
-    'การชำระเงินสำเร็จ — บัญชีของคุณเป็นแผน Pro แล้ว',
-    `ใช้งานได้ถึง: ${expires}`,
-    '',
-    `เข้าใช้งาน: ${appUrl}`,
-  ].join('\n')
-  const html = `
-    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#222">
-      <h2 style="color:#6c5ce7">PortDiary Pro</h2>
-      <p>การชำระเงินสำเร็จ — บัญชีของคุณเป็นแผน <strong>Pro</strong> แล้ว</p>
-      <p>ใช้งานได้ถึง: <strong>${expires}</strong></p>
-      <p><a href="${appUrl}" style="color:#6c5ce7">เปิด PortDiary</a></p>
-    </div>
-  `
-  await sendEmail({ to: user.email, subject, text, html })
+  return sendProActivatedEmail(user, { source: 'stripe' })
 }
 
 /** Stripe Basil+ moved period end to subscription items; keep legacy fallback. */

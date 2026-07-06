@@ -137,6 +137,7 @@ export default function AdminPage({ user, onBack, onLogout }) {
   const [editNotes, setEditNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
+  const [granting, setGranting] = useState(false)
 
   const loadTickets = useCallback(async () => {
     setLoading(true)
@@ -180,6 +181,23 @@ export default function AdminPage({ user, onBack, onLogout }) {
     }
     setSaveMsg('บันทึกแล้ว')
     setSelected(r)
+    setTickets((prev) => prev.map((t) => (t.id === r.id ? { ...t, ...r } : t)))
+  }
+
+  const grantProFromTicket = async () => {
+    if (!selected || selected.category !== 'upgrade') return
+    setGranting(true)
+    setSaveMsg('')
+    const r = await api.post(`/admin/tickets/${selected.id}/grant-pro`, { extendMonths: 1 })
+    setGranting(false)
+    if (r.error) {
+      setSaveMsg(r.error)
+      return
+    }
+    setSaveMsg(r.message || 'เปิด Pro แล้ว')
+    setSelected(r)
+    setEditStatus(r.status)
+    setEditNotes(r.admin_notes || '')
     setTickets((prev) => prev.map((t) => (t.id === r.id ? { ...t, ...r } : t)))
   }
 
@@ -317,6 +335,34 @@ export default function AdminPage({ user, onBack, onLogout }) {
 
                     {selected.has_receipt && (
                       <TicketAttachments ticketId={selected.id} hasReceipt={selected.has_receipt} />
+                    )}
+
+                    {selected.category === 'upgrade' && (
+                      <div
+                        className="dash-inset"
+                        style={{
+                          padding: '14px',
+                          marginBottom: '16px',
+                          borderColor: 'var(--accent)',
+                        }}
+                      >
+                        <p className="dash-text-secondary" style={{ margin: '0 0 10px', fontSize: '14px' }}>
+                          ตรวจสลิปแล้ว — เปิด Pro ให้ผู้ใช้ได้ทันที (ส่งอีเมลแจ้งอัตโนมัติ)
+                        </p>
+                        <button
+                          type="button"
+                          onClick={grantProFromTicket}
+                          style={btnPrimary}
+                          disabled={granting || selected.status === 'resolved' || selected.status === 'closed'}
+                        >
+                          {granting ? 'กำลังเปิด Pro...' : 'เปิด Pro 1 เดือน'}
+                        </button>
+                        {(selected.status === 'resolved' || selected.status === 'closed') && (
+                          <p className="dash-text-muted" style={{ fontSize: '12px', margin: '8px 0 0' }}>
+                            คำขอนี้ปิดแล้ว — ใช้แท็บจัดการแผน Pro หากต้องการต่ออายุ
+                          </p>
+                        )}
+                      </div>
                     )}
 
                     {selected.user_id && (
