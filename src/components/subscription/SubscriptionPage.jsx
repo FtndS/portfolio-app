@@ -12,9 +12,9 @@ function fmtExpires(iso) {
   })
 }
 
-function quotaLine(quota, key, label) {
+function quotaCard(quota, key, label) {
   if (!quota) return null
-  if (quota.isOwner) return { label, value: 'ไม่จำกัด', tone: 'gain' }
+  if (quota.isOwner) return { label, remaining: null, limit: null, used: 0, unlimited: true }
   const slot = quota[key]
   const limit = quota.limits?.[key]
   if (!slot) return null
@@ -22,12 +22,12 @@ function quotaLine(quota, key, label) {
     const when = slot.nextAvailableAt
       ? new Date(slot.nextAvailableAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
       : null
-    return { label, value: when ? `ใช้ครบแล้ว · ได้อีกครั้ง ${when}` : 'ใช้ครบแล้ว', tone: 'loss' }
+    return { label, remaining: 0, limit, used: limit ?? 0, exhausted: true, nextAvailableAt: when }
   }
   if (limit != null && slot.remaining != null) {
-    return { label, value: `เหลือ ${slot.remaining}/${limit} ครั้ง/สัปดาห์`, tone: 'default' }
+    return { label, remaining: slot.remaining, limit, used: limit - slot.remaining, exhausted: false }
   }
-  return { label, value: 'ใช้ได้', tone: 'default' }
+  return { label, remaining: null, limit: null, used: 0, unlimited: false }
 }
 
 const QUOTA_KEYS = [
@@ -239,8 +239,9 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const showPayChooser = !data.isOwner && (!isPro || isManualPro)
   const showStripeManage = !data.isOwner && isStripePro
   const billingHistory = data.billingHistory || []
+  const stripeCancelled = data.stripeSubscription?.cancelAtPeriodEnd
 
-  const quotaLines = QUOTA_KEYS.map(([key, label]) => quotaLine(data.quota, key, label)).filter(Boolean)
+  const quotaCards = QUOTA_KEYS.map(([key, label]) => quotaCard(data.quota, key, label)).filter(Boolean)
 
   return (
     <div className="dash-sub-page">
@@ -258,8 +259,11 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
           {!data.isOwner && isPro && expires && (
             <span className="dash-sub-status-note">หมดอายุ {expires}</span>
           )}
-          {!data.isOwner && isPro && data.proPaymentSource === 'stripe' && (
+          {!data.isOwner && isPro && data.proPaymentSource === 'stripe' && !stripeCancelled && (
             <span className="dash-sub-status-note">ต่ออายุอัตโนมัติด้วยบัตร</span>
+          )}
+          {!data.isOwner && isPro && stripeCancelled && expires && (
+            <span className="dash-sub-status-note">ยกเลิกบัตรแล้ว — ใช้ได้ถึง {expires}</span>
           )}
           {!data.isOwner && isManualPro && (
             <span className="dash-sub-status-note">ชำระผ่าน PromptPay — ต่ออายุด้วยมือ</span>
@@ -286,6 +290,15 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
         </p>
       )}
 
+      {stripeCancelled && isPro && !data.isOwner && (
+        <div className="dash-inset dash-sub-cancel-notice">
+          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px' }}>
+            ยกเลิกการต่ออายุด้วยบัตรแล้ว — แผน Pro ยังใช้ได้จนถึง <strong>{expires}</strong>
+            {' '}หลังจากนั้นจะไม่หักบัตรอีก
+          </p>
+        </div>
+      )}
+
       {actionErr && (
         <p className="dash-text-loss" style={{ marginBottom: '12px', fontSize: '14px' }}>{actionErr}</p>
       )}
@@ -302,15 +315,37 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
         </div>
       )}
 
-      {quotaLines.length > 0 && (
+      {quotaCards.length > 0 && (
         <div className="dash-card dash-sub-quota">
           <h3 className="dash-card-title">โควต้า AI สัปดาห์นี้</h3>
           <div className="dash-sub-quota-grid">
-            {quotaLines.map((row) => (
-              <div key={row.label} className="dash-sub-quota-item">
-                <span className="dash-text-muted">{row.label}</span>
-                <span className={row.tone === 'gain' ? 'dash-text-gain' : row.tone === 'loss' ? 'dash-text-loss' : 'dash-text-secondary'}>
-                  {row.value}
+            {quotaCards.map((card) => (
+              <div key={card.label} className={`dash-sub-quota-card${card.exhausted ? ' dash-sub-quota-card--exhausted' : ''}`}>
+                <div className="dash-sub-quota-card-head">
+                  <span className="dash-sub-quota-card-label">{card.label}</span>
+                  {card.unlimited ? (
+                    <span className="dash-sub-quota-card-num dash-text-gain">∞</span>
+                  ) : card.exhausted ? (
+                    <span className="dash-sub-quota-card-num dash-text-loss">0</span>
+                  ) : (
+                    <span className="dash-sub-quota-card-num">
+                      <strong>{card.remaining}</strong>
+                      <span className="dash-sub-quota-card-of">/{card.limit}</span>
+                    </span>
+                  )}
+                </div>
+                {!card.unlimited && card.limit != null && (
+                  <div className="dash-sub-quota-bar" aria-hidden>
+                    <div
+                      className="dash-sub-quota-bar-fill"
+                      style={{ width: `${Math.max(0, Math.min(100, (card.remaining / card.limit) * 100))}%` }}
+                    />
+                  </div>
+                )}
+                <span className="dash-sub-quota-card-foot">
+                  {card.unlimited && 'ไม่จำกัด'}
+                  {!card.unlimited && !card.exhausted && `ใช้ไป ${card.used} ครั้ง`}
+                  {card.exhausted && (card.nextAvailableAt ? `ครบโควต้า · รีเซ็ต ${card.nextAvailableAt}` : 'ครบโควต้าแล้ว')}
                 </span>
               </div>
             ))}

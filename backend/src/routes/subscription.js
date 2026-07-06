@@ -4,7 +4,7 @@ import { getAiQuota } from '../lib/aiQuota.js'
 import { isAiPrivilegedUser, resolveEffectivePlan } from '../lib/aiPlan.js'
 import { buildSubscriptionCatalog, PRO_MONTHLY_THB } from '../lib/subscriptionCatalog.js'
 import { appBaseUrl, getStripe, isStripeConfigured } from '../lib/stripeClient.js'
-import { syncUserSubscriptionFromStripe, fetchBillingHistory } from '../lib/stripeSubscription.js'
+import { syncUserSubscriptionFromStripe, fetchBillingHistory, getStripeSubscriptionFlags } from '../lib/stripeSubscription.js'
 import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 
@@ -29,7 +29,14 @@ router.get('/', async (req, res) => {
       [req.userId]
     )
     const stripeCustomerId = userRow.rows[0]?.stripe_customer_id || null
-    const hasStripeSubscription = !!userRow.rows[0]?.stripe_subscription_id
+    const stripeSubscriptionId = userRow.rows[0]?.stripe_subscription_id || null
+    const hasStripeSubscription = !!stripeSubscriptionId
+
+    let stripeSubscription = null
+    if (hasStripeSubscription && stripeConfigured) {
+      const stripe = getStripe()
+      stripeSubscription = await getStripeSubscriptionFlags(stripe, stripeSubscriptionId)
+    }
 
     const pendingUpgrade = await pool.query(
       `SELECT id, status, created_at
@@ -62,6 +69,7 @@ router.get('/', async (req, res) => {
       manualPaymentEnabled: true,
       stripeCustomerId,
       hasStripeSubscription,
+      stripeSubscription,
       proPaymentSource,
       pendingUpgradeTicket: pendingUpgrade.rows[0] || null,
       billingHistory,

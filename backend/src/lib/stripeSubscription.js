@@ -69,6 +69,57 @@ export function getSubscriptionPeriodEnd(sub) {
   throw new Error('Subscription period end not found')
 }
 
+const MS_PER_DAY = 86400000
+
+/** Credit unused manual Pro time when user first subscribes via Stripe. */
+export function applyManualProCredit(stripePeriodEnd, previousExpiresAt, now = new Date()) {
+  const stripeEnd = new Date(stripePeriodEnd)
+  const prev = previousExpiresAt ? new Date(previousExpiresAt) : null
+  if (!prev || prev.getTime() <= now.getTime()) {
+    return { expiresAt: stripeEnd, extraMs: 0, extraDays: 0 }
+  }
+  const extraMs = prev.getTime() - now.getTime()
+  return {
+    expiresAt: new Date(stripeEnd.getTime() + extraMs),
+    extraMs,
+    extraDays: Math.round(extraMs / MS_PER_DAY),
+  }
+}
+
+async function getManualProRemainderMs(pool, userId, atDate) {
+  const at = atDate instanceof Date ? atDate : new Date(atDate)
+  const row = await pool.query(
+    `SELECT updated_at FROM support_tickets
+     WHERE user_id = $1 AND category = 'upgrade'
+       AND status IN ('resolved', 'closed')
+       AND updated_at < $2
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [userId, at.toISOString()]
+  )
+  if (!row.rows.length) return 0
+
+  const grantAt = new Date(row.rows[0].updated_at)
+  const manualEnd = new Date(grantAt)
+  manualEnd.setMonth(manualEnd.getMonth() + 1)
+  if (manualEnd.getTime() <= at.getTime()) return 0
+  return manualEnd.getTime() - at.getTime()
+}
+
+function manualCreditAlreadyApplied(planNote) {
+  return String(planNote || '').includes('manual credit')
+}
+
+export async function getStripeSubscriptionFlags(stripe, subscriptionId) {
+  if (!stripe || !subscriptionId) return null
+  const sub = await stripe.subscriptions.retrieve(String(subscriptionId))
+  return {
+    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+    currentPeriodEnd: getSubscriptionPeriodEnd(sub).toISOString(),
+    status: sub.status,
+  }
+}
+
 async function wasWebhookProcessed(pool, eventId) {
   const r = await pool.query(
     'SELECT 1 FROM stripe_webhook_events WHERE event_id = $1',
@@ -143,9 +194,42 @@ export async function applySubscriptionPeriod(pool, userId, subscription, notePr
   const periodEnd = getSubscriptionPeriodEnd(sub)
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id
 
+  const existing = await pool.query(
+    'SELECT plan_expires_at, stripe_subscription_id, plan_note FROM users WHERE id = $1',
+    [userId]
+  )
+  const prev = existing.rows[0]
+  const isRenewal = notePrefix === 'Stripe renewal'
+  const hadStripe = !!prev?.stripe_subscription_id
+  const creditApplied = manualCreditAlreadyApplied(prev?.plan_note)
+
+  let finalExpiry = periodEnd
+  let extraNote = ''
+
+  if (isRenewal) {
+    finalExpiry = periodEnd
+  } else if (!hadStripe && !creditApplied) {
+    const credited = applyManualProCredit(periodEnd, prev?.plan_expires_at)
+    if (credited.extraMs > 0) {
+      finalExpiry = credited.expiresAt
+      extraNote = ` · manual credit +${credited.extraDays}d`
+    }
+  } else if (hadStripe && !creditApplied) {
+    const signupAt = sub.created ? new Date(sub.created * 1000) : new Date()
+    const remainderMs = await getManualProRemainderMs(pool, userId, signupAt)
+    const currentMs = prev?.plan_expires_at ? new Date(prev.plan_expires_at).getTime() : 0
+    const stripeMs = periodEnd.getTime()
+    if (remainderMs > 0 && currentMs <= stripeMs + 3600000) {
+      finalExpiry = new Date(stripeMs + remainderMs)
+      extraNote = ` · manual credit +${Math.round(remainderMs / MS_PER_DAY)}d`
+    } else if (currentMs > stripeMs) {
+      finalExpiry = new Date(currentMs)
+    }
+  }
+
   const user = await grantProToUser(pool, userId, {
-    expiresAt: periodEnd,
-    planNote: `${notePrefix} · sub ${sub.id}`,
+    expiresAt: finalExpiry,
+    planNote: `${notePrefix} · sub ${sub.id}${extraNote}`,
     stripeCustomerId: customerId || null,
     stripeSubscriptionId: sub.id,
   })
@@ -310,6 +394,13 @@ async function dispatchStripeWebhookEvent(pool, event) {
 
       await applySubscriptionPeriod(pool, userId, subscription, 'Stripe renewal')
       return { ok: true, userId, renewed: true }
+    }
+
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object
+      const userId = await resolveUserIdFromSubscription(pool, subscription)
+      if (!userId) return { skipped: true, reason: 'user_not_found' }
+      return { ok: true, userId, cancelAtPeriodEnd: !!subscription.cancel_at_period_end }
     }
 
     case 'customer.subscription.deleted': {
