@@ -5,6 +5,7 @@ import { isAiPrivilegedUser, resolveEffectivePlan } from '../lib/aiPlan.js'
 import { buildSubscriptionCatalog, PRO_MONTHLY_THB } from '../lib/subscriptionCatalog.js'
 import { appBaseUrl, getStripe, isStripeConfigured } from '../lib/stripeClient.js'
 import { syncUserSubscriptionFromStripe, fetchBillingHistory, getStripeSubscriptionFlags } from '../lib/stripeSubscription.js'
+import { ensureStripeCustomer, checkoutPrivacyParams } from '../lib/stripeCustomer.js'
 import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 
@@ -92,7 +93,7 @@ router.post('/checkout', async (req, res) => {
     const stripe = getStripe()
     const effective = resolveEffectivePlan(req.userPlan, req.userPlanExpiresAt)
     const userRow = await pool.query(
-      'SELECT email, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1',
+      'SELECT email, name, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1',
       [req.userId]
     )
     const user = userRow.rows[0]
@@ -106,6 +107,8 @@ router.post('/checkout', async (req, res) => {
       return res.status(400).json({ error: 'บัญชีนี้เป็น Pro อยู่แล้ว — ใช้จัดการการต่ออายุด้านล่าง' })
     }
 
+    const customerId = await ensureStripeCustomer(stripe, pool, req.userId)
+
     const base = appBaseUrl()
     const sessionParams = {
       mode: 'subscription',
@@ -117,12 +120,8 @@ router.post('/checkout', async (req, res) => {
       subscription_data: {
         metadata: { userId: String(req.userId) },
       },
-    }
-
-    if (user.stripe_customer_id) {
-      sessionParams.customer = user.stripe_customer_id
-    } else {
-      sessionParams.customer_email = user.email
+      customer: customerId,
+      ...checkoutPrivacyParams(),
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams)

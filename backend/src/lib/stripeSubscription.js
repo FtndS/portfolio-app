@@ -1,5 +1,6 @@
 import { getStripe } from './stripeClient.js'
 import { sendEmail } from './email.js'
+import { ensureStripeCustomer } from './stripeCustomer.js'
 
 export async function grantProToUser(pool, userId, {
   expiresAt,
@@ -261,6 +262,8 @@ export async function syncUserSubscriptionFromStripe(pool, userId, email) {
     [userId, customerId]
   )
 
+  await ensureStripeCustomer(stripe, pool, userId)
+
   const subs = await stripe.subscriptions.list({
     customer: customerId,
     status: 'all',
@@ -378,6 +381,14 @@ async function dispatchStripeWebhookEvent(pool, event) {
       if (!userId) return { error: 'user_not_found' }
 
       const { user } = await applySubscriptionPeriod(pool, userId, subscription, 'Stripe checkout')
+      const customerId = typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id
+      if (customerId) {
+        await ensureStripeCustomer(getStripe(), pool, userId).catch((e) => {
+          console.error('Stripe customer privacy sync error:', e.message)
+        })
+      }
       notifyProActivated(user).catch((e) => console.error('Pro activation email error:', e))
       return { ok: true, userId }
     }
