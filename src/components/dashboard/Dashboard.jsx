@@ -70,6 +70,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [supportInitial, setSupportInitial] = useState(null)
+  const [subscriptionFlash, setSubscriptionFlash] = useState('')
 
   const fxRate=prices['USDTHB=X']||35
   const pid=activePortfolioId
@@ -446,6 +447,34 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     selectTab('subscription')
   }
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const sub = params.get('subscription')
+    const tabParam = params.get('tab')
+    let changed = false
+
+    if (tabParam === 'subscription') {
+      setTab('subscription')
+      changed = true
+    }
+    if (sub === 'success') {
+      setTab('subscription')
+      setSubscriptionFlash('ชำระเงินสำเร็จ — กำลังเปิดแผน Pro ให้คุณ (อาจใช้เวลาไม่กี่วินาที)')
+      api.get('/auth/me').then((me) => {
+        if (me?.id && onUserUpdate) onUserUpdate(me)
+      })
+      changed = true
+    } else if (sub === 'cancel') {
+      setTab('subscription')
+      setSubscriptionFlash('ยกเลิกการชำระเงิน — คุณยังใช้แผน Free อยู่')
+      changed = true
+    }
+
+    if (changed) {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [onUserUpdate])
+
   return(
     <div className="dash-shell">
       {sidebarOpen && (
@@ -812,7 +841,11 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         {tab==='news' && renderNewsGrid()}
 
         {tab==='subscription' && (
-          <SubscriptionPage user={user} />
+          <SubscriptionPage
+            user={user}
+            onUserRefresh={onUserUpdate}
+            flashMessage={subscriptionFlash}
+          />
         )}
 
         </div>
@@ -901,6 +934,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         <SupportModal
           initial={supportInitial}
           onClose={() => { setModal(null); setSupportInitial(null) }}
+          onOpenSubscription={openSubscription}
         />
       )}
       {modal==='settings'&&(

@@ -3,12 +3,12 @@ import { api } from '../../lib/api'
 import { inp, btnPrimary, btnGhost } from '../../lib/styles'
 import Field from '../ui/Field'
 import Modal from '../ui/Modal'
+import TicketImagePicker, { buildAttachmentsPayload } from '../support/TicketImagePicker'
 
 const SUPPORT_CATEGORIES = [
   ['bug', 'แจ้งปัญหา / Bug'],
   ['question', 'คำถามการใช้งาน'],
   ['feature', 'ขอฟีเจอร์'],
-  ['upgrade', 'อัปเกรด Pro'],
   ['other', 'อื่นๆ'],
 ]
 
@@ -19,10 +19,12 @@ const TICKET_STATUS = {
   closed: 'ปิด',
 }
 
-export default function SupportModal({ onClose, initial = null }) {
+export default function SupportModal({ onClose, initial = null, onOpenSubscription = null }) {
   const [category, setCategory] = useState(initial?.category || 'bug')
   const [subject, setSubject] = useState(initial?.subject || '')
   const [message, setMessage] = useState(initial?.message || '')
+  const [attachmentFiles, setAttachmentFiles] = useState([])
+  const [attachErr, setAttachErr] = useState('')
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(false)
@@ -46,26 +48,42 @@ export default function SupportModal({ onClose, initial = null }) {
     if (!subject.trim()) return setErr('กรุณาระบุหัวข้อ')
     if (message.trim().length < 10) return setErr('รายละเอียดต้องมีอย่างน้อย 10 ตัวอักษร')
     setLoading(true)
-    const r = await api.post('/support', {
-      category,
-      subject: subject.trim(),
-      message: message.trim(),
-    })
-    setLoading(false)
-    if (r.error) {
-      setErr(r.error)
-      return
+    try {
+      const attachmentsBase64 = await buildAttachmentsPayload(attachmentFiles)
+      const r = await api.post('/support', {
+        category,
+        subject: subject.trim(),
+        message: message.trim(),
+        attachmentsBase64,
+      })
+      if (r.error) {
+        setErr(r.error)
+        return
+      }
+      setMsg('ส่งคำร้องแล้ว — ทีมงานจะติดต่อกลับทางอีเมล')
+      setSubject('')
+      setMessage('')
+      setAttachmentFiles([])
+      loadMyTickets()
+    } catch {
+      setErr('ส่งคำร้องไม่สำเร็จ — ลองใหม่อีกครั้ง')
+    } finally {
+      setLoading(false)
     }
-    setMsg('ส่งคำร้องแล้ว — ทีมงานจะติดต่อกลับทางอีเมล')
-    setSubject('')
-    setMessage('')
-    loadMyTickets()
   }
 
   return (
     <Modal title="ช่วยเหลือ / แจ้งปัญหา" onClose={onClose}>
       <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '16px', lineHeight: 1.6 }}>
-        แจ้ง bug, ถามการใช้งาน หรือขอฟีเจอร์ — ทีมงานจะได้รับแจ้งทางอีเมล
+        แจ้ง bug, ถามการใช้งาน หรือขอฟีเจอร์ — แนบรูปหน้าจอได้สูงสุด 3 ไฟล์ (ไฟล์ละ 5 MB)
+        {onOpenSubscription && (
+          <>
+            {' '}· อัปเกรด Pro ไปที่{' '}
+            <button type="button" className="dash-link-btn" onClick={() => { onClose(); onOpenSubscription() }}>
+              หน้าแผน Pro
+            </button>
+          </>
+        )}
       </p>
       {err && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{err}</p>}
       {msg && <p className="dash-text-gain" style={{ fontSize: '13px', marginBottom: '12px' }}>{msg}</p>}
@@ -88,6 +106,14 @@ export default function SupportModal({ onClose, initial = null }) {
           maxLength={5000}
         />
       </Field>
+
+      <TicketImagePicker
+        files={attachmentFiles}
+        onChange={setAttachmentFiles}
+        err={attachErr}
+        setErr={setAttachErr}
+      />
+
       <button type="button" onClick={submit} style={{ ...btnPrimary, marginTop: '12px' }} disabled={loading}>
         {loading ? 'กำลังส่ง...' : 'ส่งคำร้อง'}
       </button>
@@ -103,7 +129,10 @@ export default function SupportModal({ onClose, initial = null }) {
                 <strong>{t.subject}</strong>
                 <span className="dash-text-faint">{TICKET_STATUS[t.status] || t.status}</span>
               </div>
-              <span className="dash-text-faint">{new Date(t.created_at).toLocaleDateString('th-TH')}</span>
+              <span className="dash-text-faint">
+                {new Date(t.created_at).toLocaleDateString('th-TH')}
+                {(t.has_receipt || t.attachment_count > 0) && ' · มีรูปแนบ'}
+              </span>
             </div>
           ))}
         </div>

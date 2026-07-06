@@ -501,6 +501,31 @@ const migrations = [
       await rebuildHoldingsFromTransactions(pool)
     },
   },
+  {
+    name: '025_stripe_and_ticket_attachments',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255);
+      CREATE UNIQUE INDEX IF NOT EXISTS users_stripe_customer_id_idx
+        ON users (stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+        event_id VARCHAR(255) PRIMARY KEY,
+        processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS support_ticket_attachments (
+        id SERIAL PRIMARY KEY,
+        ticket_id INTEGER NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+        mime VARCHAR(64) NOT NULL,
+        data BYTEA NOT NULL,
+        sort_order SMALLINT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS support_ticket_attachments_ticket_idx
+        ON support_ticket_attachments (ticket_id, sort_order);
+    `,
+  },
 ]
 
 export async function runMigrations() {

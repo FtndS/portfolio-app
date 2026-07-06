@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
 import { btnPrimary, btnGhost } from '../../lib/styles'
+import TicketImagePicker, { buildAttachmentsPayload } from '../support/TicketImagePicker'
 
 function fmtExpires(iso) {
   if (!iso) return null
@@ -29,15 +30,6 @@ function quotaLine(quota, key, label) {
   return { label, value: 'ใช้ได้', tone: 'default' }
 }
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
 const QUOTA_KEYS = [
   ['analyze', 'วิเคราะห์พอร์ต'],
   ['copilot', 'Copilot'],
@@ -45,16 +37,24 @@ const QUOTA_KEYS = [
   ['tickerJournal', 'สรุป journal หุ้น'],
 ]
 
-export default function SubscriptionPage({ user }) {
+const UPGRADE_STATUS = {
+  open: 'รอตรวจสลิป',
+  in_progress: 'กำลังตรวจสอบ',
+}
+
+export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '' }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const [receiptFile, setReceiptFile] = useState(null)
-  const [receiptPreview, setReceiptPreview] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [submitMsg, setSubmitMsg] = useState('')
-  const [submitErr, setSubmitErr] = useState('')
-  const paymentRef = useRef(null)
+  const [payMethod, setPayMethod] = useState('card')
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [actionErr, setActionErr] = useState('')
+  const [banner, setBanner] = useState(flashMessage)
+  const [slipFiles, setSlipFiles] = useState([])
+  const [slipErr, setSlipErr] = useState('')
+  const [submittingSlip, setSubmittingSlip] = useState(false)
+  const [slipMsg, setSlipMsg] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -66,76 +66,95 @@ export default function SubscriptionPage({ user }) {
       return
     }
     setData(r)
+    if (!r.paymentEnabled || r.proPaymentSource === 'manual') {
+      setPayMethod('promptpay')
+    } else {
+      setPayMethod('card')
+    }
   }
 
   useEffect(() => {
     load()
   }, [])
 
-  const scrollToPayment = () => {
-    paymentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  useEffect(() => {
+    if (flashMessage) setBanner(flashMessage)
+  }, [flashMessage])
+
+  const startCheckout = async () => {
+    setActionErr('')
+    setCheckoutLoading(true)
+    const r = await api.post('/subscription/checkout')
+    setCheckoutLoading(false)
+    if (r.error) {
+      setActionErr(r.error)
+      return
+    }
+    if (r.url) {
+      window.location.href = r.url
+      return
+    }
+    setActionErr('ไม่สามารถเปิดหน้าชำระเงินได้')
   }
 
-  const onReceiptChange = (e) => {
-    const file = e.target.files?.[0]
-    setSubmitErr('')
-    setSubmitMsg('')
-    if (!file) {
-      setReceiptFile(null)
-      setReceiptPreview('')
+  const openPortal = async () => {
+    setActionErr('')
+    setPortalLoading(true)
+    const r = await api.post('/subscription/portal')
+    setPortalLoading(false)
+    if (r.error) {
+      setActionErr(r.error)
       return
     }
-    if (!/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
-      setSubmitErr('ใช้ไฟล์รูป JPG หรือ PNG เท่านั้น')
-      return
-    }
-    if (file.size > 1.5 * 1024 * 1024) {
-      setSubmitErr('ไฟล์ใหญ่เกิน 1.5 MB')
-      return
-    }
-    setReceiptFile(file)
-    setReceiptPreview(URL.createObjectURL(file))
+    if (r.url) window.location.href = r.url
   }
 
-  const submitUpgrade = async () => {
-    setSubmitErr('')
-    setSubmitMsg('')
-    if (!receiptFile) {
-      setSubmitErr('กรุณาแนบสลิปการโอนเงิน')
+  const submitPromptPay = async (renew = false) => {
+    setSlipErr('')
+    setSlipMsg('')
+    if (!slipFiles.length) {
+      setSlipErr('กรุณาแนบสลิปการโอน')
       return
     }
-    setSubmitting(true)
+    setSubmittingSlip(true)
     try {
-      const receiptBase64 = await fileToDataUrl(receiptFile)
+      const attachmentsBase64 = await buildAttachmentsPayload(slipFiles)
       const price = data?.catalog?.proMonthlyThb || 99
       const message = [
-        `ขออัปเกรดบัญชีเป็นแผน Pro (฿${price}/เดือน)`,
+        renew ? `ขอต่ออายุแผน Pro (฿${price}/เดือน)` : `ขออัปเกรดบัญชีเป็นแผน Pro (฿${price}/เดือน)`,
         '',
         `อีเมลบัญชี: ${user?.email || '—'}`,
         `ชื่อ: ${user?.name || '—'}`,
         `User ID: ${user?.id || '—'}`,
+        'ช่องทาง: PromptPay (manual)',
         '',
-        'แนบสลิปการโอน PromptPay แล้ว — รอทีมงานยืนยันและเปิด Pro',
+        'แนบสลิปการโอนแล้ว — รอทีมงานยืนยันและเปิด Pro',
       ].join('\n')
 
       const r = await api.post('/support', {
         category: 'upgrade',
-        subject: 'ขออัปเกรดเป็น Pro',
+        subject: renew ? 'ขอต่ออายุ Pro (PromptPay)' : 'ขออัปเกรดเป็น Pro (PromptPay)',
         message,
-        receiptBase64,
+        attachmentsBase64,
       })
       if (r.error) {
-        setSubmitErr(r.error)
+        setSlipErr(r.error)
         return
       }
-      setSubmitMsg('ส่งคำขอแล้ว — ทีมงานจะตรวจสลิปและเปิด Pro ให้ภายใน 1 วันทำการ')
-      setReceiptFile(null)
-      setReceiptPreview('')
+      setSlipMsg('ส่งสลิปแล้ว — ทีมงานจะตรวจและเปิด Pro ภายใน 1 วันทำการ')
+      setSlipFiles([])
+      await load()
     } catch {
-      setSubmitErr('ส่งคำขอไม่สำเร็จ — ลองใหม่อีกครั้ง')
+      setSlipErr('ส่งคำขอไม่สำเร็จ — ลองใหม่อีกครั้ง')
     } finally {
-      setSubmitting(false)
+      setSubmittingSlip(false)
     }
+  }
+
+  const refreshAccount = async () => {
+    const me = await api.get('/auth/me')
+    if (me?.id && onUserRefresh) onUserRefresh(me)
+    await load()
   }
 
   if (loading) {
@@ -162,7 +181,13 @@ export default function SubscriptionPage({ user }) {
   const proPlan = plans.find((p) => p.id === 'pro')
   const features = freePlan?.features || []
   const proPrice = data.catalog?.proMonthlyThb || 99
+  const stripeAuto = data.paymentEnabled && data.paymentMode === 'stripe'
   const qrUrl = data.paymentQrUrl || '/promptpay-qr-99.png'
+  const pending = data.pendingUpgradeTicket
+  const isStripePro = isPro && data.hasStripeSubscription
+  const isManualPro = isPro && data.proPaymentSource === 'manual'
+  const showPayChooser = !data.isOwner && (!isPro || isManualPro)
+  const showStripeManage = !data.isOwner && isStripePro
 
   const quotaLines = QUOTA_KEYS.map(([key, label]) => quotaLine(data.quota, key, label)).filter(Boolean)
 
@@ -182,12 +207,40 @@ export default function SubscriptionPage({ user }) {
           {!data.isOwner && isPro && expires && (
             <span className="dash-sub-status-note">หมดอายุ {expires}</span>
           )}
-          {!data.isOwner && isPro && !expires && (
-            <span className="dash-sub-status-note">ใช้งาน Pro อยู่</span>
+          {!data.isOwner && isPro && data.proPaymentSource === 'stripe' && (
+            <span className="dash-sub-status-note">ต่ออายุอัตโนมัติด้วยบัตร</span>
+          )}
+          {!data.isOwner && isManualPro && (
+            <span className="dash-sub-status-note">ชำระผ่าน PromptPay — ต่ออายุด้วยมือ</span>
           )}
           {!isPro && <span className="dash-sub-status-note">อีเมล: {user?.email}</span>}
         </div>
       </div>
+
+      {banner && (
+        <div className="dash-inset dash-sub-banner" style={{ padding: '12px 14px', marginBottom: '16px' }}>
+          <p className="dash-text-gain" style={{ margin: 0, fontSize: '14px' }}>{banner}</p>
+          <button type="button" className="dash-link-btn" style={{ marginTop: '8px' }} onClick={refreshAccount}>
+            รีเฟรชสถานะแผน
+          </button>
+        </div>
+      )}
+
+      {actionErr && (
+        <p className="dash-text-loss" style={{ marginBottom: '12px', fontSize: '14px' }}>{actionErr}</p>
+      )}
+
+      {pending && (
+        <div className="dash-inset" style={{ padding: '12px 14px', marginBottom: '16px', borderColor: 'var(--accent)' }}>
+          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px' }}>
+            คำขอ PromptPay #{pending.id} — <strong>{UPGRADE_STATUS[pending.status] || pending.status}</strong>
+            {' '}({new Date(pending.created_at).toLocaleDateString('th-TH')})
+          </p>
+          <p className="dash-text-muted" style={{ margin: '6px 0 0', fontSize: '13px' }}>
+            ทีมงานจะตรวจสลิปและเปิด Pro ให้ทางอีเมล
+          </p>
+        </div>
+      )}
 
       {quotaLines.length > 0 && (
         <div className="dash-card dash-sub-quota">
@@ -222,11 +275,6 @@ export default function SubscriptionPage({ user }) {
                 </li>
               ))}
             </ul>
-            {plan.id === 'pro' && !isPro && (
-              <button type="button" className="dash-sub-upgrade-btn" onClick={scrollToPayment} style={btnPrimary}>
-                อัปเกรดเป็น Pro — ฿{proPrice}
-              </button>
-            )}
             {plan.id === 'pro' && isPro && !data.isOwner && (
               <p className="dash-sub-plan-active">✓ แผนที่ใช้อยู่</p>
             )}
@@ -237,58 +285,121 @@ export default function SubscriptionPage({ user }) {
         ))}
       </div>
 
-      {!isPro && (
-        <div className="dash-card dash-sub-note" ref={paymentRef}>
-          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '10px' }}>ช่องทางชำระเงิน</h3>
-          <ol className="dash-sub-steps">
-            <li>สแกน QR PromptPay โอน <strong>฿{proPrice}</strong> (ราคาเปิดตัว)</li>
-            <li>อัปโหลดสลิปด้านล่าง — ระบบแนบอีเมล <strong>{user?.email}</strong> ให้อัตโนมัติ</li>
-            <li>กดส่งคำขอ — ทีมงานจะได้ Ticket + อีเมลแจ้งเตือนเพื่อเปิด Pro</li>
-          </ol>
+      {showStripeManage && (
+        <div className="dash-card dash-sub-note">
+          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '10px' }}>จัดการแผน Pro (บัตร)</h3>
+          <p className="dash-text-muted" style={{ fontSize: '13px', lineHeight: 1.65, margin: '0 0 12px' }}>
+            แผน Pro ของคุณต่ออายุอัตโนมัติทุกเดือน — เปลี่ยนบัตรหรือยกเลิกได้จาก Stripe
+          </p>
+          <button type="button" onClick={openPortal} style={btnPrimary} disabled={portalLoading}>
+            {portalLoading ? 'กำลังเปิด...' : 'จัดการการชำระเงิน / ยกเลิก Pro'}
+          </button>
+          <p className="dash-text-faint" style={{ fontSize: '12px', marginTop: '10px', lineHeight: 1.6 }}>
+            ยกเลิกแล้วยังใช้ Pro ได้จนถึงวันหมดอายุรอบปัจจุบัน — หลังจากนั้นจะไม่หักบัตรอีก
+          </p>
+        </div>
+      )}
 
-          <div className="dash-sub-payment">
-            <div className="dash-sub-qr-wrap">
-              <img
-                src={qrUrl}
-                alt={`PromptPay QR ฿${proPrice} PortDiary`}
-                className="dash-sub-qr"
-                width={280}
-                height={380}
-              />
-              <p className="dash-text-muted" style={{ fontSize: '12px', textAlign: 'center', margin: '8px 0 0' }}>
-                PortDiary · ฿{proPrice}.00
-              </p>
-            </div>
+      {showPayChooser && (
+        <div className="dash-card dash-sub-note">
+          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '6px' }}>
+            {isManualPro ? 'ต่ออายุ Pro' : 'อัปเกรดเป็น Pro'} — ฿{proPrice}/เดือน
+          </h3>
+          <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '14px' }}>
+            เลือกช่องทางชำระเงิน
+          </p>
 
-            <div className="dash-sub-receipt">
-              <label className="dash-text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
-                อัปโหลดสลิปการโอน (JPG/PNG)
-              </label>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={onReceiptChange}
-                className="dash-sub-file"
-              />
-              {receiptPreview && (
-                <img src={receiptPreview} alt="ตัวอย่างสลิป" className="dash-sub-receipt-preview" />
-              )}
-              {submitErr && <p className="dash-text-loss" style={{ fontSize: '13px', marginTop: '10px' }}>{submitErr}</p>}
-              {submitMsg && <p className="dash-text-gain" style={{ fontSize: '13px', marginTop: '10px' }}>{submitMsg}</p>}
+          <div className="dash-segment dash-sub-pay-tabs" style={{ marginBottom: '16px' }}>
+            {stripeAuto && (
               <button
                 type="button"
-                onClick={submitUpgrade}
-                style={{ ...btnPrimary, marginTop: '12px', width: '100%' }}
-                disabled={submitting}
+                className={`dash-segment-btn${payMethod === 'card' ? ' dash-segment-btn--active' : ''}`}
+                onClick={() => setPayMethod('card')}
               >
-                {submitting ? 'กำลังส่ง...' : 'ส่งคำขออัปเกรด Pro'}
+                บัตร — อัตโนมัติ
               </button>
-            </div>
+            )}
+            <button
+              type="button"
+              className={`dash-segment-btn${payMethod === 'promptpay' ? ' dash-segment-btn--active' : ''}`}
+              onClick={() => setPayMethod('promptpay')}
+            >
+              PromptPay — สลิป
+            </button>
           </div>
 
-          {data.paymentInstructions && (
-            <div className="dash-inset" style={{ padding: '12px', marginTop: '14px', whiteSpace: 'pre-wrap', fontSize: '13px' }}>
-              {data.paymentInstructions}
+          {payMethod === 'card' && stripeAuto && (
+            <div className="dash-sub-pay-panel">
+              <ul className="dash-sub-steps">
+                <li>ต่ออายุอัตโนมัติทุกเดือน — บัตรเครดิต/เดบิต, Apple Pay, Google Pay</li>
+                <li>เปิด Pro ทันทีหลังชำระสำเร็จ</li>
+                <li>ยกเลิกได้จาก <strong>จัดการการชำระเงิน</strong> (ใช้ Pro จนครบรอบบิล)</li>
+              </ul>
+              <button
+                type="button"
+                onClick={startCheckout}
+                style={{ ...btnPrimary, marginTop: '14px' }}
+                disabled={checkoutLoading}
+              >
+                {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : (isManualPro ? `เปลี่ยนเป็นบัตรอัตโนมัติ — ฿${proPrice}/เดือน` : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`)}
+              </button>
+              {isManualPro && (
+                <p className="dash-text-muted" style={{ fontSize: '12px', marginTop: '8px' }}>
+                  สมัครบัตรจะต่ออายุอัตโนมัติแทน PromptPay — Pro ปัจจุบันยังใช้ได้จนหมดอายุ
+                </p>
+              )}
+            </div>
+          )}
+
+          {payMethod === 'promptpay' && (
+            <div className="dash-sub-pay-panel">
+              <ol className="dash-sub-steps">
+                <li>สแกน QR PromptPay โอน <strong>฿{proPrice}</strong></li>
+                <li>อัปโหลดสลิป — ทีมงานตรวจภายใน 1 วันทำการ</li>
+                <li>ต่ออายุทุกเดือนด้วยตัวเอง (ไม่หักอัตโนมัติ)</li>
+              </ol>
+
+              <div className="dash-sub-payment">
+                <div className="dash-sub-qr-wrap">
+                  <img
+                    src={qrUrl}
+                    alt={`PromptPay QR ฿${proPrice} PortDiary`}
+                    className="dash-sub-qr"
+                    width={280}
+                    height={380}
+                  />
+                  <p className="dash-text-muted" style={{ fontSize: '12px', textAlign: 'center', margin: '8px 0 0' }}>
+                    PortDiary · ฿{proPrice}.00
+                  </p>
+                </div>
+
+                <div className="dash-sub-receipt">
+                  <TicketImagePicker
+                    files={slipFiles}
+                    onChange={setSlipFiles}
+                    err={slipErr}
+                    setErr={setSlipErr}
+                  />
+                  <p className="dash-text-muted" style={{ fontSize: '12px', marginTop: '8px' }}>
+                    บัญชี: <strong>{user?.email}</strong>
+                  </p>
+                  {slipMsg && <p className="dash-text-gain" style={{ fontSize: '13px', marginTop: '10px' }}>{slipMsg}</p>}
+                  <button
+                    type="button"
+                    onClick={() => submitPromptPay(isManualPro)}
+                    style={{ ...btnPrimary, marginTop: '12px', width: '100%' }}
+                    disabled={submittingSlip || !!pending}
+                  >
+                    {submittingSlip ? 'กำลังส่ง...' : pending ? 'รอตรวจสลิปอยู่' : (isManualPro ? 'ส่งสลิปต่ออายุ Pro' : 'ส่งสลิปอัปเกรด Pro')}
+                  </button>
+                </div>
+              </div>
+
+              {data.paymentInstructions && (
+                <div className="dash-inset" style={{ padding: '12px', marginTop: '14px', whiteSpace: 'pre-wrap', fontSize: '13px' }}>
+                  {data.paymentInstructions}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -319,6 +430,38 @@ export default function SubscriptionPage({ user }) {
           </div>
         </div>
       )}
+
+      <div className="dash-card dash-sub-compare" style={{ marginTop: 0 }}>
+        <h3 className="dash-card-title">เปรียบเทียบช่องทางชำระ</h3>
+        <div className="dash-sub-table-wrap">
+          <table className="dash-sub-table">
+            <thead>
+              <tr>
+                <th />
+                <th>บัตร (Stripe)</th>
+                <th>PromptPay</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>เปิด Pro</td>
+                <td>ทันที</td>
+                <td>ภายใน 1 วันทำการ</td>
+              </tr>
+              <tr>
+                <td>ต่ออายุ</td>
+                <td>อัตโนมัติทุกเดือน</td>
+                <td>โอน + ส่งสลิปเอง</td>
+              </tr>
+              <tr>
+                <td>ยกเลิก</td>
+                <td>จัดการการชำระเงินใน Stripe</td>
+                <td>ไม่ต่ออายุเมื่อหมดอายุ</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { api } from '../../lib/api'
 import { btnPrimary, btnGhost } from '../../lib/styles'
 import AdminSubscribers from './AdminSubscribers'
 
-function TicketReceipt({ ticketId }) {
+function TicketReceipt({ ticketId, attachmentId = null, label = 'รูปแนบ' }) {
   const [url, setUrl] = useState('')
   const [err, setErr] = useState('')
 
@@ -13,17 +13,21 @@ function TicketReceipt({ ticketId }) {
     setErr('')
     setUrl('')
 
-    api.fetch(`/admin/tickets/${ticketId}/receipt`).then(async (res) => {
+    const path = attachmentId
+      ? `/admin/tickets/${ticketId}/receipt?attachmentId=${attachmentId}`
+      : `/admin/tickets/${ticketId}/receipt`
+
+    api.fetch(path).then(async (res) => {
       if (revoked) return
       if (!res.ok) {
-        setErr('โหลดสลิปไม่สำเร็จ')
+        setErr('โหลดรูปไม่สำเร็จ')
         return
       }
       const blob = await res.blob()
       if (revoked) return
       setUrl(URL.createObjectURL(blob))
     }).catch(() => {
-      if (!revoked) setErr('โหลดสลิปไม่สำเร็จ')
+      if (!revoked) setErr('โหลดรูปไม่สำเร็จ')
     })
 
     return () => {
@@ -33,16 +37,70 @@ function TicketReceipt({ ticketId }) {
         return ''
       })
     }
-  }, [ticketId])
+  }, [ticketId, attachmentId])
 
   if (err) return <p className="dash-text-loss" style={{ fontSize: '13px' }}>{err}</p>
-  if (!url) return <p className="dash-text-muted" style={{ fontSize: '13px' }}>กำลังโหลดสลิป...</p>
+  if (!url) return <p className="dash-text-muted" style={{ fontSize: '13px' }}>กำลังโหลด{label}...</p>
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="dash-admin-receipt-link">
-      <img src={url} alt="สลิปการโอน" className="dash-admin-receipt-img" />
+      <img src={url} alt={label} className="dash-admin-receipt-img" />
       <span className="dash-text-muted" style={{ fontSize: '12px' }}>คลิกเพื่อดูขนาดเต็ม</span>
     </a>
+  )
+}
+
+function TicketAttachments({ ticketId, hasReceipt }) {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(!!hasReceipt)
+
+  useEffect(() => {
+    if (!ticketId || !hasReceipt) {
+      setItems([])
+      setLoading(false)
+      return undefined
+    }
+    let cancelled = false
+    setLoading(true)
+    api.get(`/admin/tickets/${ticketId}/attachments`).then((rows) => {
+      if (cancelled) return
+      setItems(Array.isArray(rows) ? rows : [])
+      setLoading(false)
+    }).catch(() => {
+      if (!cancelled) setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [ticketId, hasReceipt])
+
+  if (!hasReceipt) return null
+  if (loading) return <p className="dash-text-muted" style={{ fontSize: '13px' }}>กำลังโหลดรูปแนบ...</p>
+
+  if (!items.length) {
+    return (
+      <div className="dash-card dash-admin-receipt" style={{ marginBottom: '16px', padding: '14px' }}>
+        <h4 className="dash-text-muted" style={{ fontSize: '12px', margin: '0 0 10px', fontWeight: 600 }}>รูปแนบ</h4>
+        <TicketReceipt ticketId={ticketId} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="dash-card dash-admin-receipt" style={{ marginBottom: '16px', padding: '14px' }}>
+      <h4 className="dash-text-muted" style={{ fontSize: '12px', margin: '0 0 10px', fontWeight: 600 }}>
+        รูปแนบ ({items.length})
+      </h4>
+      <div className="dash-admin-attachments-grid">
+        {items.map((item, index) => (
+          <div key={`${item.id}-${index}`} className="dash-admin-attachment-cell">
+            <TicketReceipt
+              ticketId={ticketId}
+              attachmentId={item.isLegacy ? null : item.id}
+              label={`รูปแนบ ${index + 1}`}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -232,7 +290,7 @@ export default function AdminPage({ user, onBack, onLogout }) {
                       </div>
                       <div className="dash-admin-ticket-subject">
                         {t.subject}
-                        {t.has_receipt && <span className="dash-admin-receipt-badge">สลิป</span>}
+                        {t.has_receipt && <span className="dash-admin-receipt-badge">รูป</span>}
                       </div>
                       <div className="dash-text-faint" style={{ fontSize: '12px' }}>
                         {t.user_name || t.user_email} · {CATEGORY_LABELS[t.category]} · {fmtDate(t.created_at)}
@@ -258,10 +316,7 @@ export default function AdminPage({ user, onBack, onLogout }) {
                     </div>
 
                     {selected.has_receipt && (
-                      <div className="dash-card dash-admin-receipt" style={{ marginBottom: '16px', padding: '14px' }}>
-                        <h4 className="dash-text-muted" style={{ fontSize: '12px', margin: '0 0 10px', fontWeight: 600 }}>สลิปการโอน</h4>
-                        <TicketReceipt ticketId={selected.id} />
-                      </div>
+                      <TicketAttachments ticketId={selected.id} hasReceipt={selected.has_receipt} />
                     )}
 
                     {selected.user_id && (

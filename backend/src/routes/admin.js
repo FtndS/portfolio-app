@@ -137,18 +137,69 @@ router.get('/tickets', async (req, res) => {
     const result = await pool.query(
       `SELECT t.id, t.category, t.subject, t.message, t.status, t.admin_notes,
               t.created_at, t.updated_at,
-              (t.receipt_data IS NOT NULL) AS has_receipt,
+              (t.receipt_data IS NOT NULL) AS has_legacy_receipt,
+              COALESCE(a.cnt, 0)::int AS attachment_count,
               u.id AS user_id, u.email AS user_email, u.name AS user_name
        FROM support_tickets t
        JOIN users u ON u.id = t.user_id
+       LEFT JOIN (
+         SELECT ticket_id, COUNT(*)::int AS cnt
+         FROM support_ticket_attachments
+         GROUP BY ticket_id
+       ) a ON a.ticket_id = t.id
        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
        ORDER BY t.created_at DESC
        LIMIT 200`,
       params
     )
-    res.json(result.rows)
+    res.json(result.rows.map((row) => ({
+      ...row,
+      has_receipt: row.has_legacy_receipt || row.attachment_count > 0,
+    })))
   } catch (err) {
     serverError(res, err, 'GET admin/tickets error:')
+  }
+})
+
+router.get('/tickets/:id/attachments', async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!id) return res.status(400).json({ error: 'รหัสคำร้องไม่ถูกต้อง' })
+
+    const attachments = await pool.query(
+      `SELECT id, mime, sort_order, created_at
+       FROM support_ticket_attachments
+       WHERE ticket_id = $1
+       ORDER BY sort_order, id`,
+      [id]
+    )
+    if (attachments.rows.length) {
+      return res.json(attachments.rows.map((row) => ({
+        id: row.id,
+        mime: row.mime,
+        sortOrder: row.sort_order,
+        createdAt: row.created_at,
+        isLegacy: false,
+      })))
+    }
+
+    const legacy = await pool.query(
+      'SELECT receipt_mime, created_at FROM support_tickets WHERE id = $1 AND receipt_data IS NOT NULL',
+      [id]
+    )
+    if (legacy.rows[0]) {
+      return res.json([{
+        id: 0,
+        mime: legacy.rows[0].receipt_mime,
+        sortOrder: 0,
+        createdAt: legacy.rows[0].created_at,
+        isLegacy: true,
+      }])
+    }
+
+    res.json([])
+  } catch (err) {
+    serverError(res, err, 'GET admin/tickets attachments error:')
   }
 })
 
@@ -157,13 +208,43 @@ router.get('/tickets/:id/receipt', async (req, res) => {
     const id = Number(req.params.id)
     if (!id) return res.status(400).json({ error: 'รหัสคำร้องไม่ถูกต้อง' })
 
+    const attachmentId = req.query.attachmentId != null ? Number(req.query.attachmentId) : null
+
+    if (attachmentId) {
+      const att = await pool.query(
+        `SELECT a.mime, a.data
+         FROM support_ticket_attachments a
+         JOIN support_tickets t ON t.id = a.ticket_id
+         WHERE t.id = $1 AND a.id = $2`,
+        [id, attachmentId]
+      )
+      const row = att.rows[0]
+      if (!row?.data) return res.status(404).json({ error: 'ไม่พบรูปแนบ' })
+      res.set('Content-Type', row.mime || 'image/jpeg')
+      res.set('Cache-Control', 'private, max-age=3600')
+      return res.send(row.data)
+    }
+
+    const att = await pool.query(
+      `SELECT mime, data FROM support_ticket_attachments
+       WHERE ticket_id = $1
+       ORDER BY sort_order, id
+       LIMIT 1`,
+      [id]
+    )
+    if (att.rows[0]?.data) {
+      res.set('Content-Type', att.rows[0].mime || 'image/jpeg')
+      res.set('Cache-Control', 'private, max-age=3600')
+      return res.send(att.rows[0].data)
+    }
+
     const result = await pool.query(
       'SELECT receipt_mime, receipt_data FROM support_tickets WHERE id = $1',
       [id]
     )
     const row = result.rows[0]
     if (!row?.receipt_data) {
-      return res.status(404).json({ error: 'ไม่มีสลิปแนบ' })
+      return res.status(404).json({ error: 'ไม่มีรูปแนบ' })
     }
 
     res.set('Content-Type', row.receipt_mime || 'image/jpeg')
