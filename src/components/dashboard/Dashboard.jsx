@@ -459,9 +459,15 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
     }
     if (sub === 'success') {
       setTab('subscription')
-      setSubscriptionFlash('ชำระเงินสำเร็จ — กำลังเปิดแผน Pro ให้คุณ (อาจใช้เวลาไม่กี่วินาที)')
-      api.get('/auth/me').then((me) => {
+      setSubscriptionFlash('ชำระเงินสำเร็จ — กำลังซิงค์สถานะจาก Stripe...')
+      api.post('/subscription/sync').then(async (sync) => {
+        const me = await api.get('/auth/me')
         if (me?.id && onUserUpdate) onUserUpdate(me)
+        setSubscriptionFlash(
+          sync.synced
+            ? 'ชำระเงินสำเร็จ — แผน Pro อัปเดตแล้ว'
+            : 'ชำระเงินสำเร็จ — หากสถานะยังไม่เปลี่ยน กดซิงค์จาก Stripe ในหน้าแผน'
+        )
       })
       changed = true
     } else if (sub === 'cancel') {

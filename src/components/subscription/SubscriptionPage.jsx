@@ -42,6 +42,38 @@ const UPGRADE_STATUS = {
   in_progress: 'กำลังตรวจสอบ',
 }
 
+function fmtBillingDate(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function billingMethodLabel(source) {
+  return source === 'stripe' ? 'บัตร (Stripe)' : 'PromptPay'
+}
+
+function billingStatusLabel(row) {
+  if (row.source === 'promptpay') {
+    if (row.status === 'paid') return 'ชำระแล้ว'
+    if (row.status === 'open') return 'รอตรวจสลิป'
+    if (row.status === 'in_progress') return 'กำลังตรวจ'
+    return row.status
+  }
+  if (row.status === 'paid') return 'ชำระแล้ว'
+  if (row.status === 'open') return 'รอชำระ'
+  if (row.status === 'void') return 'ยกเลิก'
+  return row.status
+}
+
+function billingAmount(row) {
+  const amount = row.amountThb ?? row.amount
+  if (amount == null) return '—'
+  return `฿${Number(amount).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+}
+
 export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '' }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -55,11 +87,21 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const [slipErr, setSlipErr] = useState('')
   const [submittingSlip, setSubmittingSlip] = useState(false)
   const [slipMsg, setSlipMsg] = useState('')
+  const [syncLoading, setSyncLoading] = useState(false)
 
-  const load = async () => {
+  const load = async (opts = {}) => {
     setLoading(true)
     setErr('')
-    const r = await api.get('/subscription')
+    let r = await api.get('/subscription')
+    if (!r.error && opts.trySync && r.paymentEnabled) {
+      const sync = await api.post('/subscription/sync')
+      if (sync.synced) {
+        const me = await api.get('/auth/me')
+        if (me?.id && onUserRefresh) onUserRefresh(me)
+        r = await api.get('/subscription')
+        setBanner('อัปเดตสถานะ Pro จาก Stripe แล้ว')
+      }
+    }
     setLoading(false)
     if (r.error) {
       setErr(r.error)
@@ -74,7 +116,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   }
 
   useEffect(() => {
-    load()
+    load({ trySync: true })
   }, [])
 
   useEffect(() => {
@@ -152,9 +194,17 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   }
 
   const refreshAccount = async () => {
+    setSyncLoading(true)
+    const sync = await api.post('/subscription/sync')
     const me = await api.get('/auth/me')
     if (me?.id && onUserRefresh) onUserRefresh(me)
     await load()
+    setSyncLoading(false)
+    if (sync.synced) {
+      setBanner('อัปเดตสถานะ Pro จาก Stripe แล้ว')
+    } else if (sync.reason === 'no_active_subscription') {
+      setActionErr('ยังไม่พบการสมัครบัตรที่ใช้งานอยู่ — หากเพิ่งชำระ รอสักครู่แล้วลองอีกครั้ง')
+    }
   }
 
   if (loading) {
@@ -188,6 +238,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const isManualPro = isPro && data.proPaymentSource === 'manual'
   const showPayChooser = !data.isOwner && (!isPro || isManualPro)
   const showStripeManage = !data.isOwner && isStripePro
+  const billingHistory = data.billingHistory || []
 
   const quotaLines = QUOTA_KEYS.map(([key, label]) => quotaLine(data.quota, key, label)).filter(Boolean)
 
@@ -220,10 +271,19 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
       {banner && (
         <div className="dash-inset dash-sub-banner" style={{ padding: '12px 14px', marginBottom: '16px' }}>
           <p className="dash-text-gain" style={{ margin: 0, fontSize: '14px' }}>{banner}</p>
-          <button type="button" className="dash-link-btn" style={{ marginTop: '8px' }} onClick={refreshAccount}>
-            รีเฟรชสถานะแผน
+          <button type="button" className="dash-link-btn" style={{ marginTop: '8px' }} onClick={refreshAccount} disabled={syncLoading}>
+            {syncLoading ? 'กำลังซิงค์...' : 'รีเฟรชสถานะแผน'}
           </button>
         </div>
+      )}
+
+      {stripeAuto && !data.isOwner && !isStripePro && (
+        <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
+          ชำระด้วยบัตรแล้วแต่สถานะยังไม่เปลี่ยน?{' '}
+          <button type="button" className="dash-link-btn" onClick={refreshAccount} disabled={syncLoading}>
+            {syncLoading ? 'กำลังซิงค์...' : 'ซิงค์จาก Stripe'}
+          </button>
+        </p>
       )}
 
       {actionErr && (
@@ -402,6 +462,46 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {billingHistory.length > 0 && (
+        <div className="dash-card dash-sub-compare">
+          <h3 className="dash-card-title">ประวัติการชำระเงิน</h3>
+          <div className="dash-sub-table-wrap">
+            <table className="dash-sub-table">
+              <thead>
+                <tr>
+                  <th>วันที่</th>
+                  <th>รายการ</th>
+                  <th>ช่องทาง</th>
+                  <th>จำนวน</th>
+                  <th>สถานะ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {billingHistory.map((row) => (
+                  <tr key={row.id}>
+                    <td>{fmtBillingDate(row.paidAt || row.createdAt)}</td>
+                    <td>
+                      {row.description}
+                      {row.invoiceUrl && (
+                        <>
+                          {' '}
+                          <a href={row.invoiceUrl} target="_blank" rel="noopener noreferrer" className="dash-link-btn">
+                            ใบเสร็จ
+                          </a>
+                        </>
+                      )}
+                    </td>
+                    <td>{billingMethodLabel(row.source)}</td>
+                    <td>{billingAmount(row)}</td>
+                    <td>{billingStatusLabel(row)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

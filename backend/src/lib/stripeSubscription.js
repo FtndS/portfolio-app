@@ -54,14 +54,35 @@ export async function notifyProActivated(user) {
   await sendEmail({ to: user.email, subject, text, html })
 }
 
-async function markWebhookProcessed(pool, eventId) {
-  const inserted = await pool.query(
-    `INSERT INTO stripe_webhook_events (event_id) VALUES ($1)
-     ON CONFLICT (event_id) DO NOTHING
-     RETURNING event_id`,
+/** Stripe Basil+ moved period end to subscription items; keep legacy fallback. */
+export function getSubscriptionPeriodEnd(sub) {
+  if (sub?.current_period_end) {
+    return new Date(sub.current_period_end * 1000)
+  }
+  const items = sub?.items?.data || []
+  let maxEnd = 0
+  for (const item of items) {
+    const end = item?.current_period_end
+    if (typeof end === 'number' && end > maxEnd) maxEnd = end
+  }
+  if (maxEnd) return new Date(maxEnd * 1000)
+  throw new Error('Subscription period end not found')
+}
+
+async function wasWebhookProcessed(pool, eventId) {
+  const r = await pool.query(
+    'SELECT 1 FROM stripe_webhook_events WHERE event_id = $1',
     [eventId]
   )
-  return inserted.rows.length > 0
+  return r.rows.length > 0
+}
+
+async function markWebhookProcessed(pool, eventId) {
+  await pool.query(
+    `INSERT INTO stripe_webhook_events (event_id) VALUES ($1)
+     ON CONFLICT (event_id) DO NOTHING`,
+    [eventId]
+  )
 }
 
 async function resolveUserIdFromSubscription(pool, subscription, session = null) {
@@ -73,11 +94,30 @@ async function resolveUserIdFromSubscription(pool, subscription, session = null)
 
   const customerId = subscription?.customer || session?.customer
   if (customerId) {
-    const byCustomer = await pool.query(
-      'SELECT id FROM users WHERE stripe_customer_id = $1',
-      [String(customerId)]
-    )
-    if (byCustomer.rows.length) return byCustomer.rows[0].id
+    const cid = typeof customerId === 'string' ? customerId : customerId?.id
+    if (cid) {
+      const byCustomer = await pool.query(
+        'SELECT id FROM users WHERE stripe_customer_id = $1',
+        [String(cid)]
+      )
+      if (byCustomer.rows.length) return byCustomer.rows[0].id
+
+      const stripe = getStripe()
+      if (stripe) {
+        try {
+          const customer = await stripe.customers.retrieve(String(cid))
+          if (customer.email) {
+            const byCustEmail = await pool.query(
+              'SELECT id FROM users WHERE LOWER(email) = LOWER($1)',
+              [String(customer.email).trim()]
+            )
+            if (byCustEmail.rows.length) return byCustEmail.rows[0].id
+          }
+        } catch (e) {
+          console.error('Stripe customer lookup error:', e.message)
+        }
+      }
+    }
   }
 
   const email = session?.customer_details?.email || session?.customer_email
@@ -100,7 +140,7 @@ export async function applySubscriptionPeriod(pool, userId, subscription, notePr
     ? await stripe.subscriptions.retrieve(subscription)
     : subscription
 
-  const periodEnd = new Date(sub.current_period_end * 1000)
+  const periodEnd = getSubscriptionPeriodEnd(sub)
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id
 
   const user = await grantProToUser(pool, userId, {
@@ -113,10 +153,134 @@ export async function applySubscriptionPeriod(pool, userId, subscription, notePr
   return { user, subscription: sub }
 }
 
-export async function handleStripeWebhookEvent(pool, event) {
-  const fresh = await markWebhookProcessed(pool, event.id)
-  if (!fresh) return { duplicate: true }
+export async function syncUserSubscriptionFromStripe(pool, userId, email) {
+  const stripe = getStripe()
+  if (!stripe) return { synced: false, reason: 'stripe_not_configured' }
 
+  const userRow = await pool.query(
+    'SELECT stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1',
+    [userId]
+  )
+  let customerId = userRow.rows[0]?.stripe_customer_id || null
+
+  if (!customerId && email) {
+    const customers = await stripe.customers.list({ email: String(email).trim(), limit: 5 })
+    customerId = customers.data.find((c) => !c.deleted)?.id || null
+  }
+
+  if (!customerId) {
+    return { synced: false, reason: 'no_stripe_customer' }
+  }
+
+  await pool.query(
+    'UPDATE users SET stripe_customer_id = COALESCE(stripe_customer_id, $2) WHERE id = $1',
+    [userId, customerId]
+  )
+
+  const subs = await stripe.subscriptions.list({
+    customer: customerId,
+    status: 'all',
+    limit: 10,
+  })
+
+  const active = subs.data.find((s) => s.status === 'active' || s.status === 'trialing')
+  if (!active) {
+    return { synced: false, reason: 'no_active_subscription', customerId }
+  }
+
+  const { user, subscription } = await applySubscriptionPeriod(pool, userId, active, 'Stripe sync')
+  return {
+    synced: true,
+    customerId,
+    subscriptionId: subscription.id,
+    planExpiresAt: user?.plan_expires_at,
+  }
+}
+
+export async function fetchBillingHistory(pool, userId, { email, stripeCustomerId, proMonthlyThb }) {
+  const rows = []
+
+  const tickets = await pool.query(
+    `SELECT id, subject, status, created_at, updated_at
+     FROM support_tickets
+     WHERE user_id = $1 AND category = 'upgrade'
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [userId]
+  )
+
+  for (const t of tickets.rows) {
+    const paid = t.status === 'resolved' || t.status === 'closed'
+    rows.push({
+      id: `ticket-${t.id}`,
+      source: 'promptpay',
+      amountThb: proMonthlyThb,
+      currency: 'THB',
+      status: paid ? 'paid' : t.status,
+      description: t.subject,
+      paidAt: paid ? t.updated_at : null,
+      createdAt: t.created_at,
+    })
+  }
+
+  const stripe = getStripe()
+  if (!stripe) return rows.sort(byPaidAtDesc)
+
+  let customerId = stripeCustomerId
+  if (!customerId && email) {
+    const customers = await stripe.customers.list({ email: String(email).trim(), limit: 5 })
+    customerId = customers.data.find((c) => !c.deleted)?.id || null
+  }
+
+  if (!customerId) return rows.sort(byPaidAtDesc)
+
+  const invoices = await stripe.invoices.list({ customer: customerId, limit: 36 })
+  for (const inv of invoices.data) {
+    const paidAt = inv.status_transitions?.paid_at
+      ? new Date(inv.status_transitions.paid_at * 1000).toISOString()
+      : null
+    const amount = inv.amount_paid != null ? inv.amount_paid / 100 : 0
+    rows.push({
+      id: `inv-${inv.id}`,
+      source: 'stripe',
+      amountThb: inv.currency?.toLowerCase() === 'thb' ? amount : null,
+      amount,
+      currency: (inv.currency || 'thb').toUpperCase(),
+      status: inv.status,
+      description: inv.lines?.data?.[0]?.description || 'PortDiary Pro',
+      paidAt,
+      createdAt: inv.created ? new Date(inv.created * 1000).toISOString() : null,
+      invoiceUrl: inv.hosted_invoice_url || null,
+    })
+  }
+
+  return rows.sort(byPaidAtDesc)
+}
+
+function byPaidAtDesc(a, b) {
+  const ta = new Date(a.paidAt || a.createdAt || 0).getTime()
+  const tb = new Date(b.paidAt || b.createdAt || 0).getTime()
+  return tb - ta
+}
+
+export async function handleStripeWebhookEvent(pool, event) {
+  const duplicate = await wasWebhookProcessed(pool, event.id)
+  const isPaymentEvent = event.type === 'checkout.session.completed' || event.type === 'invoice.paid'
+
+  if (duplicate && !isPaymentEvent) {
+    return { duplicate: true }
+  }
+
+  const result = await dispatchStripeWebhookEvent(pool, event)
+
+  if (!duplicate) {
+    await markWebhookProcessed(pool, event.id)
+  }
+
+  return duplicate ? { ...result, duplicate: true, recovered: true } : result
+}
+
+async function dispatchStripeWebhookEvent(pool, event) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object
@@ -136,10 +300,11 @@ export async function handleStripeWebhookEvent(pool, event) {
 
     case 'invoice.paid': {
       const invoice = event.data.object
-      if (!invoice.subscription) return { skipped: true, reason: 'not_subscription_invoice' }
+      const subRef = invoice.subscription
+      if (!subRef) return { skipped: true, reason: 'not_subscription_invoice' }
 
       const stripe = getStripe()
-      const subscription = await stripe.subscriptions.retrieve(String(invoice.subscription))
+      const subscription = await stripe.subscriptions.retrieve(String(subRef))
       const userId = await resolveUserIdFromSubscription(pool, subscription)
       if (!userId) return { error: 'user_not_found' }
 

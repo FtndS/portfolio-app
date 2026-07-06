@@ -2,8 +2,9 @@ import express from 'express'
 import { authMiddleware } from '../middleware/auth.js'
 import { getAiQuota } from '../lib/aiQuota.js'
 import { isAiPrivilegedUser, resolveEffectivePlan } from '../lib/aiPlan.js'
-import { buildSubscriptionCatalog } from '../lib/subscriptionCatalog.js'
+import { buildSubscriptionCatalog, PRO_MONTHLY_THB } from '../lib/subscriptionCatalog.js'
 import { appBaseUrl, getStripe, isStripeConfigured } from '../lib/stripeClient.js'
+import { syncUserSubscriptionFromStripe, fetchBillingHistory } from '../lib/stripeSubscription.js'
 import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 
@@ -45,6 +46,12 @@ router.get('/', async (req, res) => {
       proPaymentSource = hasStripeSubscription ? 'stripe' : 'manual'
     }
 
+    const billingHistory = await fetchBillingHistory(pool, req.userId, {
+      email: req.userEmail,
+      stripeCustomerId,
+      proMonthlyThb: PRO_MONTHLY_THB,
+    })
+
     res.json({
       plan: isOwner ? 'pro' : effective,
       planLabel: isOwner ? 'Owner' : (effective === 'pro' ? 'Pro' : 'Free'),
@@ -57,6 +64,7 @@ router.get('/', async (req, res) => {
       hasStripeSubscription,
       proPaymentSource,
       pendingUpgradeTicket: pendingUpgrade.rows[0] || null,
+      billingHistory,
       paymentQrUrl: process.env.PRO_PAYMENT_QR_URL || '/promptpay-qr-99.png',
       paymentInstructions: process.env.PRO_PAYMENT_INSTRUCTIONS || null,
       catalog: buildSubscriptionCatalog(),
@@ -116,6 +124,53 @@ router.post('/checkout', async (req, res) => {
   }
 })
 
+router.post('/sync', async (req, res) => {
+  try {
+    if (!isStripeConfigured()) {
+      return res.status(503).json({ error: 'ระบบชำระเงินอัตโนมัติยังไม่พร้อม' })
+    }
+
+    const result = await syncUserSubscriptionFromStripe(pool, req.userId, req.userEmail)
+    if (!result.synced) {
+      return res.json({ synced: false, ...result })
+    }
+
+    const userRow = await pool.query(
+      'SELECT plan, plan_expires_at, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1',
+      [req.userId]
+    )
+    const u = userRow.rows[0]
+    res.json({
+      synced: true,
+      plan: resolveEffectivePlan(u.plan, u.plan_expires_at),
+      planExpiresAt: u.plan_expires_at,
+      hasStripeSubscription: !!u.stripe_subscription_id,
+      proPaymentSource: 'stripe',
+      customerId: result.customerId,
+      subscriptionId: result.subscriptionId,
+    })
+  } catch (err) {
+    serverError(res, err, 'POST subscription/sync error:')
+  }
+})
+
+router.get('/billing', async (req, res) => {
+  try {
+    const userRow = await pool.query(
+      'SELECT stripe_customer_id FROM users WHERE id = $1',
+      [req.userId]
+    )
+    const rows = await fetchBillingHistory(pool, req.userId, {
+      email: req.userEmail,
+      stripeCustomerId: userRow.rows[0]?.stripe_customer_id || null,
+      proMonthlyThb: PRO_MONTHLY_THB,
+    })
+    res.json(rows)
+  } catch (err) {
+    serverError(res, err, 'GET subscription/billing error:')
+  }
+})
+
 router.post('/portal', async (req, res) => {
   try {
     if (!isStripeConfigured()) {
@@ -127,7 +182,11 @@ router.post('/portal', async (req, res) => {
       'SELECT stripe_customer_id FROM users WHERE id = $1',
       [req.userId]
     )
-    const customerId = userRow.rows[0]?.stripe_customer_id
+    let customerId = userRow.rows[0]?.stripe_customer_id
+    if (!customerId) {
+      const sync = await syncUserSubscriptionFromStripe(pool, req.userId, req.userEmail)
+      customerId = sync.customerId || null
+    }
     if (!customerId) {
       return res.status(400).json({ error: 'ยังไม่มีข้อมูลการชำระเงิน — อัปเกรด Pro ก่อน' })
     }
