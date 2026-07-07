@@ -1,4 +1,13 @@
-import { createOmiseCharge, createOmiseSource, getOmiseCharge, isOmiseConfigured } from './omiseClient.js'
+import {
+  cancelOmiseSchedule,
+  createOmiseCharge,
+  createOmiseCustomer,
+  createOmiseSchedule,
+  createOmiseSource,
+  getOmiseCharge,
+  getOmiseSchedule,
+  isOmiseConfigured,
+} from './omiseClient.js'
 import { sendProActivatedEmail } from './email.js'
 
 const THB_MULTIPLIER = 100
@@ -200,22 +209,158 @@ export async function handleOmiseWebhookEvent(pool, event) {
     [chargeId]
   )
   const row = rowResult.rows[0]
-  if (!row) return { ignored: true, reason: 'charge_not_tracked' }
+  if (row) {
+    await syncPromptPayCharge(pool, row.user_id, chargeId)
+    return { handled: true, chargeId, source: 'promptpay' }
+  }
 
-  await syncPromptPayCharge(pool, row.user_id, chargeId)
-  return { handled: true, chargeId }
+  const customerId = typeof data.customer === 'string' ? data.customer : data.customer?.id
+  if (!customerId) return { ignored: true, reason: 'charge_not_tracked' }
+  const userRow = await pool.query(
+    'SELECT id FROM users WHERE omise_customer_id = $1',
+    [customerId]
+  )
+  const userId = userRow.rows[0]?.id
+  if (!userId) return { ignored: true, reason: 'charge_not_tracked' }
+  await grantProFromOmiseCard(pool, userId, data)
+  return { handled: true, chargeId, source: 'card' }
+}
+
+async function grantProFromOmiseCard(pool, userId, charge) {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const existing = await client.query(
+      'SELECT id FROM omise_card_charges WHERE charge_id = $1 FOR UPDATE',
+      [charge.id]
+    )
+    if (existing.rows.length) {
+      await client.query('COMMIT')
+      return { granted: false, reason: 'already_granted' }
+    }
+
+    const userResult = await client.query(
+      'SELECT id, email, name, plan_expires_at FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    )
+    const user = userResult.rows[0]
+    if (!user) throw new Error('User not found for omise card grant')
+
+    const now = new Date()
+    const base = user.plan_expires_at && new Date(user.plan_expires_at) > now
+      ? new Date(user.plan_expires_at)
+      : now
+    const nextExpiry = new Date(base.getTime() + PRO_PERIOD_DAYS * 86400000)
+
+    const updated = await client.query(
+      `UPDATE users
+       SET plan = 'pro',
+           plan_expires_at = $2,
+           plan_note = 'Omise card recurring',
+           plan_updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, email, name, plan_expires_at`,
+      [userId, nextExpiry.toISOString()]
+    )
+
+    await client.query(
+      `INSERT INTO omise_card_charges (user_id, charge_id, amount_satang, status, paid_at)
+       VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, NOW()))`,
+      [userId, charge.id, charge.amount || 0, charge.status || 'successful', charge.paid_at || null]
+    )
+    await client.query('COMMIT')
+    await sendProActivatedEmail(updated.rows[0], { source: 'omise_card' })
+    return { granted: true, planExpiresAt: updated.rows[0].plan_expires_at }
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+export async function subscribeOmiseCard(pool, user, { cardToken, amountThb }) {
+  if (!cardToken) throw new Error('Missing Omise card token')
+  const amount = toSatang(amountThb)
+  const customer = await createOmiseCustomer({
+    email: user.email,
+    description: `PortDiary user ${user.id}`,
+    card: cardToken,
+    metadata: { userId: String(user.id), type: 'pro_card' },
+  })
+
+  const schedule = await createOmiseSchedule({
+    every: 1,
+    period: 'month',
+    start_date: new Date().toISOString().slice(0, 10),
+    charge: {
+      amount,
+      currency: 'thb',
+      customer: customer.id,
+      description: 'PortDiary Pro recurring',
+      metadata: { userId: String(user.id), type: 'pro_card' },
+    },
+  })
+
+  await pool.query(
+    `UPDATE users
+     SET omise_customer_id = $2,
+         omise_schedule_id = $3,
+         plan_updated_at = NOW()
+     WHERE id = $1`,
+    [user.id, customer.id, schedule.id]
+  )
+
+  return { customerId: customer.id, scheduleId: schedule.id, status: schedule.status || 'active' }
+}
+
+export async function cancelOmiseCardSubscription(pool, userId) {
+  const row = await pool.query('SELECT omise_schedule_id FROM users WHERE id = $1', [userId])
+  const scheduleId = row.rows[0]?.omise_schedule_id
+  if (!scheduleId) return { cancelled: false, reason: 'no_schedule' }
+  await cancelOmiseSchedule(scheduleId).catch(() => {})
+  await pool.query(
+    `UPDATE users
+     SET omise_schedule_id = NULL,
+         plan_note = COALESCE(plan_note, '') || ' · omise schedule cancelled',
+         plan_updated_at = NOW()
+     WHERE id = $1`,
+    [userId]
+  )
+  return { cancelled: true }
+}
+
+export async function getOmiseCardFlags(pool, userId) {
+  const row = await pool.query('SELECT omise_schedule_id FROM users WHERE id = $1', [userId])
+  const scheduleId = row.rows[0]?.omise_schedule_id
+  if (!scheduleId) return null
+  const schedule = await getOmiseSchedule(scheduleId).catch(() => null)
+  if (!schedule) return { scheduleId, status: 'unknown', active: false }
+  const status = schedule.status || 'active'
+  return {
+    scheduleId,
+    status,
+    active: status !== 'terminated' && status !== 'expired',
+  }
 }
 
 export async function fetchOmiseBillingHistory(pool, userId) {
-  const rows = await pool.query(
+  const promptpayRows = await pool.query(
     `SELECT charge_id, amount_satang, status, paid_at, created_at
      FROM omise_promptpay_charges
      WHERE user_id = $1
      ORDER BY created_at DESC`,
     [userId]
   )
+  const cardRows = await pool.query(
+    `SELECT charge_id, amount_satang, status, paid_at, created_at
+     FROM omise_card_charges
+     WHERE user_id = $1
+     ORDER BY created_at DESC`,
+    [userId]
+  )
 
-  return rows.rows.map((r) => ({
+  const promptpay = promptpayRows.rows.map((r) => ({
     id: `omise:${r.charge_id}`,
     source: 'omise_promptpay',
     status: r.status,
@@ -225,4 +370,16 @@ export async function fetchOmiseBillingHistory(pool, userId) {
     createdAt: r.created_at,
     invoiceUrl: null,
   }))
+  const card = cardRows.rows.map((r) => ({
+    id: `omise-card:${r.charge_id}`,
+    source: 'omise_card',
+    status: r.status,
+    description: 'PortDiary Pro (Card)',
+    amountThb: Number(r.amount_satang) / THB_MULTIPLIER,
+    paidAt: r.paid_at,
+    createdAt: r.created_at,
+    invoiceUrl: null,
+  }))
+  return [...promptpay, ...card]
+    .sort((a, b) => new Date(b.paidAt || b.createdAt) - new Date(a.paidAt || a.createdAt))
 }

@@ -7,7 +7,14 @@ import { appBaseUrl, getStripe, isStripeConfigured } from '../lib/stripeClient.j
 import { syncUserSubscriptionFromStripe, fetchBillingHistory, getStripeSubscriptionFlags } from '../lib/stripeSubscription.js'
 import { ensureStripeCustomer, checkoutPrivacyParams } from '../lib/stripeCustomer.js'
 import { isOmiseConfigured } from '../lib/omiseClient.js'
-import { createPromptPayCheckout, fetchOmiseBillingHistory, syncPromptPayCharge } from '../lib/omiseSubscription.js'
+import {
+  cancelOmiseCardSubscription,
+  createPromptPayCheckout,
+  fetchOmiseBillingHistory,
+  getOmiseCardFlags,
+  subscribeOmiseCard,
+  syncPromptPayCharge,
+} from '../lib/omiseSubscription.js'
 import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 
@@ -29,18 +36,22 @@ router.get('/', async (req, res) => {
     const stripeConfigured = isStripeConfigured()
     const omiseConfigured = isOmiseConfigured()
     const userRow = await pool.query(
-      'SELECT stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1',
+      'SELECT stripe_customer_id, stripe_subscription_id, omise_customer_id, omise_schedule_id FROM users WHERE id = $1',
       [req.userId]
     )
     const stripeCustomerId = userRow.rows[0]?.stripe_customer_id || null
     const stripeSubscriptionId = userRow.rows[0]?.stripe_subscription_id || null
     const hasStripeSubscription = !!stripeSubscriptionId
+    const hasOmiseSubscription = !!(userRow.rows[0]?.omise_schedule_id)
 
     let stripeSubscription = null
     if (hasStripeSubscription && stripeConfigured) {
       const stripe = getStripe()
       stripeSubscription = await getStripeSubscriptionFlags(stripe, stripeSubscriptionId)
     }
+    const omiseSubscription = (hasOmiseSubscription && omiseConfigured)
+      ? await getOmiseCardFlags(pool, req.userId)
+      : null
 
     const pendingUpgrade = await pool.query(
       `SELECT id, status, created_at
@@ -54,7 +65,8 @@ router.get('/', async (req, res) => {
     const effectiveForSource = resolveEffectivePlan(req.userPlan, req.userPlanExpiresAt)
     let proPaymentSource = null
     if (effectiveForSource === 'pro' && !isOwner) {
-      proPaymentSource = hasStripeSubscription ? 'stripe' : 'manual'
+      if (hasOmiseSubscription) proPaymentSource = 'omise_card'
+      else proPaymentSource = hasStripeSubscription ? 'stripe' : 'manual'
     }
 
     const billingHistory = await fetchBillingHistory(pool, req.userId, {
@@ -74,10 +86,14 @@ router.get('/', async (req, res) => {
       paymentEnabled: stripeConfigured,
       paymentMode: stripeConfigured ? 'stripe' : 'manual',
       omisePromptPayEnabled: omiseConfigured,
+      omiseCardEnabled: omiseConfigured,
+      omisePublicKey: omiseConfigured ? (process.env.OMISE_PUBLIC_KEY?.trim() || '') : '',
       manualPaymentEnabled: true,
       stripeCustomerId,
       hasStripeSubscription,
       stripeSubscription,
+      hasOmiseSubscription,
+      omiseSubscription,
       proPaymentSource,
       pendingUpgradeTicket: pendingUpgrade.rows[0] || null,
       billingHistory: mergedBillingHistory,
@@ -88,6 +104,37 @@ router.get('/', async (req, res) => {
     })
   } catch (err) {
     serverError(res, err, 'GET subscription error:')
+  }
+})
+
+router.post('/omise/card/subscribe', async (req, res) => {
+  try {
+    if (!isOmiseConfigured()) {
+      return res.status(503).json({ error: 'ระบบตัดบัตร Omise ยังไม่พร้อม' })
+    }
+    const cardToken = String(req.body?.cardToken || '').trim()
+    if (!cardToken) return res.status(400).json({ error: 'ไม่พบข้อมูลบัตรสำหรับสมัคร' })
+
+    const userRow = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [req.userId])
+    const user = userRow.rows[0]
+    if (!user?.email) return res.status(400).json({ error: 'ไม่พบข้อมูลบัญชีผู้ใช้' })
+
+    const result = await subscribeOmiseCard(pool, user, { cardToken, amountThb: PRO_MONTHLY_THB })
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    serverError(res, err, 'POST subscription/omise/card/subscribe error:')
+  }
+})
+
+router.post('/omise/card/cancel', async (req, res) => {
+  try {
+    if (!isOmiseConfigured()) {
+      return res.status(503).json({ error: 'ระบบตัดบัตร Omise ยังไม่พร้อม' })
+    }
+    const result = await cancelOmiseCardSubscription(pool, req.userId)
+    res.json(result)
+  } catch (err) {
+    serverError(res, err, 'POST subscription/omise/card/cancel error:')
   }
 })
 

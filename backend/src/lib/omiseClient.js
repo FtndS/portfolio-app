@@ -59,3 +59,27 @@ export function createOmiseCharge(params) {
 export function getOmiseCharge(chargeId) {
   return request(`/charges/${encodeURIComponent(chargeId)}`)
 }
+
+export function createOmiseCustomer(params) {
+  return request('/customers', 'POST', params)
+}
+
+export function updateOmiseCustomer(customerId, params) {
+  return request(`/customers/${encodeURIComponent(customerId)}`, 'PATCH', params)
+}
+
+export function getOmiseCustomer(customerId) {
+  return request(`/customers/${encodeURIComponent(customerId)}`)
+}
+
+export function createOmiseSchedule(params) {
+  return request('/schedules', 'POST', params)
+}
+
+export function getOmiseSchedule(scheduleId) {
+  return request(`/schedules/${encodeURIComponent(scheduleId)}`)
+}
+
+export function cancelOmiseSchedule(scheduleId) {
+  return request(`/schedules/${encodeURIComponent(scheduleId)}`, 'DELETE')
+}

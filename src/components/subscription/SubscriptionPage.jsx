@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { btnPrimary, btnGhost } from '../../lib/styles'
+import { btnPrimary, btnGhost, inp } from '../../lib/styles'
 
 function fmtExpires(iso) {
   if (!iso) return null
@@ -52,6 +52,7 @@ function fmtBillingDate(iso) {
 
 function billingMethodLabel(source) {
   if (source === 'omise_promptpay') return 'PromptPay (Omise)'
+  if (source === 'omise_card') return 'บัตร (Omise)'
   return source === 'stripe' ? 'บัตร (Stripe)' : 'PromptPay'
 }
 
@@ -64,6 +65,12 @@ function billingStatusLabel(row) {
     if (row.status === 'expired') return 'หมดเวลา'
     if (row.status === 'open') return 'รอตรวจสลิป'
     if (row.status === 'in_progress') return 'กำลังตรวจ'
+    return row.status
+  }
+  if (row.source === 'omise_card') {
+    if (row.status === 'successful' || row.status === 'paid') return 'ชำระแล้ว'
+    if (row.status === 'pending') return 'รอชำระ'
+    if (row.status === 'failed') return 'ไม่สำเร็จ'
     return row.status
   }
   if (row.status === 'paid') return 'ชำระแล้ว'
@@ -85,12 +92,20 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const [payMethod, setPayMethod] = useState('card')
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [omiseCardLoading, setOmiseCardLoading] = useState(false)
   const [actionErr, setActionErr] = useState('')
   const [banner, setBanner] = useState(flashMessage)
   const [creatingPromptPay, setCreatingPromptPay] = useState(false)
   const [promptPayState, setPromptPayState] = useState(null)
   const [promptPayErr, setPromptPayErr] = useState('')
   const [syncLoading, setSyncLoading] = useState(false)
+  const [cardForm, setCardForm] = useState({
+    name: user?.name || '',
+    number: '',
+    month: '',
+    year: '',
+    cvc: '',
+  })
 
   const load = async (opts = {}) => {
     setLoading(true)
@@ -111,6 +126,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
       return
     }
     setData(r)
+    window.__PORTDIARY_OMISE_PKEY = r.omisePublicKey || ''
     if (!r.paymentEnabled || r.proPaymentSource === 'manual') {
       setPayMethod('promptpay')
     } else {
@@ -125,6 +141,16 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   useEffect(() => {
     if (flashMessage) setBanner(flashMessage)
   }, [flashMessage])
+
+  useEffect(() => {
+    if (!data?.omiseCardEnabled) return
+    if (document.getElementById('omise-js-sdk')) return
+    const s = document.createElement('script')
+    s.id = 'omise-js-sdk'
+    s.src = 'https://cdn.omise.co/omise.js'
+    s.async = true
+    document.body.appendChild(s)
+  }, [data?.omiseCardEnabled])
 
   const startCheckout = async () => {
     setActionErr('')
@@ -152,6 +178,59 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
       return
     }
     if (r.url) window.location.href = r.url
+  }
+
+  const subscribeOmiseCard = async () => {
+    setActionErr('')
+    if (!window.Omise) {
+      setActionErr('ยังโหลด Omise.js ไม่สำเร็จ กรุณารีเฟรชหน้า')
+      return
+    }
+    const pkey = window.__PORTDIARY_OMISE_PKEY || ''
+    if (!pkey) {
+      setActionErr('ยังไม่ได้ตั้งค่า OMISE_PUBLIC_KEY')
+      return
+    }
+    setOmiseCardLoading(true)
+    window.Omise.setPublicKey(pkey)
+    const tokenResult = await new Promise((resolve) => {
+      window.Omise.createToken('card', {
+        name: cardForm.name,
+        number: cardForm.number.replace(/\s+/g, ''),
+        expiration_month: cardForm.month,
+        expiration_year: cardForm.year,
+        security_code: cardForm.cvc,
+      }, (statusCode, response) => {
+        if (statusCode === 200 && response?.id) resolve({ ok: true, token: response.id })
+        else resolve({ ok: false, error: response?.message || 'สร้าง token บัตรไม่สำเร็จ' })
+      })
+    })
+    if (!tokenResult.ok) {
+      setOmiseCardLoading(false)
+      setActionErr(tokenResult.error)
+      return
+    }
+    const r = await api.post('/subscription/omise/card/subscribe', { cardToken: tokenResult.token })
+    setOmiseCardLoading(false)
+    if (r.error) {
+      setActionErr(r.error)
+      return
+    }
+    setBanner('สมัครตัดบัตรอัตโนมัติผ่าน Omise แล้ว')
+    await load()
+  }
+
+  const cancelOmiseCard = async () => {
+    setActionErr('')
+    setPortalLoading(true)
+    const r = await api.post('/subscription/omise/card/cancel')
+    setPortalLoading(false)
+    if (r.error) {
+      setActionErr(r.error)
+      return
+    }
+    setBanner('ยกเลิกตัดบัตรอัตโนมัติแล้ว')
+    await load()
   }
 
   const startPromptPayCheckout = async () => {
@@ -230,12 +309,15 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const proPrice = data.catalog?.proMonthlyThb || 99
   const stripeAuto = data.paymentEnabled && data.paymentMode === 'stripe'
   const omisePromptPay = !!data.omisePromptPayEnabled
+  const omiseCardEnabled = !!data.omiseCardEnabled
   const qrUrl = data.paymentQrUrl || '/promptpay-qr-99.png'
   const pending = data.pendingUpgradeTicket
   const isStripePro = isPro && data.hasStripeSubscription
+  const isOmiseCardPro = isPro && data.hasOmiseSubscription
   const isManualPro = isPro && data.proPaymentSource === 'manual'
   const showPayChooser = !data.isOwner && (!isPro || isManualPro)
   const showStripeManage = !data.isOwner && isStripePro
+  const showOmiseManage = !data.isOwner && isOmiseCardPro
   const billingHistory = data.billingHistory || []
   const stripeCancelled = data.stripeSubscription?.cancelAtPeriodEnd
 
@@ -259,6 +341,9 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
           )}
           {!data.isOwner && isPro && data.proPaymentSource === 'stripe' && !stripeCancelled && (
             <span className="dash-sub-status-note">ต่ออายุอัตโนมัติด้วยบัตร</span>
+          )}
+          {!data.isOwner && isPro && data.proPaymentSource === 'omise_card' && (
+            <span className="dash-sub-status-note">ต่ออายุอัตโนมัติด้วยบัตร (Omise)</span>
           )}
           {!data.isOwner && isPro && stripeCancelled && expires && (
             <span className="dash-sub-status-note">ยกเลิกบัตรแล้ว — ใช้ได้ถึง {expires}</span>
@@ -393,6 +478,18 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
         </div>
       )}
 
+      {showOmiseManage && (
+        <div className="dash-card dash-sub-note">
+          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '10px' }}>จัดการแผน Pro (บัตร Omise)</h3>
+          <p className="dash-text-muted" style={{ fontSize: '13px', lineHeight: 1.65, margin: '0 0 12px' }}>
+            แผน Pro ของคุณต่ออายุอัตโนมัติทุกเดือน — ยกเลิกการต่ออายุได้ทันที
+          </p>
+          <button type="button" onClick={cancelOmiseCard} style={btnGhost} disabled={portalLoading}>
+            {portalLoading ? 'กำลังยกเลิก...' : 'ยกเลิกตัดบัตรอัตโนมัติ'}
+          </button>
+        </div>
+      )}
+
       {showPayChooser && (
         <div className="dash-card dash-sub-note">
           <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '6px' }}>
@@ -403,7 +500,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
           </p>
 
           <div className="dash-segment dash-sub-pay-tabs" style={{ marginBottom: '16px' }}>
-            {stripeAuto && (
+            {(stripeAuto || omiseCardEnabled) && (
               <button
                 type="button"
                 className={`dash-segment-btn${payMethod === 'card' ? ' dash-segment-btn--active' : ''}`}
@@ -421,25 +518,44 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
             </button>
           </div>
 
-          {payMethod === 'card' && stripeAuto && (
+          {payMethod === 'card' && (stripeAuto || omiseCardEnabled) && (
             <div className="dash-sub-pay-panel">
-              <ul className="dash-sub-steps">
-                <li>ต่ออายุอัตโนมัติทุกเดือน — บัตรเครดิต/เดบิต, Apple Pay, Google Pay</li>
-                <li>เปิด Pro ทันทีหลังชำระสำเร็จ</li>
-                <li>ยกเลิกได้จาก <strong>จัดการการชำระเงิน</strong> (ใช้ Pro จนครบรอบบิล)</li>
-              </ul>
-              <button
-                type="button"
-                onClick={startCheckout}
-                style={{ ...btnPrimary, marginTop: '14px' }}
-                disabled={checkoutLoading}
-              >
-                {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : (isManualPro ? `เปลี่ยนเป็นบัตรอัตโนมัติ — ฿${proPrice}/เดือน` : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`)}
-              </button>
-              {isManualPro && (
-                <p className="dash-text-muted" style={{ fontSize: '12px', marginTop: '8px' }}>
-                  สมัครบัตรจะต่ออายุอัตโนมัติแทน PromptPay — Pro ปัจจุบันยังใช้ได้จนหมดอายุ
-                </p>
+              {omiseCardEnabled ? (
+                <>
+                  <ul className="dash-sub-steps">
+                    <li>บันทึกบัตรเพื่อหักอัตโนมัติทุกเดือนผ่าน Omise</li>
+                    <li>สมัครครั้งเดียว แล้วระบบต่ออายุ Pro อัตโนมัติ</li>
+                    <li>ระบบจะยืนยันผ่าน 3DS ตามเงื่อนไขธนาคาร</li>
+                  </ul>
+                  <div className="dash-sub-receipt" style={{ maxWidth: '420px' }}>
+                    <input style={inp({ marginBottom: '8px' })} placeholder="ชื่อบนบัตร" value={cardForm.name} onChange={(e) => setCardForm({ ...cardForm, name: e.target.value })} />
+                    <input style={inp({ marginBottom: '8px' })} placeholder="เลขบัตร" value={cardForm.number} onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                      <input style={inp({ marginBottom: 0 })} placeholder="MM" value={cardForm.month} onChange={(e) => setCardForm({ ...cardForm, month: e.target.value })} />
+                      <input style={inp({ marginBottom: 0 })} placeholder="YY" value={cardForm.year} onChange={(e) => setCardForm({ ...cardForm, year: e.target.value })} />
+                      <input style={inp({ marginBottom: 0 })} placeholder="CVC" value={cardForm.cvc} onChange={(e) => setCardForm({ ...cardForm, cvc: e.target.value })} />
+                    </div>
+                    <button type="button" onClick={subscribeOmiseCard} style={{ ...btnPrimary, marginTop: '12px' }} disabled={omiseCardLoading}>
+                      {omiseCardLoading ? 'กำลังสมัครบัตร...' : `สมัครตัดบัตรอัตโนมัติ — ฿${proPrice}/เดือน`}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <ul className="dash-sub-steps">
+                    <li>ต่ออายุอัตโนมัติทุกเดือน — บัตรเครดิต/เดบิต, Apple Pay, Google Pay</li>
+                    <li>เปิด Pro ทันทีหลังชำระสำเร็จ</li>
+                    <li>ยกเลิกได้จาก <strong>จัดการการชำระเงิน</strong> (ใช้ Pro จนครบรอบบิล)</li>
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={startCheckout}
+                    style={{ ...btnPrimary, marginTop: '14px' }}
+                    disabled={checkoutLoading}
+                  >
+                    {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : (isManualPro ? `เปลี่ยนเป็นบัตรอัตโนมัติ — ฿${proPrice}/เดือน` : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`)}
+                  </button>
+                </>
               )}
             </div>
           )}
