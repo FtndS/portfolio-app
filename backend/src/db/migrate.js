@@ -526,6 +526,32 @@ const migrations = [
         ON support_ticket_attachments (ticket_id, sort_order);
     `,
   },
+  {
+    name: '026_omise_promptpay',
+    sql: `
+      CREATE TABLE IF NOT EXISTS omise_webhook_events (
+        event_id VARCHAR(255) PRIMARY KEY,
+        processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS omise_promptpay_charges (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        charge_id VARCHAR(255) NOT NULL UNIQUE,
+        source_id VARCHAR(255),
+        amount_satang INTEGER NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending',
+        qr_image_url TEXT,
+        source_expires_at TIMESTAMPTZ,
+        paid_at TIMESTAMPTZ,
+        granted_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS omise_promptpay_charges_user_created_idx
+        ON omise_promptpay_charges (user_id, created_at DESC);
+    `,
+  },
 ]
 
 export async function runMigrations() {

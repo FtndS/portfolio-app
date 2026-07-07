@@ -6,6 +6,8 @@ import { buildSubscriptionCatalog, PRO_MONTHLY_THB } from '../lib/subscriptionCa
 import { appBaseUrl, getStripe, isStripeConfigured } from '../lib/stripeClient.js'
 import { syncUserSubscriptionFromStripe, fetchBillingHistory, getStripeSubscriptionFlags } from '../lib/stripeSubscription.js'
 import { ensureStripeCustomer, checkoutPrivacyParams } from '../lib/stripeCustomer.js'
+import { isOmiseConfigured } from '../lib/omiseClient.js'
+import { createPromptPayCheckout, fetchOmiseBillingHistory, syncPromptPayCharge } from '../lib/omiseSubscription.js'
 import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 
@@ -25,6 +27,7 @@ router.get('/', async (req, res) => {
     )
 
     const stripeConfigured = isStripeConfigured()
+    const omiseConfigured = isOmiseConfigured()
     const userRow = await pool.query(
       'SELECT stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1',
       [req.userId]
@@ -59,6 +62,9 @@ router.get('/', async (req, res) => {
       stripeCustomerId,
       proMonthlyThb: PRO_MONTHLY_THB,
     })
+    const omiseBillingHistory = await fetchOmiseBillingHistory(pool, req.userId)
+    const mergedBillingHistory = [...billingHistory, ...omiseBillingHistory]
+      .sort((a, b) => new Date(b.paidAt || b.createdAt) - new Date(a.paidAt || a.createdAt))
 
     res.json({
       plan: isOwner ? 'pro' : effective,
@@ -67,13 +73,14 @@ router.get('/', async (req, res) => {
       isOwner,
       paymentEnabled: stripeConfigured,
       paymentMode: stripeConfigured ? 'stripe' : 'manual',
+      omisePromptPayEnabled: omiseConfigured,
       manualPaymentEnabled: true,
       stripeCustomerId,
       hasStripeSubscription,
       stripeSubscription,
       proPaymentSource,
       pendingUpgradeTicket: pendingUpgrade.rows[0] || null,
-      billingHistory,
+      billingHistory: mergedBillingHistory,
       paymentQrUrl: process.env.PRO_PAYMENT_QR_URL || '/promptpay-qr-99.png',
       paymentInstructions: process.env.PRO_PAYMENT_INSTRUCTIONS || null,
       catalog: buildSubscriptionCatalog(),
@@ -81,6 +88,45 @@ router.get('/', async (req, res) => {
     })
   } catch (err) {
     serverError(res, err, 'GET subscription error:')
+  }
+})
+
+router.post('/promptpay/checkout', async (req, res) => {
+  try {
+    if (!isOmiseConfigured()) {
+      return res.status(503).json({ error: 'ระบบ PromptPay อัตโนมัติยังไม่พร้อม' })
+    }
+
+    const userRow = await pool.query(
+      'SELECT id, email, name FROM users WHERE id = $1',
+      [req.userId]
+    )
+    const user = userRow.rows[0]
+    if (!user?.email) {
+      return res.status(400).json({ error: 'ไม่พบข้อมูลบัญชีสำหรับชำระเงิน' })
+    }
+
+    const checkout = await createPromptPayCheckout(pool, user, PRO_MONTHLY_THB)
+    res.json(checkout)
+  } catch (err) {
+    serverError(res, err, 'POST subscription/promptpay/checkout error:')
+  }
+})
+
+router.post('/promptpay/:chargeId/sync', async (req, res) => {
+  try {
+    if (!isOmiseConfigured()) {
+      return res.status(503).json({ error: 'ระบบ PromptPay อัตโนมัติยังไม่พร้อม' })
+    }
+
+    const { chargeId } = req.params
+    const result = await syncPromptPayCharge(pool, req.userId, chargeId)
+    if (result.error === 'charge_not_found') {
+      return res.status(404).json({ error: 'ไม่พบรายการ PromptPay นี้' })
+    }
+    res.json(result)
+  } catch (err) {
+    serverError(res, err, 'POST subscription/promptpay/sync error:')
   }
 })
 

@@ -15,6 +15,7 @@ import thesisRoutes from './routes/thesis.js'
 import supportRoutes from './routes/support.js'
 import subscriptionRoutes from './routes/subscription.js'
 import stripeWebhookRoutes from './routes/stripeWebhook.js'
+import omiseWebhookRoutes from './routes/omiseWebhook.js'
 import adminRoutes from './routes/admin.js'
 import portfoliosRoutes from './routes/portfolios.js'
 import { fetchHoldingQuote, fetchLiveQuote } from './lib/yahooPrices.js'
@@ -76,6 +77,7 @@ app.use(cors({
 
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookRoutes)
 app.use(express.json({ limit: '25mb' }))
+app.use('/api/omise/webhook', omiseWebhookRoutes)
 
 // Price cache 5 นาที
 const priceCache = new Map()

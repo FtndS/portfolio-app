@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
 import { btnPrimary, btnGhost } from '../../lib/styles'
-import TicketImagePicker, { buildAttachmentsPayload } from '../support/TicketImagePicker'
 
 function fmtExpires(iso) {
   if (!iso) return null
@@ -52,12 +51,17 @@ function fmtBillingDate(iso) {
 }
 
 function billingMethodLabel(source) {
+  if (source === 'omise_promptpay') return 'PromptPay (Omise)'
   return source === 'stripe' ? 'บัตร (Stripe)' : 'PromptPay'
 }
 
 function billingStatusLabel(row) {
-  if (row.source === 'promptpay') {
+  if (row.source === 'promptpay' || row.source === 'omise_promptpay') {
     if (row.status === 'paid') return 'ชำระแล้ว'
+    if (row.status === 'successful') return 'ชำระแล้ว'
+    if (row.status === 'pending') return 'รอชำระ'
+    if (row.status === 'failed') return 'ไม่สำเร็จ'
+    if (row.status === 'expired') return 'หมดเวลา'
     if (row.status === 'open') return 'รอตรวจสลิป'
     if (row.status === 'in_progress') return 'กำลังตรวจ'
     return row.status
@@ -83,10 +87,9 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const [portalLoading, setPortalLoading] = useState(false)
   const [actionErr, setActionErr] = useState('')
   const [banner, setBanner] = useState(flashMessage)
-  const [slipFiles, setSlipFiles] = useState([])
-  const [slipErr, setSlipErr] = useState('')
-  const [submittingSlip, setSubmittingSlip] = useState(false)
-  const [slipMsg, setSlipMsg] = useState('')
+  const [creatingPromptPay, setCreatingPromptPay] = useState(false)
+  const [promptPayState, setPromptPayState] = useState(null)
+  const [promptPayErr, setPromptPayErr] = useState('')
   const [syncLoading, setSyncLoading] = useState(false)
 
   const load = async (opts = {}) => {
@@ -151,45 +154,27 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
     if (r.url) window.location.href = r.url
   }
 
-  const submitPromptPay = async (renew = false) => {
-    setSlipErr('')
-    setSlipMsg('')
-    if (!slipFiles.length) {
-      setSlipErr('กรุณาแนบสลิปการโอน')
+  const startPromptPayCheckout = async () => {
+    setPromptPayErr('')
+    setCreatingPromptPay(true)
+    const r = await api.post('/subscription/promptpay/checkout')
+    setCreatingPromptPay(false)
+    if (r.error) {
+      setPromptPayErr(r.error)
       return
     }
-    setSubmittingSlip(true)
-    try {
-      const attachmentsBase64 = await buildAttachmentsPayload(slipFiles)
-      const price = data?.catalog?.proMonthlyThb || 99
-      const message = [
-        renew ? `ขอต่ออายุแผน Pro (฿${price}/เดือน)` : `ขออัปเกรดบัญชีเป็นแผน Pro (฿${price}/เดือน)`,
-        '',
-        `อีเมลบัญชี: ${user?.email || '—'}`,
-        `ชื่อ: ${user?.name || '—'}`,
-        `User ID: ${user?.id || '—'}`,
-        'ช่องทาง: PromptPay (manual)',
-        '',
-        'แนบสลิปการโอนแล้ว — รอทีมงานยืนยันและเปิด Pro',
-      ].join('\n')
+    setPromptPayState(r)
+  }
 
-      const r = await api.post('/support', {
-        category: 'upgrade',
-        subject: renew ? 'ขอต่ออายุ Pro (PromptPay)' : 'ขออัปเกรดเป็น Pro (PromptPay)',
-        message,
-        attachmentsBase64,
-      })
-      if (r.error) {
-        setSlipErr(r.error)
-        return
-      }
-      setSlipMsg('ส่งสลิปแล้ว — ทีมงานจะตรวจและเปิด Pro ภายใน 1 วันทำการ')
-      setSlipFiles([])
+  const syncPromptPay = async (chargeId) => {
+    const r = await api.post(`/subscription/promptpay/${encodeURIComponent(chargeId)}/sync`)
+    if (r.error) return
+    setPromptPayState((prev) => ({ ...(prev || {}), ...r }))
+    if (r.granted || r.status === 'successful') {
+      const me = await api.get('/auth/me')
+      if (me?.id && onUserRefresh) onUserRefresh(me)
       await load()
-    } catch {
-      setSlipErr('ส่งคำขอไม่สำเร็จ — ลองใหม่อีกครั้ง')
-    } finally {
-      setSubmittingSlip(false)
+      setBanner('ชำระ PromptPay สำเร็จแล้ว — เปิด Pro เรียบร้อย')
     }
   }
 
@@ -206,6 +191,18 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
       setActionErr('ยังไม่พบการสมัครบัตรที่ใช้งานอยู่ — หากเพิ่งชำระ รอสักครู่แล้วลองอีกครั้ง')
     }
   }
+
+  useEffect(() => {
+    const chargeId = promptPayState?.chargeId
+    const status = promptPayState?.status
+    if (!chargeId || status === 'successful' || status === 'failed' || status === 'expired') {
+      return
+    }
+    const timer = setInterval(() => {
+      syncPromptPay(chargeId).catch(() => {})
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [promptPayState?.chargeId, promptPayState?.status])
 
   if (loading) {
     return (
@@ -232,6 +229,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const features = freePlan?.features || []
   const proPrice = data.catalog?.proMonthlyThb || 99
   const stripeAuto = data.paymentEnabled && data.paymentMode === 'stripe'
+  const omisePromptPay = !!data.omisePromptPayEnabled
   const qrUrl = data.paymentQrUrl || '/promptpay-qr-99.png'
   const pending = data.pendingUpgradeTicket
   const isStripePro = isPro && data.hasStripeSubscription
@@ -419,7 +417,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
               className={`dash-segment-btn${payMethod === 'promptpay' ? ' dash-segment-btn--active' : ''}`}
               onClick={() => setPayMethod('promptpay')}
             >
-              PromptPay — สลิป
+              PromptPay
             </button>
           </div>
 
@@ -448,52 +446,87 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
 
           {payMethod === 'promptpay' && (
             <div className="dash-sub-pay-panel">
-              <ol className="dash-sub-steps">
-                <li>สแกน QR PromptPay โอน <strong>฿{proPrice}</strong></li>
-                <li>อัปโหลดสลิป — ทีมงานตรวจภายใน 1 วันทำการ</li>
-                <li>ต่ออายุทุกเดือนด้วยตัวเอง (ไม่หักอัตโนมัติ)</li>
-              </ol>
-
-              <div className="dash-sub-payment">
-                <div className="dash-sub-qr-wrap">
-                  <img
-                    src={qrUrl}
-                    alt={`PromptPay QR ฿${proPrice} PortDiary`}
-                    className="dash-sub-qr"
-                    width={280}
-                    height={380}
-                  />
-                  <p className="dash-text-muted" style={{ fontSize: '12px', textAlign: 'center', margin: '8px 0 0' }}>
-                    PortDiary · ฿{proPrice}.00
-                  </p>
-                </div>
-
-                <div className="dash-sub-receipt">
-                  <TicketImagePicker
-                    files={slipFiles}
-                    onChange={setSlipFiles}
-                    err={slipErr}
-                    setErr={setSlipErr}
-                  />
-                  <p className="dash-text-muted" style={{ fontSize: '12px', marginTop: '8px' }}>
-                    บัญชี: <strong>{user?.email}</strong>
-                  </p>
-                  {slipMsg && <p className="dash-text-gain" style={{ fontSize: '13px', marginTop: '10px' }}>{slipMsg}</p>}
-                  <button
-                    type="button"
-                    onClick={() => submitPromptPay(isManualPro)}
-                    style={{ ...btnPrimary, marginTop: '12px', width: '100%' }}
-                    disabled={submittingSlip || !!pending}
-                  >
-                    {submittingSlip ? 'กำลังส่ง...' : pending ? 'รอตรวจสลิปอยู่' : (isManualPro ? 'ส่งสลิปต่ออายุ Pro' : 'ส่งสลิปอัปเกรด Pro')}
-                  </button>
-                </div>
-              </div>
-
-              {data.paymentInstructions && (
-                <div className="dash-inset" style={{ padding: '12px', marginTop: '14px', whiteSpace: 'pre-wrap', fontSize: '13px' }}>
-                  {data.paymentInstructions}
-                </div>
+              {omisePromptPay ? (
+                <>
+                  <ol className="dash-sub-steps">
+                    <li>กดสร้าง QR แล้วสแกน PromptPay โอน <strong>฿{proPrice}</strong></li>
+                    <li>ระบบตรวจสอบการชำระให้อัตโนมัติผ่าน Omise</li>
+                    <li>ชำระสำเร็จแล้วเปิด Pro ทันที</li>
+                  </ol>
+                  {!promptPayState?.chargeId && (
+                    <button
+                      type="button"
+                      onClick={startPromptPayCheckout}
+                      style={{ ...btnPrimary, marginTop: '12px' }}
+                      disabled={creatingPromptPay}
+                    >
+                      {creatingPromptPay ? 'กำลังสร้าง QR...' : `สร้าง PromptPay QR — ฿${proPrice}`}
+                    </button>
+                  )}
+                  {promptPayErr && (
+                    <p className="dash-text-loss" style={{ fontSize: '13px', marginTop: '10px' }}>{promptPayErr}</p>
+                  )}
+                  {promptPayState?.chargeId && (
+                    <div className="dash-sub-payment" style={{ marginTop: '12px' }}>
+                      <div className="dash-sub-qr-wrap">
+                        <img
+                          src={promptPayState.qrImageUrl}
+                          alt={`PromptPay QR ฿${proPrice} PortDiary`}
+                          className="dash-sub-qr"
+                          width={280}
+                          height={380}
+                        />
+                        <p className="dash-text-muted" style={{ fontSize: '12px', textAlign: 'center', margin: '8px 0 0' }}>
+                          สถานะ: <strong>{billingStatusLabel({ source: 'omise_promptpay', status: promptPayState.status })}</strong>
+                        </p>
+                        {promptPayState.expiresAt && (
+                          <p className="dash-text-muted" style={{ fontSize: '12px', textAlign: 'center', margin: '6px 0 0' }}>
+                            หมดอายุ QR: {new Date(promptPayState.expiresAt).toLocaleString('th-TH')}
+                          </p>
+                        )}
+                      </div>
+                      <div className="dash-sub-receipt">
+                        <p className="dash-text-muted" style={{ fontSize: '13px', lineHeight: 1.7 }}>
+                          ระบบจะรีเฟรชสถานะทุก 5 วินาทีอัตโนมัติ
+                        </p>
+                        <button
+                          type="button"
+                          className="dash-sub-retry"
+                          style={{ ...btnGhost, width: '100%', marginTop: '10px' }}
+                          onClick={() => syncPromptPay(promptPayState.chargeId)}
+                        >
+                          รีเฟรชสถานะตอนนี้
+                        </button>
+                        <button
+                          type="button"
+                          style={{ ...btnPrimary, width: '100%', marginTop: '10px' }}
+                          onClick={startPromptPayCheckout}
+                        >
+                          สร้าง QR ใหม่
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <ol className="dash-sub-steps">
+                    <li>สแกน QR PromptPay โอน <strong>฿{proPrice}</strong></li>
+                    <li>ส่งสลิปผ่านเมนู Support เพื่อให้ทีมงานเปิด Pro</li>
+                    <li>ต่ออายุทุกเดือนด้วยตัวเอง (ไม่หักอัตโนมัติ)</li>
+                  </ol>
+                  <div className="dash-sub-payment">
+                    <div className="dash-sub-qr-wrap">
+                      <img
+                        src={qrUrl}
+                        alt={`PromptPay QR ฿${proPrice} PortDiary`}
+                        className="dash-sub-qr"
+                        width={280}
+                        height={380}
+                      />
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
