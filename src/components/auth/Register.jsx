@@ -112,24 +112,24 @@ export default function Register({ onGoLogin, onGoHome, onLogin }) {
   if (step === 'otp') {
     return (
       <div className="auth-wrap"><div className="auth-card">
-        <h1 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>ยืนยันอีเมล</h1>
-        <p style={{ color: '#555', fontSize: '13px', marginBottom: '20px' }}>
-          ส่งรหัส OTP 6 หลักไปที่ <strong style={{ color: '#aaa' }}>{form.email}</strong>
+        <h1 style={{ color: 'var(--text)', fontSize: '20px', marginBottom: '8px' }}>ยืนยันอีเมล</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>
+          ส่งรหัส OTP 6 หลักไปที่ <strong style={{ color: 'var(--text)' }}>{form.email}</strong>
         </p>
         {error && <p style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
-        {info && <p style={{ color: '#55efc4', fontSize: '13px', marginBottom: '16px' }}>{info}</p>}
+        {info && <p style={{ color: 'var(--accent)', fontSize: '13px', marginBottom: '16px' }}>{info}</p>}
         <Field label="รหัส OTP">
           <OtpInput value={otp} onChange={setOtp} onKeyDown={onKeyDown} />
         </Field>
         <button onClick={verifyOtp} style={{ ...btnPrimary, marginTop: '8px' }} disabled={loading}>
           {loading ? 'กำลังยืนยัน...' : 'ยืนยันและสมัครสมาชิก'}
         </button>
-        <p style={{ textAlign: 'center', marginTop: '14px', fontSize: '12px', color: '#555' }}>
+        <p style={{ textAlign: 'center', marginTop: '14px', fontSize: '12px', color: 'var(--text-muted)' }}>
           {resendIn > 0 ? `ขอรหัสใหม่ได้ใน ${resendIn} วินาที` : (
             <span onClick={resendOtp} style={{ color: '#a29bfe', cursor: 'pointer' }}>ส่งรหัส OTP อีกครั้ง</span>
           )}
         </p>
-        <p style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#444' }}>
+        <p style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: 'var(--text-faint)' }}>
           <span onClick={() => { setStep('form'); setOtp(''); setError('') }} style={{ cursor: 'pointer' }}>← แก้ไขข้อมูลสมัคร</span>
         </p>
       </div></div>
