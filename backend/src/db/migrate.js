@@ -569,6 +569,27 @@ const migrations = [
         ON omise_card_charges (user_id, created_at DESC);
     `,
   },
+  {
+    name: '027_omise_card_recurring_columns',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS omise_customer_id VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS omise_schedule_id VARCHAR(255);
+      CREATE UNIQUE INDEX IF NOT EXISTS users_omise_customer_id_idx
+        ON users (omise_customer_id) WHERE omise_customer_id IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS omise_card_charges (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        charge_id VARCHAR(255) NOT NULL UNIQUE,
+        amount_satang INTEGER NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending',
+        paid_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS omise_card_charges_user_created_idx
+        ON omise_card_charges (user_id, created_at DESC);
+    `,
+  },
 ]
 
 export async function runMigrations() {
