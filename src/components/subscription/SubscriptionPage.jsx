@@ -535,6 +535,9 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
                       <input style={inp({ marginBottom: 0 })} placeholder="YY" value={cardForm.year} onChange={(e) => setCardForm({ ...cardForm, year: e.target.value })} />
                       <input style={inp({ marginBottom: 0 })} placeholder="CVC" value={cardForm.cvc} onChange={(e) => setCardForm({ ...cardForm, cvc: e.target.value })} />
                     </div>
+                    <p className="dash-text-muted" style={{ fontSize: '12px', lineHeight: 1.7, marginTop: '10px' }}>
+                      ข้อมูลบัตรจะถูกส่งแบบเข้ารหัสไปยัง Omise เพื่อสร้าง token เท่านั้น และ PortDiary จะไม่จัดเก็บเลขบัตรเต็มหรือรหัส CVC ของคุณ
+                    </p>
                     <button type="button" onClick={subscribeOmiseCard} style={{ ...btnPrimary, marginTop: '12px' }} disabled={omiseCardLoading}>
                       {omiseCardLoading ? 'กำลังสมัครบัตร...' : `สมัครตัดบัตรอัตโนมัติ — ฿${proPrice}/เดือน`}
                     </button>
