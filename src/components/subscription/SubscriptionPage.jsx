@@ -320,6 +320,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const showOmiseManage = !data.isOwner && isOmiseCardPro
   const billingHistory = data.billingHistory || []
   const stripeCancelled = data.stripeSubscription?.cancelAtPeriodEnd
+  const paymentMaintenance = !!data.paymentTemporarilyDisabled
 
   const quotaCards = QUOTA_KEYS.map(([key, label]) => quotaCard(data.quota, key, label)).filter(Boolean)
 
@@ -384,6 +385,14 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
 
       {actionErr && (
         <p className="dash-text-loss" style={{ marginBottom: '12px', fontSize: '14px' }}>{actionErr}</p>
+      )}
+
+      {paymentMaintenance && (
+        <div className="dash-inset" style={{ padding: '12px 14px', marginBottom: '16px', borderColor: 'var(--warn)' }}>
+          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px' }}>
+            <strong>ประกาศ:</strong> {data.paymentTemporarilyDisabledMessage || 'ระบบชำระเงินปิดชั่วคราว'}
+          </p>
+        </div>
       )}
 
       {pending && (
@@ -490,7 +499,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
         </div>
       )}
 
-      {showPayChooser && (
+      {showPayChooser && !paymentMaintenance && (
         <div className="dash-card dash-sub-note">
           <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '6px' }}>
             {isManualPro ? 'ต่ออายุ Pro' : 'อัปเกรดเป็น Pro'} — ฿{proPrice}/เดือน

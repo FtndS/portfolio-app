@@ -21,6 +21,13 @@ import pool from '../db/index.js'
 const router = express.Router()
 router.use(authMiddleware)
 
+function getPaymentMaintenanceNotice() {
+  const disabled = String(process.env.PRO_UPGRADE_DISABLED || '').trim().toLowerCase() === 'true'
+  const message = String(process.env.PRO_UPGRADE_DISABLED_MESSAGE || '').trim()
+    || 'ระบบชำระเงินปิดชั่วคราวระหว่างรออนุมัติจากผู้ให้บริการ กรุณาลองใหม่อีกครั้งภายหลัง'
+  return { disabled, message }
+}
+
 router.get('/', async (req, res) => {
   try {
     const effective = resolveEffectivePlan(req.userPlan, req.userPlanExpiresAt)
@@ -77,6 +84,7 @@ router.get('/', async (req, res) => {
     const omiseBillingHistory = await fetchOmiseBillingHistory(pool, req.userId)
     const mergedBillingHistory = [...billingHistory, ...omiseBillingHistory]
       .sort((a, b) => new Date(b.paidAt || b.createdAt) - new Date(a.paidAt || a.createdAt))
+    const maintenance = getPaymentMaintenanceNotice()
 
     res.json({
       plan: isOwner ? 'pro' : effective,
@@ -99,6 +107,8 @@ router.get('/', async (req, res) => {
       billingHistory: mergedBillingHistory,
       paymentQrUrl: process.env.PRO_PAYMENT_QR_URL || '/promptpay-qr-99.png',
       paymentInstructions: process.env.PRO_PAYMENT_INSTRUCTIONS || null,
+      paymentTemporarilyDisabled: maintenance.disabled,
+      paymentTemporarilyDisabledMessage: maintenance.message,
       catalog: buildSubscriptionCatalog(),
       quota,
     })
@@ -109,6 +119,10 @@ router.get('/', async (req, res) => {
 
 router.post('/omise/card/subscribe', async (req, res) => {
   try {
+    const maintenance = getPaymentMaintenanceNotice()
+    if (maintenance.disabled) {
+      return res.status(503).json({ error: maintenance.message })
+    }
     if (!isOmiseConfigured()) {
       return res.status(503).json({ error: 'ระบบตัดบัตร Omise ยังไม่พร้อม' })
     }
@@ -140,6 +154,10 @@ router.post('/omise/card/cancel', async (req, res) => {
 
 router.post('/promptpay/checkout', async (req, res) => {
   try {
+    const maintenance = getPaymentMaintenanceNotice()
+    if (maintenance.disabled) {
+      return res.status(503).json({ error: maintenance.message })
+    }
     if (!isOmiseConfigured()) {
       return res.status(503).json({ error: 'ระบบ PromptPay อัตโนมัติยังไม่พร้อม' })
     }
@@ -179,6 +197,10 @@ router.post('/promptpay/:chargeId/sync', async (req, res) => {
 
 router.post('/checkout', async (req, res) => {
   try {
+    const maintenance = getPaymentMaintenanceNotice()
+    if (maintenance.disabled) {
+      return res.status(503).json({ error: maintenance.message })
+    }
     if (!isStripeConfigured()) {
       return res.status(503).json({ error: 'ระบบชำระเงินอัตโนมัติยังไม่พร้อม — ติดต่อทีมงาน' })
     }
