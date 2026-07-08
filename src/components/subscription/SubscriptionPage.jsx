@@ -35,6 +35,7 @@ const QUOTA_KEYS = [
   ['newsSummary', 'สรุปข่าว'],
   ['tickerJournal', 'สรุป journal หุ้น'],
 ]
+const PAYMENT_MAINTENANCE_POPUP_SEEN_KEY = 'portdiary_payment_maintenance_popup_seen'
 
 const UPGRADE_STATUS = {
   open: 'รอตรวจสลิป',
@@ -99,6 +100,7 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
   const [promptPayState, setPromptPayState] = useState(null)
   const [promptPayErr, setPromptPayErr] = useState('')
   const [syncLoading, setSyncLoading] = useState(false)
+  const [showMaintenancePopup, setShowMaintenancePopup] = useState(false)
   const [cardForm, setCardForm] = useState({
     name: user?.name || '',
     number: '',
@@ -283,6 +285,20 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
     return () => clearInterval(timer)
   }, [promptPayState?.chargeId, promptPayState?.status])
 
+  useEffect(() => {
+    if (!data?.paymentTemporarilyDisabled) {
+      setShowMaintenancePopup(false)
+      return
+    }
+    let seen = false
+    try {
+      seen = window.localStorage.getItem(PAYMENT_MAINTENANCE_POPUP_SEEN_KEY) === '1'
+    } catch {
+      seen = false
+    }
+    setShowMaintenancePopup(!seen)
+  }, [data?.paymentTemporarilyDisabled])
+
   if (loading) {
     return (
       <div className="dash-sub-page">
@@ -326,6 +342,51 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
 
   return (
     <div className="dash-sub-page">
+      {paymentMaintenance && showMaintenancePopup && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(10, 12, 18, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            padding: '16px',
+          }}
+        >
+          <div
+            className="dash-card"
+            style={{
+              width: 'min(460px, 100%)',
+              borderColor: 'var(--warn)',
+              boxShadow: '0 24px 54px rgba(0,0,0,.35)',
+            }}
+          >
+            <h3 className="dash-card-title" style={{ marginBottom: '8px' }}>แจ้งเตือน</h3>
+            <p className="dash-text-secondary" style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: 700 }}>
+              ปิดปรับปรุงระบบชำระเงินชั่วคราว
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowMaintenancePopup(false)
+                try {
+                  window.localStorage.setItem(PAYMENT_MAINTENANCE_POPUP_SEEN_KEY, '1')
+                } catch {
+                  // ignore storage failures (private mode / browser policy)
+                }
+              }}
+              style={{ ...btnPrimary, width: '100%' }}
+            >
+              รับทราบ
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="dash-sub-hero">
         <div>
           <h2 className="dash-sub-title">แผนการใช้งาน</h2>
@@ -388,9 +449,20 @@ export default function SubscriptionPage({ user, onUserRefresh, flashMessage = '
       )}
 
       {paymentMaintenance && (
-        <div className="dash-inset" style={{ padding: '12px 14px', marginBottom: '16px', borderColor: 'var(--warn)' }}>
-          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px' }}>
-            <strong>ประกาศ:</strong> {data.paymentTemporarilyDisabledMessage || 'ระบบชำระเงินปิดชั่วคราว'}
+        <div
+          className="dash-inset"
+          style={{
+            padding: '14px 16px',
+            marginBottom: '16px',
+            borderColor: 'var(--warn)',
+            background: 'color-mix(in srgb, var(--warn) 14%, transparent)',
+          }}
+        >
+          <p
+            className="dash-text-secondary"
+            style={{ margin: 0, fontSize: '15px', fontWeight: 700, textAlign: 'center' }}
+          >
+            ปิดปรับปรุงระบบชำระเงินชั่วคราว
           </p>
         </div>
       )}
