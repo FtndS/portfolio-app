@@ -8,6 +8,7 @@ import DateInput from '../ui/DateInput'
 import Modal from '../ui/Modal'
 import { readTripId } from '../../lib/appRoutes'
 import TripPlaceSearch, { PlacePhoto } from './TripPlaceSearch'
+import './TripApp.css'
 import './TripPlaceSearch.css'
 
 const PLACE_TYPES = [
