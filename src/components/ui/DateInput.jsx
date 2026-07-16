@@ -11,6 +11,7 @@ const DateInput = forwardRef(function DateInput(
   const pickerRef = useRef(null)
   const skipSyncRef = useRef(false)
   const pickerOpeningRef = useRef(false)
+  const clearedViaPickerRef = useRef(false)
 
   const { marginBottom, width, ...inputStyle } = style
 
@@ -22,12 +23,17 @@ const DateInput = forwardRef(function DateInput(
     const next = isoDate(value)
     setText(next ? fmtDate(next) : '')
     setInvalid(false)
+    if (pickerRef.current) {
+      pickerRef.current.value = next || ''
+    }
   }, [value])
 
   const clearDate = () => {
     setInvalid(false)
     setText('')
     skipSyncRef.current = true
+    clearedViaPickerRef.current = true
+    if (pickerRef.current) pickerRef.current.value = ''
     onChange('')
   }
 
@@ -36,6 +42,8 @@ const DateInput = forwardRef(function DateInput(
     if (!normalized) return null
     setInvalid(false)
     setText(fmtDate(normalized))
+    clearedViaPickerRef.current = false
+    if (pickerRef.current) pickerRef.current.value = normalized
     onChange(normalized)
     return normalized
   }
@@ -74,11 +82,20 @@ const DateInput = forwardRef(function DateInput(
     commit(text)
   }
 
+  const handleNativePickerChange = (e) => {
+    const next = e.target.value
+    if (!next) {
+      clearDate()
+      return
+    }
+    applyIso(next)
+  }
+
   const openNativePicker = (e) => {
+    markPickerOpening()
+    clearedViaPickerRef.current = false
     const el = e.currentTarget
-    // Reset native value briefly so choosing "Today" / the same day fires onChange.
-    // Keep React `value={iso||''}` in sync on the next render after apply/clear.
-    const previous = iso || ''
+    // Uncontrolled native input — reset before open so Today / same day / Clear work.
     try {
       el.value = ''
     } catch {
@@ -89,19 +106,23 @@ const DateInput = forwardRef(function DateInput(
     } catch {
       /* overlay click opens picker in most browsers */
     }
-    // If the user dismisses without choosing, restore previous DOM value.
-    const restoreIfCancelled = () => {
-      if (!el.value && previous) {
-        try {
-          el.value = previous
-        } catch {
-          /* ignore */
-        }
-      }
-      el.removeEventListener('blur', restoreIfCancelled)
-    }
-    el.addEventListener('blur', restoreIfCancelled)
   }
+
+  const handleNativePickerBlur = () => {
+    pickerOpeningRef.current = false
+    if (clearedViaPickerRef.current) return
+    const el = pickerRef.current
+    if (!el) return
+    if (!el.value && iso) {
+      try {
+        el.value = iso
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  const hasValue = !!(text.trim() || iso)
 
   return (
     <div
@@ -136,22 +157,30 @@ const DateInput = forwardRef(function DateInput(
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? 'dash-date-input-error' : undefined}
         />
+        {hasValue && (
+          <button
+            type="button"
+            className="dash-date-input-clear"
+            onClick={clearDate}
+            aria-label="ล้างวันที่"
+            title="ล้างวันที่"
+          >
+            ×
+          </button>
+        )}
         <label className="dash-date-input-picker">
           <input
             ref={pickerRef}
             type="date"
             className="dash-date-input-native-overlay"
-            value={iso || ''}
+            defaultValue={iso || ''}
             onMouseDown={markPickerOpening}
             onClick={openNativePicker}
-            onChange={(e) => {
-              const next = e.target.value
-              if (!next) {
-                clearDate()
-                return
-              }
-              applyIso(next)
+            onChange={handleNativePickerChange}
+            onInput={(e) => {
+              if (!e.currentTarget.value) clearDate()
             }}
+            onBlur={handleNativePickerBlur}
             aria-label="เลือกจากปฏิทิน"
           />
           <span className="dash-date-input-picker-icon" aria-hidden>📅</span>

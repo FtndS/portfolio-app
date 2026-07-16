@@ -5,6 +5,7 @@ import { fmtDate as fmtDateDmy } from '../../lib/format'
 import Logo from '../Logo'
 import ThemeToggle from '../ThemeToggle'
 import DateInput from '../ui/DateInput'
+import Modal from '../ui/Modal'
 import { readTripId } from '../../lib/appRoutes'
 import './TripApp.css'
 
@@ -75,6 +76,8 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [placeForm, setPlaceForm] = useState(emptyPlaceForm)
   const [saving, setSaving] = useState(false)
   const [activeDayId, setActiveDayId] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadList = async () => {
     setLoading(true)
@@ -140,12 +143,16 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   }
 
   const deleteTrip = async () => {
-    if (!detail || !window.confirm(`ลบทริป “${detail.title}” ?`)) return
+    if (!detail) return
+    setDeleting(true)
+    setErr('')
     const r = await api.delete(`/trips/${detail.id}`)
+    setDeleting(false)
     if (r?.error) {
       setErr(r.error)
       return
     }
+    setConfirmDelete(null)
     navigate('/trip')
   }
 
@@ -183,12 +190,15 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   }
 
   const removePlace = async (placeId) => {
-    if (!window.confirm('ลบสถานที่นี้?')) return
+    setDeleting(true)
+    setErr('')
     const r = await api.delete(`/trips/${detail.id}/places/${placeId}`)
+    setDeleting(false)
     if (r?.error) {
       setErr(r.error)
       return
     }
+    setConfirmDelete(null)
     await loadDetail(detail.id)
   }
 
@@ -317,7 +327,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   {detail.destination || 'ไม่ระบุปลายทาง'} · {fmtDate(detail.start_date)} – {fmtDate(detail.end_date)}
                 </p>
               </div>
-              <button type="button" style={{ ...btnGhost, width: 'auto' }} onClick={deleteTrip}>
+              <button type="button" style={{ ...btnGhost, width: 'auto' }} onClick={() => setConfirmDelete({ type: 'trip' })}>
                 ลบทริป
               </button>
             </div>
@@ -373,7 +383,11 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                           </a>
                         )}
                       </div>
-                      <button type="button" className="dash-link-btn" onClick={() => removePlace(p.id)}>
+                      <button
+                        type="button"
+                        className="dash-link-btn"
+                        onClick={() => setConfirmDelete({ type: 'place', id: p.id, name: p.name })}
+                      >
                         ลบ
                       </button>
                     </div>
@@ -486,6 +500,48 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
           </>
         )}
       </main>
+
+      {confirmDelete?.type === 'trip' && detail && (
+        <Modal title="ลบทริป?" onClose={() => !deleting && setConfirmDelete(null)}>
+          <p className="dash-text-secondary" style={{ margin: '0 0 16px', lineHeight: 1.65 }}>
+            ต้องการลบทริป <strong>{detail.title}</strong> หรือไม่? ข้อมูลวันและจุดแวะจะถูกลบถาวร
+          </p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" style={{ ...btnGhost, width: 'auto', flex: 1 }} disabled={deleting} onClick={() => setConfirmDelete(null)}>
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              style={{ ...btnPrimary, width: 'auto', flex: 1, background: 'var(--loss)' }}
+              disabled={deleting}
+              onClick={deleteTrip}
+            >
+              {deleting ? 'กำลังลบ...' : 'ลบทริป'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmDelete?.type === 'place' && detail && (
+        <Modal title="ลบจุดแวะ?" onClose={() => !deleting && setConfirmDelete(null)}>
+          <p className="dash-text-secondary" style={{ margin: '0 0 16px', lineHeight: 1.65 }}>
+            ต้องการลบ <strong>{confirmDelete.name}</strong> ออกจากทริปนี้หรือไม่?
+          </p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" style={{ ...btnGhost, width: 'auto', flex: 1 }} disabled={deleting} onClick={() => setConfirmDelete(null)}>
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              style={{ ...btnPrimary, width: 'auto', flex: 1, background: 'var(--loss)' }}
+              disabled={deleting}
+              onClick={() => removePlace(confirmDelete.id)}
+            >
+              {deleting ? 'กำลังลบ...' : 'ลบจุดแวะ'}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
