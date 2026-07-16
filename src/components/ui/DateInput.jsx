@@ -11,7 +11,6 @@ const DateInput = forwardRef(function DateInput(
   const pickerRef = useRef(null)
   const skipSyncRef = useRef(false)
   const pickerOpeningRef = useRef(false)
-  const clearedViaPickerRef = useRef(false)
 
   const { marginBottom, width, ...inputStyle } = style
 
@@ -32,7 +31,6 @@ const DateInput = forwardRef(function DateInput(
     setInvalid(false)
     setText('')
     skipSyncRef.current = true
-    clearedViaPickerRef.current = true
     if (pickerRef.current) pickerRef.current.value = ''
     onChange('')
   }
@@ -42,7 +40,6 @@ const DateInput = forwardRef(function DateInput(
     if (!normalized) return null
     setInvalid(false)
     setText(fmtDate(normalized))
-    clearedViaPickerRef.current = false
     if (pickerRef.current) pickerRef.current.value = normalized
     onChange(normalized)
     return normalized
@@ -93,11 +90,11 @@ const DateInput = forwardRef(function DateInput(
 
   const openNativePicker = (e) => {
     markPickerOpening()
-    clearedViaPickerRef.current = false
     const el = e.currentTarget
-    // Uncontrolled native input — reset before open so Today / same day / Clear work.
+    // Keep the current value in the native input so the picker's "Clear" can
+    // transition from a real date → empty and fire change/input events.
     try {
-      el.value = ''
+      el.value = iso || ''
     } catch {
       /* ignore */
     }
@@ -110,16 +107,6 @@ const DateInput = forwardRef(function DateInput(
 
   const handleNativePickerBlur = () => {
     pickerOpeningRef.current = false
-    if (clearedViaPickerRef.current) return
-    const el = pickerRef.current
-    if (!el) return
-    if (!el.value && iso) {
-      try {
-        el.value = iso
-      } catch {
-        /* ignore */
-      }
-    }
   }
 
   const hasValue = !!(text.trim() || iso)
