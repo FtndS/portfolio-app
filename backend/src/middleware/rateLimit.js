@@ -79,3 +79,11 @@ export const historyLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'โหลดประวัติพอร์ตบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่' },
 })
+
+export const placeSearchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'ค้นหาสถานที่บ่อยเกินไป กรุณารอสักครู่' },
+})

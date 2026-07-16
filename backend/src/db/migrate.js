@@ -642,6 +642,14 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS trip_places_day_idx ON trip_places (trip_day_id, sort_order);
     `,
   },
+  {
+    name: '029_trip_place_photos',
+    sql: `
+      ALTER TABLE trip_places ADD COLUMN IF NOT EXISTS photo_url TEXT;
+      ALTER TABLE trip_places ADD COLUMN IF NOT EXISTS external_id VARCHAR(255);
+      ALTER TABLE trip_places ADD COLUMN IF NOT EXISTS external_source VARCHAR(32);
+    `,
+  },
 ]
 
 export async function runMigrations() {

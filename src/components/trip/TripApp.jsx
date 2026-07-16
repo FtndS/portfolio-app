@@ -7,7 +7,8 @@ import ThemeToggle from '../ThemeToggle'
 import DateInput from '../ui/DateInput'
 import Modal from '../ui/Modal'
 import { readTripId } from '../../lib/appRoutes'
-import './TripApp.css'
+import TripPlaceSearch, { PlacePhoto } from './TripPlaceSearch'
+import './TripPlaceSearch.css'
 
 const PLACE_TYPES = [
   ['hotel', 'ที่พัก'],
@@ -78,6 +79,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [activeDayId, setActiveDayId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [placeAddMode, setPlaceAddMode] = useState('search')
 
   const loadList = async () => {
     setLoading(true)
@@ -166,27 +168,44 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     setActiveDayId(r.id)
   }
 
-  const addPlace = async () => {
+  const addPlace = async (payloadOverride) => {
     setSaving(true)
     setErr('')
-    const payload = {
+    const base = payloadOverride || {
       ...placeForm,
       trip_day_id: placeForm.trip_day_id || activeDayId || null,
       lat: placeForm.lat === '' ? null : placeForm.lat,
       lng: placeForm.lng === '' ? null : placeForm.lng,
       budget: placeForm.budget === '' ? null : placeForm.budget,
     }
-    const r = await api.post(`/trips/${detail.id}/places`, payload)
+    const r = await api.post(`/trips/${detail.id}/places`, base)
     setSaving(false)
     if (r?.error) {
       setErr(r.error)
-      return
+      return false
     }
-    setPlaceForm({
-      ...emptyPlaceForm,
-      trip_day_id: placeForm.trip_day_id || (activeDayId ? String(activeDayId) : ''),
-    })
+    if (!payloadOverride) {
+      setPlaceForm({
+        ...emptyPlaceForm,
+        trip_day_id: placeForm.trip_day_id || (activeDayId ? String(activeDayId) : ''),
+      })
+    }
     await loadDetail(detail.id)
+    return true
+  }
+
+  const addPlaceFromSearch = async (result) => {
+    await addPlace({
+      name: result.name,
+      type: result.type || placeForm.type,
+      trip_day_id: placeForm.trip_day_id || activeDayId || null,
+      address: result.address || null,
+      lat: result.lat,
+      lng: result.lng,
+      photo_url: result.photoUrl || null,
+      external_id: result.externalId || result.id || null,
+      external_source: result.source || null,
+    })
   }
 
   const removePlace = async (placeId) => {
@@ -361,27 +380,35 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   )}
                   {placesForActiveDay.map((p) => (
                     <div key={p.id} className="trip-place-row">
-                      <div>
-                        <div className="trip-place-name">
-                          <span className="trip-place-type">{typeLabel(p.type)}</span>
-                          {p.name}
+                      <div className="trip-place-row-with-photo">
+                        <PlacePhoto
+                          url={p.photo_url}
+                          alt={p.name}
+                          className="trip-place-row-thumb"
+                          type={p.type}
+                        />
+                        <div className="trip-place-row-body">
+                          <div className="trip-place-name">
+                            <span className="trip-place-type">{typeLabel(p.type)}</span>
+                            {p.name}
+                          </div>
+                          <div className="dash-text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                            {[p.start_time, p.end_time].filter(Boolean).join(' – ') || 'ไม่ระบุเวลา'}
+                            {p.address ? ` · ${p.address}` : ''}
+                            {p.budget != null ? ` · ฿${Number(p.budget).toLocaleString('th-TH')}` : ''}
+                          </div>
+                          {p.lat != null && p.lng != null && (
+                            <a
+                              className="dash-link-btn"
+                              style={{ fontSize: 12, marginTop: 6, display: 'inline-block' }}
+                              href={`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=15/${p.lat}/${p.lng}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              เปิดแผนที่
+                            </a>
+                          )}
                         </div>
-                        <div className="dash-text-muted" style={{ fontSize: 12, marginTop: 4 }}>
-                          {[p.start_time, p.end_time].filter(Boolean).join(' – ') || 'ไม่ระบุเวลา'}
-                          {p.address ? ` · ${p.address}` : ''}
-                          {p.budget != null ? ` · ฿${Number(p.budget).toLocaleString('th-TH')}` : ''}
-                        </div>
-                        {p.lat != null && p.lng != null && (
-                          <a
-                            className="dash-link-btn"
-                            style={{ fontSize: 12, marginTop: 6, display: 'inline-block' }}
-                            href={`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=15/${p.lat}/${p.lng}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            เปิดแผนที่
-                          </a>
-                        )}
                       </div>
                       <button
                         type="button"
@@ -396,12 +423,23 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
 
                 <div className="trip-place-form">
                   <h4>เพิ่มจุดแวะ</h4>
-                  <input
-                    style={inp()}
-                    placeholder="ชื่อสถานที่"
-                    value={placeForm.name}
-                    onChange={(e) => setPlaceForm({ ...placeForm, name: e.target.value })}
-                  />
+                  <div className="trip-add-mode-tabs">
+                    <button
+                      type="button"
+                      className={`trip-add-mode-tab${placeAddMode === 'search' ? ' is-active' : ''}`}
+                      onClick={() => setPlaceAddMode('search')}
+                    >
+                      ค้นหา
+                    </button>
+                    <button
+                      type="button"
+                      className={`trip-add-mode-tab${placeAddMode === 'manual' ? ' is-active' : ''}`}
+                      onClick={() => setPlaceAddMode('manual')}
+                    >
+                      ใส่เอง
+                    </button>
+                  </div>
+
                   <div className="trip-form-row">
                     <label>
                       <span>ประเภท</span>
@@ -431,49 +469,67 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                       </select>
                     </label>
                   </div>
-                  <input
-                    style={inp()}
-                    placeholder="ที่อยู่ (ถ้ามี)"
-                    value={placeForm.address}
-                    onChange={(e) => setPlaceForm({ ...placeForm, address: e.target.value })}
-                  />
-                  <div className="trip-form-row">
-                    <input
-                      style={inp({ marginBottom: 0 })}
-                      placeholder="ละติจูด"
-                      value={placeForm.lat}
-                      onChange={(e) => setPlaceForm({ ...placeForm, lat: e.target.value })}
+
+                  {placeAddMode === 'search' ? (
+                    <TripPlaceSearch
+                      destination={detail.destination}
+                      type={placeForm.type}
+                      disabled={saving}
+                      onSelect={addPlaceFromSearch}
                     />
-                    <input
-                      style={inp({ marginBottom: 0 })}
-                      placeholder="ลองจิจูด"
-                      value={placeForm.lng}
-                      onChange={(e) => setPlaceForm({ ...placeForm, lng: e.target.value })}
-                    />
-                  </div>
-                  <div className="trip-form-row">
-                    <input
-                      style={inp({ marginBottom: 0 })}
-                      placeholder="เวลาเริ่ม เช่น 09:00"
-                      value={placeForm.start_time}
-                      onChange={(e) => setPlaceForm({ ...placeForm, start_time: e.target.value })}
-                    />
-                    <input
-                      style={inp({ marginBottom: 0 })}
-                      placeholder="เวลาจบ เช่น 11:00"
-                      value={placeForm.end_time}
-                      onChange={(e) => setPlaceForm({ ...placeForm, end_time: e.target.value })}
-                    />
-                    <input
-                      style={inp({ marginBottom: 0 })}
-                      placeholder="งบ (บาท)"
-                      value={placeForm.budget}
-                      onChange={(e) => setPlaceForm({ ...placeForm, budget: e.target.value })}
-                    />
-                  </div>
-                  <button type="button" style={btnPrimary} disabled={saving} onClick={addPlace}>
-                    {saving ? 'กำลังบันทึก...' : 'เพิ่มจุดแวะ'}
-                  </button>
+                  ) : (
+                    <>
+                      <input
+                        style={inp()}
+                        placeholder="ชื่อสถานที่"
+                        value={placeForm.name}
+                        onChange={(e) => setPlaceForm({ ...placeForm, name: e.target.value })}
+                      />
+                      <input
+                        style={inp()}
+                        placeholder="ที่อยู่ (ถ้ามี)"
+                        value={placeForm.address}
+                        onChange={(e) => setPlaceForm({ ...placeForm, address: e.target.value })}
+                      />
+                      <div className="trip-form-row">
+                        <input
+                          style={inp({ marginBottom: 0 })}
+                          placeholder="ละติจูด"
+                          value={placeForm.lat}
+                          onChange={(e) => setPlaceForm({ ...placeForm, lat: e.target.value })}
+                        />
+                        <input
+                          style={inp({ marginBottom: 0 })}
+                          placeholder="ลองจิจูด"
+                          value={placeForm.lng}
+                          onChange={(e) => setPlaceForm({ ...placeForm, lng: e.target.value })}
+                        />
+                      </div>
+                      <div className="trip-form-row">
+                        <input
+                          style={inp({ marginBottom: 0 })}
+                          placeholder="เวลาเริ่ม เช่น 09:00"
+                          value={placeForm.start_time}
+                          onChange={(e) => setPlaceForm({ ...placeForm, start_time: e.target.value })}
+                        />
+                        <input
+                          style={inp({ marginBottom: 0 })}
+                          placeholder="เวลาจบ เช่น 11:00"
+                          value={placeForm.end_time}
+                          onChange={(e) => setPlaceForm({ ...placeForm, end_time: e.target.value })}
+                        />
+                        <input
+                          style={inp({ marginBottom: 0 })}
+                          placeholder="งบ (บาท)"
+                          value={placeForm.budget}
+                          onChange={(e) => setPlaceForm({ ...placeForm, budget: e.target.value })}
+                        />
+                      </div>
+                      <button type="button" style={btnPrimary} disabled={saving} onClick={() => addPlace()}>
+                        {saving ? 'กำลังบันทึก...' : 'เพิ่มจุดแวะ'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </section>
 

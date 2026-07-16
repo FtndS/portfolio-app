@@ -103,6 +103,10 @@ export function normalizePlacePayload(body = {}) {
     : Number(body.trip_day_id)
   if (tripDayId != null && Number.isNaN(tripDayId)) return { error: 'วันทริปไม่ถูกต้อง' }
 
+  const photoUrl = body.photo_url != null ? String(body.photo_url).trim() || null : null
+  const externalId = body.external_id != null ? String(body.external_id).trim() || null : null
+  const externalSource = body.external_source != null ? String(body.external_source).trim().slice(0, 32) || null : null
+
   return {
     trip_day_id: tripDayId,
     type,
@@ -110,6 +114,9 @@ export function normalizePlacePayload(body = {}) {
     lat,
     lng,
     address: body.address != null ? String(body.address).trim() || null : null,
+    photo_url: photoUrl,
+    external_id: externalId,
+    external_source: externalSource,
     start_time: body.start_time != null ? String(body.start_time).trim().slice(0, 16) || null : null,
     end_time: body.end_time != null ? String(body.end_time).trim().slice(0, 16) || null : null,
     budget,

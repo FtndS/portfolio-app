@@ -1,7 +1,13 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { placeSearchLimiter } from '../middleware/rateLimit.js'
 import { serverError } from '../lib/httpErrors.js'
+import {
+  fetchGooglePlacePhoto,
+  isGooglePlacesConfigured,
+  searchTripPlaces,
+} from '../lib/placeSearch.js'
 import {
   enumerateDateRange,
   normalizePlacePayload,
@@ -10,6 +16,43 @@ import {
 
 const router = express.Router()
 router.use(authMiddleware)
+
+router.get('/places/search', placeSearchLimiter, async (req, res) => {
+  const q = String(req.query.q || '').trim()
+  const type = String(req.query.type || 'other').trim()
+  const near = String(req.query.near || '').trim()
+  if (q.length < 2 && near.length < 2) {
+    return res.status(400).json({ error: 'พิมพ์คำค้นหาอย่างน้อย 2 ตัวอักษร หรือระบุปลายทางทริป' })
+  }
+
+  try {
+    const results = await searchTripPlaces({ query: q, type, near })
+    res.json({
+      results,
+      provider: isGooglePlacesConfigured() ? 'google' : 'osm',
+    })
+  } catch (err) {
+    serverError(res, err, 'GET place search error:')
+  }
+})
+
+router.get('/places/photo', placeSearchLimiter, async (req, res) => {
+  if (req.query.provider !== 'google') {
+    return res.status(400).json({ error: 'ไม่รองรับแหล่งรูปนี้' })
+  }
+  const name = String(req.query.name || '').trim()
+  if (!name) return res.status(400).json({ error: 'ไม่พบรูป' })
+
+  try {
+    const photo = await fetchGooglePlacePhoto(name)
+    if (!photo) return res.status(404).end()
+    res.set('Content-Type', photo.contentType)
+    res.set('Cache-Control', 'private, max-age=86400')
+    res.send(photo.buffer)
+  } catch (err) {
+    serverError(res, err, 'GET place photo error:')
+  }
+})
 
 async function getOwnedTrip(userId, tripId) {
   const r = await pool.query(
@@ -269,8 +312,9 @@ router.post('/:id/places', async (req, res) => {
   try {
     const r = await pool.query(
       `INSERT INTO trip_places
-        (trip_id, trip_day_id, type, name, lat, lng, address, start_time, end_time, budget, notes, sort_order)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        (trip_id, trip_day_id, type, name, lat, lng, address, photo_url, external_id, external_source,
+         start_time, end_time, budget, notes, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING *`,
       [
         tripId,
@@ -280,6 +324,9 @@ router.post('/:id/places', async (req, res) => {
         parsed.lat,
         parsed.lng,
         parsed.address,
+        parsed.photo_url,
+        parsed.external_id,
+        parsed.external_source,
         parsed.start_time,
         parsed.end_time,
         parsed.budget,
@@ -320,8 +367,9 @@ router.put('/:id/places/:placeId', async (req, res) => {
     const r = await pool.query(
       `UPDATE trip_places
        SET trip_day_id = $1, type = $2, name = $3, lat = $4, lng = $5, address = $6,
-           start_time = $7, end_time = $8, budget = $9, notes = $10, sort_order = $11, updated_at = NOW()
-       WHERE id = $12 AND trip_id = $13
+           photo_url = $7, external_id = $8, external_source = $9,
+           start_time = $10, end_time = $11, budget = $12, notes = $13, sort_order = $14, updated_at = NOW()
+       WHERE id = $15 AND trip_id = $16
        RETURNING *`,
       [
         parsed.trip_day_id,
@@ -330,6 +378,9 @@ router.put('/:id/places/:placeId', async (req, res) => {
         parsed.lat,
         parsed.lng,
         parsed.address,
+        parsed.photo_url,
+        parsed.external_id,
+        parsed.external_source,
         parsed.start_time,
         parsed.end_time,
         parsed.budget,

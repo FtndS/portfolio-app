@@ -52,5 +52,15 @@ describe('tripHelpers', () => {
 
     expect(normalizePlacePayload({ name: 'A', lat: 1 }).error).toBeTruthy()
     expect(normalizePlacePayload({ name: '', type: 'hotel' }).error).toBeTruthy()
+
+    const withPhoto = normalizePlacePayload({
+      name: 'Hotel X',
+      type: 'hotel',
+      photo_url: ' https://example.com/a.jpg ',
+      external_id: 'abc',
+      external_source: 'google',
+    })
+    expect(withPhoto.photo_url).toBe('https://example.com/a.jpg')
+    expect(withPhoto.external_source).toBe('google')
   })
 })
