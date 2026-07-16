@@ -1,5 +1,5 @@
 import { forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react'
-import { fmtDate, isoDate, parseDateInput, maskDateInput, todayIso } from '../../lib/format'
+import { fmtDate, isoDate, parseDateInput, maskDateInput } from '../../lib/format'
 
 const DateInput = forwardRef(function DateInput(
   { value, onChange, style = {}, placeholder = 'DD/MM/YYYY' },
@@ -14,8 +14,6 @@ const DateInput = forwardRef(function DateInput(
 
   const { marginBottom, width, ...inputStyle } = style
 
-  const pickerIso = parseDateInput(text.trim()) || iso || todayIso()
-
   useEffect(() => {
     if (skipSyncRef.current) {
       skipSyncRef.current = false
@@ -25,6 +23,13 @@ const DateInput = forwardRef(function DateInput(
     setText(next ? fmtDate(next) : '')
     setInvalid(false)
   }, [value])
+
+  const clearDate = () => {
+    setInvalid(false)
+    setText('')
+    skipSyncRef.current = true
+    onChange('')
+  }
 
   const applyIso = (parsed) => {
     const normalized = isoDate(parsed)
@@ -70,11 +75,32 @@ const DateInput = forwardRef(function DateInput(
   }
 
   const openNativePicker = (e) => {
+    const el = e.currentTarget
+    // Reset native value briefly so choosing "Today" / the same day fires onChange.
+    // Keep React `value={iso||''}` in sync on the next render after apply/clear.
+    const previous = iso || ''
     try {
-      if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker()
+      el.value = ''
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (typeof el.showPicker === 'function') el.showPicker()
     } catch {
       /* overlay click opens picker in most browsers */
     }
+    // If the user dismisses without choosing, restore previous DOM value.
+    const restoreIfCancelled = () => {
+      if (!el.value && previous) {
+        try {
+          el.value = previous
+        } catch {
+          /* ignore */
+        }
+      }
+      el.removeEventListener('blur', restoreIfCancelled)
+    }
+    el.addEventListener('blur', restoreIfCancelled)
   }
 
   return (
@@ -115,11 +141,16 @@ const DateInput = forwardRef(function DateInput(
             ref={pickerRef}
             type="date"
             className="dash-date-input-native-overlay"
-            value={pickerIso}
+            value={iso || ''}
             onMouseDown={markPickerOpening}
             onClick={openNativePicker}
             onChange={(e) => {
-              if (e.target.value) applyIso(e.target.value)
+              const next = e.target.value
+              if (!next) {
+                clearDate()
+                return
+              }
+              applyIso(next)
             }}
             aria-label="เลือกจากปฏิทิน"
           />
