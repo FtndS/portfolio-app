@@ -9,8 +9,10 @@ import Modal from '../ui/Modal'
 import { readTripId } from '../../lib/appRoutes'
 import TripPlaceSearch, { PlacePhoto } from './TripPlaceSearch'
 import TripAIPlanner from './TripAIPlanner'
+import TripTimeline from './TripTimeline'
 import './TripApp.css'
 import './TripPlaceSearch.css'
+import './TripTimeline.css'
 
 const PLACE_TYPES = [
   ['hotel', 'ที่พัก'],
@@ -86,8 +88,10 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [editTime, setEditTime] = useState({ start_time: '', end_time: '' })
   const [aiOpen, setAiOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState(null)
+  const [detailView, setDetailView] = useState('plan') // plan | edit
   const activeDayRef = useRef(null)
   const placeDayRef = useRef('')
+  const prevTitleRef = useRef('')
 
   useEffect(() => {
     activeDayRef.current = activeDayId
@@ -289,6 +293,18 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     setDetail(r)
   }
 
+  const exportPlan = () => {
+    if (!detail) return
+    prevTitleRef.current = document.title
+    document.title = `แผนทริป-${detail.title || 'trip'}`
+    const restore = () => {
+      document.title = prevTitleRef.current || 'PortDiary'
+      window.removeEventListener('afterprint', restore)
+    }
+    window.addEventListener('afterprint', restore)
+    window.print()
+  }
+
   const movePlace = async (index, direction) => {
     const next = index + direction
     if (next < 0 || next >= placesForActiveDay.length) return
@@ -467,7 +483,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
 
         {tripId && !loading && detail && (
           <>
-            <div className="trip-list-head trip-detail-head">
+            <div className="trip-list-head trip-detail-head trip-no-print">
               <div className="trip-detail-head-text">
                 <button type="button" className="dash-link-btn" onClick={() => navigate('/trip')}>
                   ← ทริปทั้งหมด
@@ -481,18 +497,39 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   <span>{(detail.days || []).length} วัน · {(detail.places || []).length} จุด</span>
                 </p>
               </div>
-              <button type="button" style={{ ...btnGhost, width: 'auto' }} onClick={() => setConfirmDelete({ type: 'trip' })}>
-                ลบทริป
-              </button>
+              <div className="trip-list-head-actions">
+                <button type="button" style={{ ...btnPrimary, width: 'auto' }} onClick={exportPlan}>
+                  Export plan
+                </button>
+                <button type="button" style={{ ...btnGhost, width: 'auto' }} onClick={() => setConfirmDelete({ type: 'trip' })}>
+                  ลบทริป
+                </button>
+              </div>
             </div>
 
             <div className="trip-detail-grid">
               <section className="trip-card trip-itinerary-card">
-                <div className="trip-section-head">
+                <div className="trip-section-head trip-no-print">
                   <h3>แผนรายวัน</h3>
-                  <button type="button" className="trip-add-day-btn" onClick={addDay}>+ เพิ่มวัน</button>
+                  <div className="trip-view-switch">
+                    <button
+                      type="button"
+                      className={`trip-view-btn${detailView === 'plan' ? ' is-active' : ''}`}
+                      onClick={() => setDetailView('plan')}
+                    >
+                      Timeline
+                    </button>
+                    <button
+                      type="button"
+                      className={`trip-view-btn${detailView === 'edit' ? ' is-active' : ''}`}
+                      onClick={() => setDetailView('edit')}
+                    >
+                      แก้ไข
+                    </button>
+                    <button type="button" className="trip-add-day-btn" onClick={addDay}>+ เพิ่มวัน</button>
+                  </div>
                 </div>
-                <div className="trip-day-tabs" role="tablist" aria-label="วันในทริป">
+                <div className="trip-day-tabs trip-no-print" role="tablist" aria-label="วันในทริป">
                   {(detail.days || []).map((d) => (
                     <button
                       key={d.id}
@@ -511,7 +548,20 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   ))}
                 </div>
 
-                <div className="trip-places">
+                {detailView === 'plan' ? (
+                  <div className="trip-no-print">
+                    <TripTimeline
+                      trip={detail}
+                      days={detail.days}
+                      places={detail.places}
+                      fmtDate={fmtDate}
+                      activeDayId={activeDayId}
+                      allDays={false}
+                    />
+                  </div>
+                ) : (
+                <>
+                <div className="trip-places trip-no-print">
                   {placesForActiveDay.length === 0 && (
                     <div className="trip-empty trip-empty-compact">ยังไม่มีจุดแวะในวันนี้ — ค้นหาหรือใส่เองด้านล่าง</div>
                   )}
@@ -565,6 +615,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                         ) : (
                           <>
                             {p.address && <p className="trip-place-card-address">{p.address}</p>}
+                            {p.notes && <p className="trip-place-card-address">{p.notes}</p>}
                             {p.budget != null && (
                               <p className="trip-place-card-budget">฿{Number(p.budget).toLocaleString('th-TH')}</p>
                             )}
@@ -631,7 +682,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   ))}
                 </div>
 
-                <div className="trip-place-form">
+                <div className="trip-place-form trip-no-print">
                   <h4>เพิ่มจุดแวะ</h4>
                   <div className="trip-add-mode-tabs">
                     <button
@@ -731,9 +782,11 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                     </>
                   )}
                 </div>
+                </>
+                )}
               </section>
 
-              <section className="trip-card trip-map-card">
+              <section className="trip-card trip-map-card trip-no-print">
                 <h3>แผนที่</h3>
                 {mapUrl ? (
                   <iframe
@@ -749,9 +802,20 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   </div>
                 )}
                 <p className="trip-map-hint">
-                  ลากการ์ดหรือกด ↑↓ เพื่อจัดลำดับ
+                  สลับไปแท็บแก้ไข เพื่อจัดลำดับและแก้เวลา
                 </p>
               </section>
+            </div>
+
+            <div className="trip-tl-print-root" aria-hidden>
+              <TripTimeline
+                trip={detail}
+                days={detail.days}
+                places={detail.places}
+                fmtDate={fmtDate}
+                activeDayId={activeDayId}
+                allDays
+              />
             </div>
           </>
         )}

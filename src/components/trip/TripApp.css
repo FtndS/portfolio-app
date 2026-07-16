@@ -448,10 +448,57 @@
   background: var(--bg);
 }
 
-.trip-map-hint {
-  margin: 10px 0 0;
+.trip-view-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.trip-view-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
   font-size: 12px;
-  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.trip-view-btn.is-active {
+  border-color: var(--accent);
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.trip-tl-print-root {
+  display: none;
+}
+
+@media print {
+  .trip-topbar,
+  .trip-no-print {
+    display: none !important;
+  }
+
+  .trip-shell,
+  .trip-main {
+    background: #fff !important;
+    color: #111 !important;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .trip-tl-print-root {
+    display: block !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
 }
 
 @media (max-width: 960px) {
