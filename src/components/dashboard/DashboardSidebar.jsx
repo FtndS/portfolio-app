@@ -27,6 +27,7 @@ export default function DashboardSidebar({
   onManagePort,
   onNewPort,
   onAddTransaction,
+  onGoHub,
   open,
   onClose,
 }) {
@@ -36,14 +37,14 @@ export default function DashboardSidebar({
         <button
           type="button"
           className="dash-sidebar-brand-btn"
-          onClick={() => onTabChange('overview')}
-          title="กลับหน้า Overview"
-          aria-label="PortDiary — กลับหน้า Overview"
+          onClick={() => (onGoHub ? onGoHub() : onTabChange('overview'))}
+          title={onGoHub ? 'กลับ PortDiary Hub' : 'กลับหน้า Overview'}
+          aria-label={onGoHub ? 'PortDiary — กลับ Hub' : 'PortDiary — กลับหน้า Overview'}
         >
           <Logo size={24} className="dash-sidebar-logo" />
         </button>
         <p className="dash-sidebar-sub">
-          สวัสดี, {user.name}
+          Stock · สวัสดี, {user.name}
           {user.plan === 'pro' && (
             <span className="dash-plan-badge dash-plan-badge--pro">Pro</span>
           )}

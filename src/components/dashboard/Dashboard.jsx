@@ -33,7 +33,7 @@ import WorkflowGuide from './WorkflowGuide'
 import DashboardSidebar, { tabLabel } from './DashboardSidebar'
 import ThemeToggle from '../ThemeToggle'
 
-export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
+export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHub}){
   const [portfolios,setPortfolios]=useState([])
   const [activePortfolioId,setActivePortfolioId]=useState(null)
   const [portfolioHistory,setPortfolioHistory]=useState([])
@@ -502,6 +502,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin}){
         onManagePort={() => { setModal('managePort'); setSidebarOpen(false) }}
         onNewPort={() => { setModal('newPort'); setSidebarOpen(false) }}
         onAddTransaction={openAddTransaction}
+        onGoHub={onGoHub}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

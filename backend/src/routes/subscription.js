@@ -228,8 +228,8 @@ router.post('/checkout', async (req, res) => {
     const sessionParams = {
       mode: 'subscription',
       line_items: [{ price: process.env.STRIPE_PRICE_ID.trim(), quantity: 1 }],
-      success_url: `${base}/?subscription=success`,
-      cancel_url: `${base}/?subscription=cancel`,
+      success_url: `${base}/app?subscription=success`,
+      cancel_url: `${base}/app?subscription=cancel`,
       client_reference_id: String(req.userId),
       metadata: { userId: String(req.userId) },
       subscription_data: {
@@ -315,7 +315,7 @@ router.post('/portal', async (req, res) => {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${appBaseUrl()}/?tab=subscription`,
+      return_url: `${appBaseUrl()}/app?tab=subscription`,
     })
     res.json({ url: session.url })
   } catch (err) {

@@ -328,6 +328,130 @@
   font-size: 12px;
 }
 
+/* Suite landing / hub */
+.landing-kicker {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+  margin: 0 0 12px;
+}
+
+.landing-hero--suite {
+  grid-template-columns: 1fr;
+  padding-bottom: 24px;
+  text-align: center;
+}
+
+.landing-hero-text--center {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.landing-hero-text--center h1 {
+  margin-bottom: 14px;
+}
+
+.landing-hero-text--center p {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.landing-apps {
+  max-width: 960px;
+  margin: 0 auto 48px;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.landing-app-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: border-color 0.2s, transform 0.2s, background 0.2s;
+}
+
+.landing-app-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
+}
+
+.landing-app-card--trip:hover {
+  border-color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface) 92%, var(--text-muted) 8%);
+}
+
+.landing-app-card-top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.landing-app-card-tag {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.landing-app-card-tag--soon {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.landing-app-card h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.landing-app-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.landing-app-card-cta {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-text);
+  margin-top: 4px;
+}
+
+.landing-app-card--trip .landing-app-card-cta {
+  color: var(--text-secondary);
+}
+
+.landing-cta-box--suite {
+  background: var(--surface);
+}
+
+.landing--hub .landing-hero--suite {
+  padding-top: 32px;
+}
+
 @media (max-width: 860px) {
   .landing-hero {
     grid-template-columns: 1fr;
@@ -343,8 +467,16 @@
     grid-template-columns: 1fr;
   }
 
+  .landing-apps {
+    grid-template-columns: 1fr;
+  }
+
   .landing-nav-actions .landing-btn-ghost {
     display: none;
+  }
+
+  .landing--hub .landing-nav-actions .landing-btn-ghost {
+    display: inline-flex;
   }
 
   .landing-cta-box {
