@@ -52,7 +52,13 @@ function DaySummary({ places }) {
   return names.join(' - ')
 }
 
-export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
+function photoCaption(place) {
+  if (place.address) return place.address
+  if (place.notes) return place.notes
+  return TYPE_LABELS[place.type] || 'จุดแวะ'
+}
+
+export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false, tripHeader = null }) {
   const sorted = [...(places || [])].sort((a, b) => {
     const ao = a.sort_order ?? 0
     const bo = b.sort_order ?? 0
@@ -64,6 +70,12 @@ export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
 
   return (
     <section className="trip-tl-day">
+      {tripHeader && (
+        <div className="trip-tl-trip-title">
+          <h1>{tripHeader.title}</h1>
+          {tripHeader.meta && <p>{tripHeader.meta}</p>}
+        </div>
+      )}
       <header className="trip-tl-day-head">
         <div className="trip-tl-day-label">
           <strong>{dayHeading(day.day_index)}</strong>
@@ -117,7 +129,7 @@ export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
                         eager={eagerPhotos}
                       />
                       {inline && (
-                        <p className="trip-tl-caption">{place.name}</p>
+                        <p className="trip-tl-caption">{photoCaption(place)}</p>
                       )}
                     </div>
                   )}
@@ -143,25 +155,20 @@ export default function TripTimeline({ trip, days, places, fmtDate, activeDayId,
     return <div className="trip-tl-empty">เลือกวันเพื่อดูแผน</div>
   }
 
+  const tripMeta = [trip?.destination, trip?.start_date && trip?.end_date
+    ? `${fmtDate(trip.start_date)} – ${fmtDate(trip.end_date)}`
+    : null].filter(Boolean).join(' · ')
+
   return (
     <div className={`trip-tl${allDays ? ' trip-tl--export' : ''}`}>
-      {allDays && (
-        <div className="trip-tl-export-cover">
-          <h1>{trip?.title}</h1>
-          <p>
-            {[trip?.destination, trip?.start_date && trip?.end_date
-              ? `${fmtDate(trip.start_date)} – ${fmtDate(trip.end_date)}`
-              : null].filter(Boolean).join(' · ')}
-          </p>
-        </div>
-      )}
-      {dayList.map((day) => (
+      {dayList.map((day, index) => (
         <TripDayTimeline
           key={day.id}
           day={day}
           places={placesByDay(day.id)}
           fmtDate={fmtDate}
           eagerPhotos={eagerPhotos || allDays}
+          tripHeader={allDays && index === 0 ? { title: trip?.title, meta: tripMeta || null } : null}
         />
       ))}
     </div>

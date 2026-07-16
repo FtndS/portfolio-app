@@ -2,6 +2,12 @@
 
 import { enumerateDateRange, isValidPlaceType, normalizeTripPayload } from './tripHelpers.js'
 import { searchTripPlaces } from './placeSearch.js'
+import {
+  extractPlaceSearchQuery,
+  isGenericPlaceName,
+  pickUniquePlaceHit,
+  resolvePlaceDisplayName,
+} from './placeMatch.js'
 
 const MAX_ENRICH = 40
 const MAX_DAYS = 14
@@ -102,9 +108,41 @@ export function normalizeAiPlanResponse(raw) {
   }
 }
 
+async function enrichOnePlace(place, { near, usedKeys }) {
+  const searchQ = extractPlaceSearchQuery(place.name, place.type, near)
+  if (!searchQ) return place
+
+  try {
+    const results = await searchTripPlaces({
+      query: searchQ,
+      type: place.type || 'other',
+      near,
+    })
+    const hit = pickUniquePlaceHit(results, searchQ, usedKeys)
+    if (!hit) return place
+
+    const lat = hit.lat ?? null
+    const lng = hit.lng ?? null
+    const resolvedName = resolvePlaceDisplayName(place.name, hit.name)
+
+    return {
+      ...place,
+      name: resolvedName,
+      address: place.address || hit.address || null,
+      lat: place.lat != null ? place.lat : (lat != null && lng != null ? lat : null),
+      lng: place.lng != null ? place.lng : (lat != null && lng != null ? lng : null),
+      photo_url: hit.photoUrl || place.photo_url || null,
+      external_id: hit.externalId || hit.id || place.external_id || null,
+      external_source: hit.source || place.external_source || null,
+    }
+  } catch {
+    return place
+  }
+}
+
 export async function enrichPlanPlaces(plan, { maxEnrich = MAX_ENRICH } = {}) {
   const near = plan.trip.destination || ''
-  // Round-robin across days so later days still get photos
+  const usedKeys = new Set()
   const dayBuckets = plan.trip.days.map((day) =>
     (day.places || []).map((place) => ({ ...place }))
   )
@@ -121,30 +159,7 @@ export async function enrichPlanPlaces(plan, { maxEnrich = MAX_ENRICH } = {}) {
       indices[d] += 1
       progressed = true
       remaining -= 1
-      const place = places[i]
-      try {
-        const results = await searchTripPlaces({
-          query: place.name,
-          type: place.type,
-          near,
-        })
-        const hit = results?.[0]
-        if (hit) {
-          const lat = hit.lat ?? null
-          const lng = hit.lng ?? null
-          places[i] = {
-            ...place,
-            address: place.address || hit.address || null,
-            lat: lat != null && lng != null ? lat : place.lat ?? null,
-            lng: lat != null && lng != null ? lng : place.lng ?? null,
-            photo_url: hit.photoUrl || place.photo_url || null,
-            external_id: hit.externalId || hit.id || place.external_id || null,
-            external_source: hit.source || place.external_source || null,
-          }
-        }
-      } catch {
-        // keep name-only place
-      }
+      places[i] = await enrichOnePlace(places[i], { near, usedKeys })
     }
   }
 
@@ -156,8 +171,32 @@ export async function enrichPlanPlaces(plan, { maxEnrich = MAX_ENRICH } = {}) {
   return { ...plan, trip: { ...plan.trip, days } }
 }
 
-/** Enrich DB places that are missing photos (round-robin by day). */
+function collectUsedMediaKeys(places) {
+  const usedKeys = new Set()
+  for (const p of places) {
+    if (p.photo_url) usedKeys.add(`photo:${p.photo_url}`)
+    if (p.external_id) usedKeys.add(`ext:${p.external_source || 'x'}:${p.external_id}`)
+  }
+  return usedKeys
+}
+
+function findDuplicatePhotoPlaceIds(places) {
+  const seen = new Map()
+  const dupIds = new Set()
+  for (const p of places) {
+    if (!p.photo_url) continue
+    const key = p.photo_url
+    if (seen.has(key)) dupIds.add(p.id)
+    else seen.set(key, p.id)
+  }
+  return dupIds
+}
+
+/** Enrich DB places — unique photos + resolve generic names to real POIs. */
 export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnrich = 24 } = {}) {
+  const usedKeys = collectUsedMediaKeys(places)
+  const dupIds = findDuplicatePhotoPlaceIds(places)
+
   const byDay = new Map()
   for (const p of places) {
     const key = p.trip_day_id || 0
@@ -166,7 +205,10 @@ export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnri
   }
   const dayKeys = [...byDay.keys()]
   const queues = dayKeys.map((k) =>
-    byDay.get(k).filter((p) => !p.photo_url).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    byDay
+      .get(k)
+      .filter((p) => !p.photo_url || isGenericPlaceName(p.name) || dupIds.has(p.id))
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
   )
   const updated = []
   let remaining = maxEnrich
@@ -183,28 +225,28 @@ export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnri
       progressed = true
       remaining -= 1
       const place = q[i]
-      try {
-        const results = await searchTripPlaces({
-          query: place.name,
-          type: place.type || 'other',
-          near,
-        })
-        const hit = results?.[0]
-        if (!hit) continue
-        const lat = hit.lat ?? null
-        const lng = hit.lng ?? null
-        updated.push({
-          id: place.id,
-          photo_url: hit.photoUrl || null,
-          address: place.address || hit.address || null,
-          lat: place.lat != null ? place.lat : (lat != null && lng != null ? lat : null),
-          lng: place.lng != null ? place.lng : (lat != null && lng != null ? lng : null),
-          external_id: hit.externalId || hit.id || place.external_id || null,
-          external_source: hit.source || place.external_source || null,
-        })
-      } catch {
-        // skip
-      }
+      const localUsed = new Set(usedKeys)
+      if (place.photo_url) localUsed.delete(`photo:${place.photo_url}`)
+      if (place.external_id) localUsed.delete(`ext:${place.external_source || 'x'}:${place.external_id}`)
+
+      const enriched = await enrichOnePlace(place, { near, usedKeys: localUsed })
+      const nameChanged = enriched.name !== place.name
+      const photoChanged = enriched.photo_url && enriched.photo_url !== place.photo_url
+      if (!nameChanged && !photoChanged) continue
+
+      if (enriched.photo_url) usedKeys.add(`photo:${enriched.photo_url}`)
+      if (enriched.external_id) usedKeys.add(`ext:${enriched.external_source || 'x'}:${enriched.external_id}`)
+
+      updated.push({
+        id: place.id,
+        name: enriched.name,
+        photo_url: enriched.photo_url || place.photo_url || null,
+        address: enriched.address || place.address || null,
+        lat: enriched.lat ?? place.lat ?? null,
+        lng: enriched.lng ?? place.lng ?? null,
+        external_id: enriched.external_id || place.external_id || null,
+        external_source: enriched.external_source || place.external_source || null,
+      })
     }
   }
 
@@ -313,7 +355,9 @@ export function buildTripPlanSystemPrompt() {
 กฎแผน:
 - ต้องมีสนามบินเข้า/ออก (type airport) ตามความเหมาะสมของทริป
 - ต้องมีที่พัก (hotel) และร้านอาหาร (restaurant) อย่างน้อยวันละรายการเมื่อเป็นทริปหลายวัน
-- ชื่อสถานที่ควรเป็นชื่อจริงที่ค้นหาได้
+- ชื่อสถานที่ต้องเป็นชื่อจริงที่ค้นหาได้ (เช่น "ร้านเจ๊ไฝ ซีฟู้ด" ไม่ใช่ "ร้านซีฟู้ดมื้อเย็น" หรือ "แนะนำร้านอาหารทะเล")
+- ห้ามใช้คำว่า แนะนำ / หรือ / ค้นหา / เช่น ในชื่อสถานที่
+- ร้านอาหารและโรงแรมต้องระบุชื่อร้านหรือแบรนด์จริง ไม่ใช่แค่ประเภทหรือย่าน
 - เป็นแผนแนะนำเท่านั้น ห้ามอ้างว่าจองแล้วหรือราคาการันตี
 - ใช้ภาษาไทยใน title/notes ได้`
 }

@@ -9,6 +9,7 @@ import {
   searchTripPlaces,
 } from '../lib/placeSearch.js'
 import { enrichTripPlacesMissingPhotos } from '../lib/aiTripPlan.js'
+import { isGenericPlaceName } from '../lib/placeMatch.js'
 import {
   enumerateDateRange,
   normalizePlacePayload,
@@ -305,8 +306,17 @@ router.post('/:id/enrich-photos', async (req, res) => {
       `SELECT * FROM trip_places WHERE trip_id = $1 ORDER BY trip_day_id ASC NULLS LAST, sort_order ASC, id ASC`,
       [tripId]
     )
-    const missing = places.rows.filter((p) => !p.photo_url)
-    if (!missing.length) {
+    const dupUrls = new Set()
+    const seenUrls = new Set()
+    for (const p of places.rows) {
+      if (!p.photo_url) continue
+      if (seenUrls.has(p.photo_url)) dupUrls.add(p.photo_url)
+      else seenUrls.add(p.photo_url)
+    }
+    const needsWork = places.rows.filter(
+      (p) => !p.photo_url || isGenericPlaceName(p.name) || (p.photo_url && dupUrls.has(p.photo_url))
+    )
+    if (!needsWork.length) {
       const detail = await loadTripDetail(req.userId, tripId)
       return res.json({ updated: 0, trip: detail })
     }
@@ -319,15 +329,17 @@ router.post('/:id/enrich-photos', async (req, res) => {
     for (const u of updates) {
       await pool.query(
         `UPDATE trip_places
-         SET photo_url = COALESCE($1, photo_url),
-             address = COALESCE($2, address),
-             lat = COALESCE($3, lat),
-             lng = COALESCE($4, lng),
-             external_id = COALESCE($5, external_id),
-             external_source = COALESCE($6, external_source),
+         SET name = COALESCE($1, name),
+             photo_url = COALESCE($2, photo_url),
+             address = COALESCE($3, address),
+             lat = COALESCE($4, lat),
+             lng = COALESCE($5, lng),
+             external_id = COALESCE($6, external_id),
+             external_source = COALESCE($7, external_source),
              updated_at = NOW()
-         WHERE id = $7 AND trip_id = $8`,
+         WHERE id = $8 AND trip_id = $9`,
         [
+          u.name,
           u.photo_url,
           u.address,
           u.lat,

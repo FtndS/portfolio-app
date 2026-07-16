@@ -169,17 +169,18 @@
   line-height: 1.45;
 }
 
-.trip-tl-export-cover {
-  margin-bottom: 8px;
+.trip-tl-trip-title {
+  padding: 12px 16px 4px;
 }
 
-.trip-tl-export-cover h1 {
-  margin: 0 0 6px;
-  font-size: 24px;
+.trip-tl-trip-title h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
   letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
-.trip-tl-export-cover p {
+.trip-tl-trip-title p {
   margin: 0;
   color: var(--text-muted);
   font-size: 13px;
@@ -222,6 +223,16 @@
 @media print {
   .trip-tl-print-root {
     display: block !important;
+  }
+
+  .trip-tl-trip-title {
+    break-after: avoid;
+    page-break-after: avoid;
+    padding-bottom: 0;
+  }
+
+  .trip-tl-trip-title h1 {
+    font-size: 20px;
   }
 
   .trip-tl-day {

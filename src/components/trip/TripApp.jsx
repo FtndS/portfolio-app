@@ -147,11 +147,27 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     return r
   }
 
+  const placeNeedsEnrich = (places) => {
+    const seen = new Set()
+    const dupUrls = new Set()
+    for (const p of places || []) {
+      if (p.photo_url) {
+        if (seen.has(p.photo_url)) dupUrls.add(p.photo_url)
+        else seen.add(p.photo_url)
+      }
+    }
+    return (places || []).some(
+      (p) =>
+        !p.photo_url
+        || /แนะนำ|หรือ|ค้นหา|มื้อเย็น|ร้านซีฟู้ด|บ้านพักแบบ/i.test(p.name || '')
+        || (p.photo_url && dupUrls.has(p.photo_url))
+    )
+  }
+
   const enrichPhotos = async (tripDetail) => {
     const t = tripDetail || detail
     if (!t?.id || enriching) return
-    const missing = (t.places || []).filter((p) => !p.photo_url).length
-    if (!missing) return
+    if (!placeNeedsEnrich(t.places)) return
     setEnriching(true)
     const r = await api.post(`/trips/${t.id}/enrich-photos`, { limit: 36 })
     setEnriching(false)
@@ -170,7 +186,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
       loadDetail(tripId).then((r) => {
         if (!r?.id) return
         if (enrichedTripRef.current === r.id) return
-        const missing = (r.places || []).some((p) => !p.photo_url)
+        const missing = placeNeedsEnrich(r.places)
         if (missing) {
           enrichedTripRef.current = r.id
           enrichPhotos(r)
