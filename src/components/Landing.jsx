@@ -55,13 +55,13 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
 
         <button type="button" className="landing-app-card landing-app-card--trip" onClick={onChooseTrip}>
           <div className="landing-app-card-top">
-            <span className="landing-app-card-tag landing-app-card-tag--soon">เร็วๆ นี้</span>
+            <span className="landing-app-card-tag">พร้อมใช้</span>
             <h2>Trip Planner</h2>
           </div>
           <p>
             วางแผนวันเดินทาง จุดแวะพัก ที่พัก ร้านอาหาร สนามบิน — และจองผ่านพาร์ทเนอร์ได้ในอนาคต
           </p>
-          <span className="landing-app-card-cta">ดูรายละเอียด →</span>
+          <span className="landing-app-card-cta">เลือกแอปนี้ →</span>
         </button>
       </section>
 

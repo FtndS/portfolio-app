@@ -49,11 +49,11 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
 
         <button type="button" className="landing-app-card landing-app-card--trip" onClick={onOpenTrip}>
           <div className="landing-app-card-top">
-            <span className="landing-app-card-tag landing-app-card-tag--soon">เร็วๆ นี้</span>
+            <span className="landing-app-card-tag">พร้อมใช้</span>
             <h2>Trip Planner</h2>
           </div>
           <p>วางแผนท่องเที่ยว จุดแวะพัก ที่พัก ร้านอาหาร และสนามบินในที่เดียว</p>
-          <span className="landing-app-card-cta">ดูสถานะ →</span>
+          <span className="landing-app-card-cta">เปิดแอปทริป →</span>
         </button>
       </section>
     </div>

@@ -18,6 +18,7 @@ import stripeWebhookRoutes from './routes/stripeWebhook.js'
 import omiseWebhookRoutes from './routes/omiseWebhook.js'
 import adminRoutes from './routes/admin.js'
 import portfoliosRoutes from './routes/portfolios.js'
+import tripsRoutes from './routes/trips.js'
 import { fetchHoldingQuote, fetchLiveQuote } from './lib/yahooPrices.js'
 import { authMiddleware } from './middleware/auth.js'
 import { pricesLimiter } from './middleware/rateLimit.js'
@@ -154,6 +155,7 @@ app.get('/api/prices', authMiddleware, pricesLimiter, async (req, res) => {
 
 app.use('/api/auth', authRoutes)
 app.use('/api/portfolios', portfoliosRoutes)
+app.use('/api/trips', tripsRoutes)
 app.use('/api/holdings', holdingsRoutes)
 app.use('/api/transactions', transactionsRoutes)
 app.use('/api/journal', journalRoutes)

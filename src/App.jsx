@@ -12,7 +12,7 @@ import {
 } from './lib/appRoutes'
 import Landing from './components/Landing'
 import AppHub from './components/AppHub'
-import TripComingSoon from './components/trip/TripComingSoon'
+import TripApp from './components/trip/TripApp'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
 import ForgotPassword from './components/auth/ForgotPassword'
@@ -164,9 +164,13 @@ export default function App() {
     if (view === 'trip') {
       return (
         <ThemeProvider>
-          <TripComingSoon
+          <TripApp
+            user={user}
+            path={path}
+            navigate={navigate}
             onBackHub={() => navigate('/hub')}
             onOpenStock={() => navigate('/app')}
+            onLogout={logout}
           />
         </ThemeProvider>
       )

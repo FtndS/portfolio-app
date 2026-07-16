@@ -590,6 +590,58 @@ const migrations = [
         ON omise_card_charges (user_id, created_at DESC);
     `,
   },
+  {
+    name: '028_trips',
+    sql: `
+      CREATE TABLE IF NOT EXISTS trips (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(200) NOT NULL,
+        destination VARCHAR(255),
+        start_date DATE,
+        end_date DATE,
+        currency VARCHAR(3) NOT NULL DEFAULT 'THB',
+        status VARCHAR(32) NOT NULL DEFAULT 'draft',
+        notes TEXT,
+        cover_url TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS trips_user_created_idx ON trips (user_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS trip_days (
+        id SERIAL PRIMARY KEY,
+        trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+        day_index INTEGER NOT NULL DEFAULT 1,
+        date DATE,
+        title VARCHAR(200),
+        notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (trip_id, day_index)
+      );
+      CREATE INDEX IF NOT EXISTS trip_days_trip_idx ON trip_days (trip_id, day_index);
+
+      CREATE TABLE IF NOT EXISTS trip_places (
+        id SERIAL PRIMARY KEY,
+        trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+        trip_day_id INTEGER REFERENCES trip_days(id) ON DELETE SET NULL,
+        type VARCHAR(32) NOT NULL DEFAULT 'other',
+        name VARCHAR(255) NOT NULL,
+        lat DOUBLE PRECISION,
+        lng DOUBLE PRECISION,
+        address TEXT,
+        start_time VARCHAR(16),
+        end_time VARCHAR(16),
+        budget NUMERIC(18, 2),
+        notes TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS trip_places_trip_idx ON trip_places (trip_id, sort_order);
+      CREATE INDEX IF NOT EXISTS trip_places_day_idx ON trip_places (trip_day_id, sort_order);
+    `,
+  },
 ]
 
 export async function runMigrations() {

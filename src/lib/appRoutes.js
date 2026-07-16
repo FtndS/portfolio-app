@@ -25,6 +25,13 @@ export function resolveLoggedInView(path) {
   return 'hub-redirect'
 }
 
+export function readTripId(path) {
+  const m = /^\/trip\/(\d+)$/.exec(path)
+  if (!m) return null
+  const id = Number(m[1])
+  return Number.isFinite(id) ? id : null
+}
+
 export function resolveAuthPage(path, search = window.location.search) {
   if (new URLSearchParams(search).get('reset')) return 'reset'
   if (path === '/login') return 'login'
