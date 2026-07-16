@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../lib/api'
 import { btnGhost, btnPrimary, inp } from '../../lib/styles'
+import { fmtDate as fmtDateDmy } from '../../lib/format'
 import Logo from '../Logo'
 import ThemeToggle from '../ThemeToggle'
+import DateInput from '../ui/DateInput'
 import { readTripId } from '../../lib/appRoutes'
 import './TripApp.css'
 
@@ -20,12 +22,7 @@ function typeLabel(type) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return '—'
-  return new Date(`${String(iso).slice(0, 10)}T00:00:00`).toLocaleDateString('th-TH', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  return fmtDateDmy(iso) || '—'
 }
 
 function mapEmbedUrl(places) {
@@ -251,21 +248,19 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 />
                 <div className="trip-form-row">
                   <label>
-                    <span>วันเริ่ม</span>
-                    <input
-                      type="date"
+                    <span>วันเริ่ม (วว/ดด/ปปปป)</span>
+                    <DateInput
                       style={inp({ marginBottom: 0 })}
                       value={tripForm.start_date}
-                      onChange={(e) => setTripForm({ ...tripForm, start_date: e.target.value })}
+                      onChange={(start_date) => setTripForm({ ...tripForm, start_date })}
                     />
                   </label>
                   <label>
-                    <span>วันสิ้นสุด</span>
-                    <input
-                      type="date"
+                    <span>วันสิ้นสุด (วว/ดด/ปปปป)</span>
+                    <DateInput
                       style={inp({ marginBottom: 0 })}
                       value={tripForm.end_date}
-                      onChange={(e) => setTripForm({ ...tripForm, end_date: e.target.value })}
+                      onChange={(end_date) => setTripForm({ ...tripForm, end_date })}
                     />
                   </label>
                 </div>
