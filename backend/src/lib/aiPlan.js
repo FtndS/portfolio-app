@@ -40,7 +40,7 @@ export const AI_PLANS = {
     },
     tripPlan: {
       maxTokens: 4096,
-      maxEnrich: 8,
+      maxEnrich: 36,
     },
   },
   pro: {
@@ -72,7 +72,7 @@ export const AI_PLANS = {
     },
     tripPlan: {
       maxTokens: 6144,
-      maxEnrich: 8,
+      maxEnrich: 36,
     },
   },
 }

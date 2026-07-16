@@ -52,7 +52,7 @@ function DaySummary({ places }) {
   return names.join(' - ')
 }
 
-export function TripDayTimeline({ day, places, fmtDate }) {
+export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
   const sorted = [...(places || [])].sort((a, b) => {
     const ao = a.sort_order ?? 0
     const bo = b.sort_order ?? 0
@@ -78,11 +78,12 @@ export function TripDayTimeline({ day, places, fmtDate }) {
         {sorted.length === 0 && (
           <p className="trip-tl-empty">ยังไม่มีรายละเอียดในวันนี้</p>
         )}
-        {sorted.map((place, index) => {
+        {sorted.map((place) => {
           const period = periodLabel(place.start_time)
           const showPeriod = period && period !== lastPeriod
           if (showPeriod) lastPeriod = period
           const hero = Boolean(place.photo_url) && (place.type === 'attraction' || place.type === 'airport')
+          const inline = Boolean(place.photo_url) && !hero
           const timeLabel = formatTimeTh(place.start_time)
 
           return (
@@ -113,8 +114,9 @@ export function TripDayTimeline({ day, places, fmtDate }) {
                         alt={place.name}
                         className={hero ? 'trip-tl-img-hero' : 'trip-tl-img-thumb'}
                         type={place.type}
+                        eager={eagerPhotos}
                       />
-                      {!hero && (
+                      {inline && (
                         <p className="trip-tl-caption">{place.name}</p>
                       )}
                     </div>
@@ -129,7 +131,7 @@ export function TripDayTimeline({ day, places, fmtDate }) {
   )
 }
 
-export default function TripTimeline({ trip, days, places, fmtDate, activeDayId, allDays = false }) {
+export default function TripTimeline({ trip, days, places, fmtDate, activeDayId, allDays = false, eagerPhotos = false }) {
   const dayList = allDays
     ? (days || [])
     : (days || []).filter((d) => d.id === activeDayId)
@@ -159,6 +161,7 @@ export default function TripTimeline({ trip, days, places, fmtDate, activeDayId,
           day={day}
           places={placesByDay(day.id)}
           fmtDate={fmtDate}
+          eagerPhotos={eagerPhotos || allDays}
         />
       ))}
     </div>

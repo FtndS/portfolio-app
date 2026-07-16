@@ -473,7 +473,18 @@
 }
 
 .trip-tl-print-root {
-  display: none;
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 800px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.trip-tl-print-root.is-exporting {
+  /* Keep off-screen but painted so images load before print */
+  opacity: 1;
 }
 
 @media print {
@@ -491,7 +502,14 @@
     margin: 0;
   }
 
-  .trip-tl-print-root {
+  .trip-tl-print-root,
+  .trip-tl-print-root.is-exporting {
+    position: static !important;
+    left: auto !important;
+    width: auto !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: auto !important;
     display: block !important;
   }
 

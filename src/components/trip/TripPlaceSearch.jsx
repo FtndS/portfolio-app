@@ -16,7 +16,7 @@ function needsAuthFetch(url) {
   return url && !url.startsWith('http')
 }
 
-export function PlacePhoto({ url, alt, className, type = 'other' }) {
+export function PlacePhoto({ url, alt, className, type = 'other', eager = false }) {
   const [src, setSrc] = useState(() => (url && !needsAuthFetch(url) ? url : null))
   const blobRef = useRef(null)
 
@@ -46,7 +46,7 @@ export function PlacePhoto({ url, alt, className, type = 'other' }) {
       const objectUrl = URL.createObjectURL(blob)
       blobRef.current = objectUrl
       setSrc(objectUrl)
-    })
+    }).catch(() => {})
 
     return () => {
       cancelled = true
@@ -58,7 +58,15 @@ export function PlacePhoto({ url, alt, className, type = 'other' }) {
   }, [url])
 
   if (src) {
-    return <img src={src} alt={alt} className={className} loading="lazy" />
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding={eager ? 'sync' : 'async'}
+      />
+    )
   }
 
   return (

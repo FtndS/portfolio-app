@@ -8,6 +8,7 @@ import {
   isGooglePlacesConfigured,
   searchTripPlaces,
 } from '../lib/placeSearch.js'
+import { enrichTripPlacesMissingPhotos } from '../lib/aiTripPlan.js'
 import {
   enumerateDateRange,
   normalizePlacePayload,
@@ -291,6 +292,58 @@ router.delete('/:id/days/:dayId', async (req, res) => {
     res.json({ ok: true })
   } catch (err) {
     serverError(res, err, 'DELETE trip day error:')
+  }
+})
+
+router.post('/:id/enrich-photos', async (req, res) => {
+  const tripId = Number(req.params.id)
+  const trip = await getOwnedTrip(req.userId, tripId)
+  if (!trip) return res.status(404).json({ error: 'ไม่พบทริป' })
+
+  try {
+    const places = await pool.query(
+      `SELECT * FROM trip_places WHERE trip_id = $1 ORDER BY trip_day_id ASC NULLS LAST, sort_order ASC, id ASC`,
+      [tripId]
+    )
+    const missing = places.rows.filter((p) => !p.photo_url)
+    if (!missing.length) {
+      const detail = await loadTripDetail(req.userId, tripId)
+      return res.json({ updated: 0, trip: detail })
+    }
+
+    const updates = await enrichTripPlacesMissingPhotos(places.rows, {
+      near: trip.destination || '',
+      maxEnrich: Math.min(36, Number(req.body?.limit) || 36),
+    })
+
+    for (const u of updates) {
+      await pool.query(
+        `UPDATE trip_places
+         SET photo_url = COALESCE($1, photo_url),
+             address = COALESCE($2, address),
+             lat = COALESCE($3, lat),
+             lng = COALESCE($4, lng),
+             external_id = COALESCE($5, external_id),
+             external_source = COALESCE($6, external_source),
+             updated_at = NOW()
+         WHERE id = $7 AND trip_id = $8`,
+        [
+          u.photo_url,
+          u.address,
+          u.lat,
+          u.lng,
+          u.external_id,
+          u.external_source,
+          u.id,
+          tripId,
+        ]
+      )
+    }
+
+    const detail = await loadTripDetail(req.userId, tripId)
+    res.json({ updated: updates.length, trip: detail })
+  } catch (err) {
+    serverError(res, err, 'POST trip enrich-photos error:')
   }
 })
 

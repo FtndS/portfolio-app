@@ -89,6 +89,9 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [aiOpen, setAiOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState(null)
   const [detailView, setDetailView] = useState('plan') // plan | edit
+  const [enriching, setEnriching] = useState(false)
+  const [exportReady, setExportReady] = useState(false)
+  const enrichedTripRef = useRef(null)
   const activeDayRef = useRef(null)
   const placeDayRef = useRef('')
   const prevTitleRef = useRef('')
@@ -121,7 +124,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     if (r?.error) {
       setErr(r.error)
       setDetail(null)
-      return
+      return null
     }
     setDetail(r)
     const days = r.days || []
@@ -141,13 +144,38 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
         ? String(prevFormDay)
         : (nextActive ? String(nextActive) : ''),
     }))
+    return r
+  }
+
+  const enrichPhotos = async (tripDetail) => {
+    const t = tripDetail || detail
+    if (!t?.id || enriching) return
+    const missing = (t.places || []).filter((p) => !p.photo_url).length
+    if (!missing) return
+    setEnriching(true)
+    const r = await api.post(`/trips/${t.id}/enrich-photos`, { limit: 36 })
+    setEnriching(false)
+    if (r?.error) {
+      setErr(r.error)
+      return
+    }
+    if (r?.trip) setDetail(r.trip)
   }
 
   useEffect(() => {
     if (tripId) {
       activeDayRef.current = null
       placeDayRef.current = ''
-      loadDetail(tripId)
+      enrichedTripRef.current = null
+      loadDetail(tripId).then((r) => {
+        if (!r?.id) return
+        if (enrichedTripRef.current === r.id) return
+        const missing = (r.places || []).some((p) => !p.photo_url)
+        if (missing) {
+          enrichedTripRef.current = r.id
+          enrichPhotos(r)
+        }
+      })
     } else {
       setDetail(null)
       loadList()
@@ -293,16 +321,38 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     setDetail(r)
   }
 
-  const exportPlan = () => {
+  const exportPlan = async () => {
     if (!detail) return
+    setExportReady(true)
     prevTitleRef.current = document.title
     document.title = `แผนทริป-${detail.title || 'trip'}`
+
+    // Wait for print-root images (incl. auth blob fetches) to settle
+    await new Promise((r) => setTimeout(r, 1200))
+    const imgs = document.querySelectorAll('.trip-tl-print-root img')
+    await Promise.all(
+      [...imgs].map(
+        (img) =>
+          new Promise((resolve) => {
+            if (img.complete) return resolve()
+            img.onload = () => resolve()
+            img.onerror = () => resolve()
+            setTimeout(resolve, 2500)
+          })
+      )
+    )
+
     const restore = () => {
       document.title = prevTitleRef.current || 'PortDiary'
+      setExportReady(false)
       window.removeEventListener('afterprint', restore)
     }
     window.addEventListener('afterprint', restore)
     window.print()
+    // Fallback if afterprint never fires
+    setTimeout(() => {
+      if (document.title.startsWith('แผนทริป-')) restore()
+    }, 60_000)
   }
 
   const movePlace = async (index, direction) => {
@@ -498,6 +548,14 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 </p>
               </div>
               <div className="trip-list-head-actions">
+                <button
+                  type="button"
+                  style={{ ...btnGhost, width: 'auto' }}
+                  disabled={enriching}
+                  onClick={() => enrichPhotos()}
+                >
+                  {enriching ? 'กำลังเติมรูป...' : 'เติมรูป'}
+                </button>
                 <button type="button" style={{ ...btnPrimary, width: 'auto' }} onClick={exportPlan}>
                   Export plan
                 </button>
@@ -807,7 +865,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
               </section>
             </div>
 
-            <div className="trip-tl-print-root" aria-hidden>
+            <div className={`trip-tl-print-root${exportReady ? ' is-exporting' : ''}`} aria-hidden={!exportReady}>
               <TripTimeline
                 trip={detail}
                 days={detail.days}
@@ -815,6 +873,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 fmtDate={fmtDate}
                 activeDayId={activeDayId}
                 allDays
+                eagerPhotos
               />
             </div>
           </>

@@ -63,10 +63,17 @@
 }
 
 .trip-tl-period {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--accent-text);
-  margin: 0 0 8px 116px;
+  display: inline-flex;
+  align-items: center;
+  margin: 4px 0 10px 116px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 88%, #1a1a1a);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 12%, transparent);
 }
 
 .trip-tl-row {
@@ -236,10 +243,18 @@
     print-color-adjust: exact;
   }
 
-  .trip-tl-place-name,
-  .trip-tl-time,
   .trip-tl-period {
-    color: #0b6bcb !important;
+    margin-left: 0;
+    color: #fff !important;
+    background: #5b4db8 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .trip-tl-img-hero,
+  .trip-tl-img-thumb {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .trip-tl-img-hero {

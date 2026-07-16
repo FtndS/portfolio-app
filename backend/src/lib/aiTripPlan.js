@@ -3,7 +3,7 @@
 import { enumerateDateRange, isValidPlaceType, normalizeTripPayload } from './tripHelpers.js'
 import { searchTripPlaces } from './placeSearch.js'
 
-const MAX_ENRICH = 8
+const MAX_ENRICH = 40
 const MAX_DAYS = 14
 const MAX_PLACES_PER_DAY = 12
 
@@ -104,45 +104,111 @@ export function normalizeAiPlanResponse(raw) {
 
 export async function enrichPlanPlaces(plan, { maxEnrich = MAX_ENRICH } = {}) {
   const near = plan.trip.destination || ''
-  let budget = maxEnrich
-  const days = []
+  // Round-robin across days so later days still get photos
+  const dayBuckets = plan.trip.days.map((day) =>
+    (day.places || []).map((place) => ({ ...place }))
+  )
+  const indices = dayBuckets.map(() => 0)
+  let remaining = maxEnrich
+  let progressed = true
 
-  for (const day of plan.trip.days) {
-    const places = []
-    for (const place of day.places) {
-      let enriched = { ...place }
-      if (budget > 0) {
-        budget -= 1
-        try {
-          const results = await searchTripPlaces({
-            query: place.name,
-            type: place.type,
-            near,
-          })
-          const hit = results?.[0]
-          if (hit) {
-            const lat = hit.lat ?? null
-            const lng = hit.lng ?? null
-            enriched = {
-              ...enriched,
-              address: enriched.address || hit.address || null,
-              lat: lat != null && lng != null ? lat : null,
-              lng: lat != null && lng != null ? lng : null,
-              photo_url: hit.photoUrl || null,
-              external_id: hit.externalId || hit.id || null,
-              external_source: hit.source || null,
-            }
+  while (remaining > 0 && progressed) {
+    progressed = false
+    for (let d = 0; d < dayBuckets.length && remaining > 0; d += 1) {
+      const places = dayBuckets[d]
+      const i = indices[d]
+      if (i >= places.length) continue
+      indices[d] += 1
+      progressed = true
+      remaining -= 1
+      const place = places[i]
+      try {
+        const results = await searchTripPlaces({
+          query: place.name,
+          type: place.type,
+          near,
+        })
+        const hit = results?.[0]
+        if (hit) {
+          const lat = hit.lat ?? null
+          const lng = hit.lng ?? null
+          places[i] = {
+            ...place,
+            address: place.address || hit.address || null,
+            lat: lat != null && lng != null ? lat : place.lat ?? null,
+            lng: lat != null && lng != null ? lng : place.lng ?? null,
+            photo_url: hit.photoUrl || place.photo_url || null,
+            external_id: hit.externalId || hit.id || place.external_id || null,
+            external_source: hit.source || place.external_source || null,
           }
-        } catch {
-          // keep name-only place
         }
+      } catch {
+        // keep name-only place
       }
-      places.push(enriched)
     }
-    days.push({ ...day, places })
   }
 
+  const days = plan.trip.days.map((day, i) => ({
+    ...day,
+    places: dayBuckets[i],
+  }))
+
   return { ...plan, trip: { ...plan.trip, days } }
+}
+
+/** Enrich DB places that are missing photos (round-robin by day). */
+export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnrich = 24 } = {}) {
+  const byDay = new Map()
+  for (const p of places) {
+    const key = p.trip_day_id || 0
+    if (!byDay.has(key)) byDay.set(key, [])
+    byDay.get(key).push(p)
+  }
+  const dayKeys = [...byDay.keys()]
+  const queues = dayKeys.map((k) =>
+    byDay.get(k).filter((p) => !p.photo_url).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+  )
+  const updated = []
+  let remaining = maxEnrich
+  let progressed = true
+  const cursors = queues.map(() => 0)
+
+  while (remaining > 0 && progressed) {
+    progressed = false
+    for (let d = 0; d < queues.length && remaining > 0; d += 1) {
+      const q = queues[d]
+      const i = cursors[d]
+      if (i >= q.length) continue
+      cursors[d] += 1
+      progressed = true
+      remaining -= 1
+      const place = q[i]
+      try {
+        const results = await searchTripPlaces({
+          query: place.name,
+          type: place.type || 'other',
+          near,
+        })
+        const hit = results?.[0]
+        if (!hit) continue
+        const lat = hit.lat ?? null
+        const lng = hit.lng ?? null
+        updated.push({
+          id: place.id,
+          photo_url: hit.photoUrl || null,
+          address: place.address || hit.address || null,
+          lat: place.lat != null ? place.lat : (lat != null && lng != null ? lat : null),
+          lng: place.lng != null ? place.lng : (lat != null && lng != null ? lng : null),
+          external_id: hit.externalId || hit.id || place.external_id || null,
+          external_source: hit.source || place.external_source || null,
+        })
+      } catch {
+        // skip
+      }
+    }
+  }
+
+  return updated
 }
 
 export async function applyAiTripPlan(client, userId, plan) {
