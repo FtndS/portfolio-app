@@ -94,10 +94,18 @@ export default function TripAIPlanner({ onClose, onCreated }) {
     if (!draftPlan || applying) return
     setApplying(true)
     setErr('')
-    const r = await api.post('/ai/trip-plan', { messages, apply: true })
+    const r = await api.post('/ai/trip-plan', {
+      messages,
+      apply: true,
+      plan: draftPlan,
+    })
     setApplying(false)
     if (r?.error) {
       setErr(r.error)
+      if (r.status === 'clarify' && Array.isArray(r.questions)) {
+        setQuestions(r.questions)
+        setDraftPlan(null)
+      }
       return
     }
     if (r?.trip_id) {

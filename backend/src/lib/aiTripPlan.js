@@ -7,6 +7,13 @@ const MAX_ENRICH = 8
 const MAX_DAYS = 14
 const MAX_PLACES_PER_DAY = 12
 
+function nullishDate(value) {
+  if (value == null || value === '') return null
+  const s = String(value).trim().toLowerCase()
+  if (!s || s === 'null' || s === 'undefined') return null
+  return String(value).trim().slice(0, 10)
+}
+
 export function normalizeAiTripPlanMessages(raw) {
   if (!Array.isArray(raw)) return []
   return raw
@@ -37,8 +44,8 @@ export function normalizeAiPlanResponse(raw) {
   const tripBody = {
     title: raw.trip.title,
     destination: raw.trip.destination,
-    start_date: raw.trip.start_date,
-    end_date: raw.trip.end_date,
+    start_date: nullishDate(raw.trip.start_date),
+    end_date: nullishDate(raw.trip.end_date),
     notes: raw.trip.notes || 'สร้างโดย AI Trip Planner',
     status: 'planned',
     currency: 'THB',
@@ -114,11 +121,13 @@ export async function enrichPlanPlaces(plan, { maxEnrich = MAX_ENRICH } = {}) {
           })
           const hit = results?.[0]
           if (hit) {
+            const lat = hit.lat ?? null
+            const lng = hit.lng ?? null
             enriched = {
               ...enriched,
               address: enriched.address || hit.address || null,
-              lat: hit.lat ?? null,
-              lng: hit.lng ?? null,
+              lat: lat != null && lng != null ? lat : null,
+              lng: lat != null && lng != null ? lng : null,
               photo_url: hit.photoUrl || null,
               external_id: hit.externalId || hit.id || null,
               external_source: hit.source || null,

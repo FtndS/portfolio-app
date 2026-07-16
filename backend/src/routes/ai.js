@@ -406,10 +406,6 @@ router.post('/trip-plan', async (req, res) => {
 
     const apply = !!req.body?.apply
     const messages = normalizeAiTripPlanMessages(req.body?.messages)
-    if (!messages.length) {
-      return res.status(400).json({ error: 'กรุณาพิมพ์ข้อความอย่างน้อยหนึ่งข้อความ' })
-    }
-
     const planConfig = getPlanConfigForUser(
       req.userRole,
       req.userEmail,
@@ -417,7 +413,12 @@ router.post('/trip-plan', async (req, res) => {
       req.userPlanExpiresAt
     )
 
+    // Apply path: use client draft plan (or re-parse) — do not re-call Claude
     if (apply) {
+      if (!messages.length && !req.body?.plan) {
+        return res.status(400).json({ error: 'กรุณาพิมพ์ข้อความอย่างน้อยหนึ่งข้อความ' })
+      }
+
       const status = await getFeatureQuota(
         req.userId,
         req.userEmail,
@@ -434,11 +435,104 @@ router.post('/trip-plan', async (req, res) => {
           nextAvailableAt: status.nextAvailableAt,
         })
       }
+
+      let normalized
+      if (req.body?.plan) {
+        normalized = normalizeAiPlanResponse({ status: 'plan', trip: req.body.plan })
+      } else {
+        // Fallback: ask Claude once more, but force a user turn so API accepts
+        const claudeMessages = [...messages]
+        if (claudeMessages[claudeMessages.length - 1]?.role === 'assistant') {
+          claudeMessages.push({
+            role: 'user',
+            content: 'สร้างแผนทริปฉบับสมบูรณ์ตามที่คุยไว้แล้ว ในรูปแบบ JSON status=plan',
+          })
+        }
+        const text = await callClaudeMessages(
+          buildTripPlanSystemPrompt(),
+          claudeMessages,
+          planConfig.tripPlan?.maxTokens || 4096
+        )
+        normalized = normalizeAiPlanResponse(parseClaudeJson(text))
+      }
+
+      if (normalized.error) {
+        return res.status(400).json({ error: normalized.error || 'แผนไม่ถูกต้อง' })
+      }
+      if (normalized.status !== 'plan') {
+        return res.status(400).json({
+          error: 'แผนยังไม่พร้อม — ตอบคำถามเพิ่มก่อน แล้วกดสร้างอีกครั้ง',
+          status: 'clarify',
+          questions: normalized.questions || [],
+        })
+      }
+
+      const enriched = await enrichPlanPlaces(normalized, {
+        maxEnrich: planConfig.tripPlan?.maxEnrich || 8,
+      })
+
+      const reserved = await reserveAiQuota(
+        req.userId,
+        req.userEmail,
+        AI_FEATURES.TRIP_PLAN,
+        req.userRole,
+        req.userPlan,
+        req.userPlanExpiresAt
+      )
+      if (!reserved.allowed) {
+        return res.status(429).json({
+          error: quotaExceededMessage(AI_FEATURES.TRIP_PLAN, reserved.nextAvailableAt, { limit: reserved.limit }),
+          code: 'AI_QUOTA_EXCEEDED',
+          feature: AI_FEATURES.TRIP_PLAN,
+          nextAvailableAt: reserved.nextAvailableAt,
+        })
+      }
+
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        const created = await applyAiTripPlan(client, req.userId, enriched)
+        await client.query('COMMIT')
+        return res.json({
+          status: 'created',
+          trip_id: created.id,
+          trip: created,
+        })
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {})
+        throw err
+      } finally {
+        client.release()
+      }
+    }
+
+    if (!messages.length) {
+      return res.status(400).json({ error: 'กรุณาพิมพ์ข้อความอย่างน้อยหนึ่งข้อความ' })
+    }
+
+    // Ensure Claude messages alternate and end with user
+    const claudeMessages = []
+    for (const m of messages) {
+      const last = claudeMessages[claudeMessages.length - 1]
+      if (last && last.role === m.role) {
+        last.content = `${last.content}\n${m.content}`
+      } else {
+        claudeMessages.push({ ...m })
+      }
+    }
+    if (claudeMessages[0]?.role === 'assistant') {
+      claudeMessages.unshift({ role: 'user', content: 'ช่วยจัดทริปให้หน่อย' })
+    }
+    if (claudeMessages[claudeMessages.length - 1]?.role === 'assistant') {
+      claudeMessages.push({
+        role: 'user',
+        content: 'ตอบเป็น JSON ตามรูปแบบที่กำหนดต่อได้เลย',
+      })
     }
 
     const text = await callClaudeMessages(
       buildTripPlanSystemPrompt(),
-      messages,
+      claudeMessages,
       planConfig.tripPlan?.maxTokens || 4096
     )
     const parsedRaw = parseClaudeJson(text)
@@ -454,57 +548,17 @@ router.post('/trip-plan', async (req, res) => {
       })
     }
 
-    if (!apply) {
-      return res.json({
-        status: 'plan',
-        trip: {
-          title: normalized.trip.title,
-          destination: normalized.trip.destination,
-          start_date: normalized.trip.start_date,
-          end_date: normalized.trip.end_date,
-          notes: normalized.trip.notes,
-          days: normalized.trip.days,
-        },
-      })
-    }
-
-    const enriched = await enrichPlanPlaces(normalized, {
-      maxEnrich: planConfig.tripPlan?.maxEnrich || 8,
+    return res.json({
+      status: 'plan',
+      trip: {
+        title: normalized.trip.title,
+        destination: normalized.trip.destination,
+        start_date: normalized.trip.start_date,
+        end_date: normalized.trip.end_date,
+        notes: normalized.trip.notes,
+        days: normalized.trip.days,
+      },
     })
-
-    const reserved = await reserveAiQuota(
-      req.userId,
-      req.userEmail,
-      AI_FEATURES.TRIP_PLAN,
-      req.userRole,
-      req.userPlan,
-      req.userPlanExpiresAt
-    )
-    if (!reserved.allowed) {
-      return res.status(429).json({
-        error: quotaExceededMessage(AI_FEATURES.TRIP_PLAN, reserved.nextAvailableAt, { limit: reserved.limit }),
-        code: 'AI_QUOTA_EXCEEDED',
-        feature: AI_FEATURES.TRIP_PLAN,
-        nextAvailableAt: reserved.nextAvailableAt,
-      })
-    }
-
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
-      const created = await applyAiTripPlan(client, req.userId, enriched)
-      await client.query('COMMIT')
-      res.json({
-        status: 'created',
-        trip_id: created.id,
-        trip: created,
-      })
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {})
-      throw err
-    } finally {
-      client.release()
-    }
   } catch (err) {
     console.error('AI trip-plan error:', err)
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
