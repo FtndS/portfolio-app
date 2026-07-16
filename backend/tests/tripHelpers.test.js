@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   enumerateDateRange,
   normalizePlacePayload,
+  normalizeReorderPayload,
   normalizeTripPayload,
   isValidPlaceType,
 } from '../src/lib/tripHelpers.js'
@@ -62,5 +63,9 @@ describe('tripHelpers', () => {
     })
     expect(withPhoto.photo_url).toBe('https://example.com/a.jpg')
     expect(withPhoto.external_source).toBe('google')
+  })
+
+  it('normalizes reorder payload', () => {
+    expect(normalizeReorderPayload({ day_id: 2, place_ids: [1, 2] }).place_ids).toEqual([1, 2])
   })
 })

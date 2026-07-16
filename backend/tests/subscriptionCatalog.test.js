@@ -12,5 +12,8 @@ describe('subscriptionCatalog', () => {
     expect(analyze.pro).toContain('8')
     const custom = pro.features.find((f) => f.id === 'copilotCustom')
     expect(custom.pro).toBe('✓')
+    const tripPlan = pro.features.find((f) => f.id === 'tripPlan')
+    expect(tripPlan.pro).toContain('4')
+    expect(tripPlan.free).toContain('1')
   })
 })

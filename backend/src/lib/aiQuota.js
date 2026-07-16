@@ -11,6 +11,7 @@ export const AI_FEATURES = {
   NEWS_SUMMARY: 'news-summary',
   COPILOT: 'copilot',
   TICKER_JOURNAL: 'ticker-journal',
+  TRIP_PLAN: 'trip-plan',
 }
 
 const WINDOW_SQL = `used_at > NOW() - INTERVAL '7 days'`
@@ -20,6 +21,7 @@ const FEATURE_LOCK_IDS = {
   [AI_FEATURES.NEWS_SUMMARY]: 2,
   [AI_FEATURES.COPILOT]: 3,
   [AI_FEATURES.TICKER_JOURNAL]: 4,
+  [AI_FEATURES.TRIP_PLAN]: 5,
 }
 
 export { getAiOwnerEmail } from './aiPlan.js'
@@ -127,11 +129,12 @@ export async function reserveAiQuota(userId, email, feature, role, plan, planExp
 export async function getAiQuota(userId, email, role, plan, planExpiresAt) {
   const owner = isAiPrivilegedUser(role, email)
   const planConfig = getPlanConfig(plan, planExpiresAt)
-  const [analyze, newsSummary, copilot, tickerJournal] = await Promise.all([
+  const [analyze, newsSummary, copilot, tickerJournal, tripPlan] = await Promise.all([
     getFeatureQuota(userId, email, AI_FEATURES.ANALYZE, role, plan, planExpiresAt),
     getFeatureQuota(userId, email, AI_FEATURES.NEWS_SUMMARY, role, plan, planExpiresAt),
     getFeatureQuota(userId, email, AI_FEATURES.COPILOT, role, plan, planExpiresAt),
     getFeatureQuota(userId, email, AI_FEATURES.TICKER_JOURNAL, role, plan, planExpiresAt),
+    getFeatureQuota(userId, email, AI_FEATURES.TRIP_PLAN, role, plan, planExpiresAt),
   ])
 
   return {
@@ -143,11 +146,13 @@ export async function getAiQuota(userId, email, role, plan, planExpiresAt) {
       newsSummary: owner ? null : planConfig.weeklyLimit['news-summary'],
       copilot: owner ? null : planConfig.weeklyLimit.copilot,
       tickerJournal: owner ? null : planConfig.weeklyLimit['ticker-journal'],
+      tripPlan: owner ? null : planConfig.weeklyLimit['trip-plan'],
     },
     analyze,
     newsSummary,
     copilot,
     tickerJournal,
+    tripPlan,
   }
 }
 
@@ -157,6 +162,7 @@ export function quotaExceededMessage(feature, nextAvailableAt, { limit } = {}) {
     [AI_FEATURES.NEWS_SUMMARY]: 'สรุปข่าว',
     [AI_FEATURES.COPILOT]: 'Copilot',
     [AI_FEATURES.TICKER_JOURNAL]: 'สรุป journal หุ้น',
+    [AI_FEATURES.TRIP_PLAN]: 'AI จัดทริป',
   }
   const label = labels[feature] || 'ใช้ AI'
   const quotaText = limit ? `ครบ ${limit} ครั้ง/สัปดาห์` : 'ครบโควต้าสัปดาห์นี้'

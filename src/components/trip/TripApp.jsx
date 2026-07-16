@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { btnGhost, btnPrimary, inp } from '../../lib/styles'
 import { fmtDate as fmtDateDmy } from '../../lib/format'
@@ -8,6 +8,7 @@ import DateInput from '../ui/DateInput'
 import Modal from '../ui/Modal'
 import { readTripId } from '../../lib/appRoutes'
 import TripPlaceSearch, { PlacePhoto } from './TripPlaceSearch'
+import TripAIPlanner from './TripAIPlanner'
 import './TripApp.css'
 import './TripPlaceSearch.css'
 
@@ -81,6 +82,20 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [placeAddMode, setPlaceAddMode] = useState('search')
+  const [editingPlaceId, setEditingPlaceId] = useState(null)
+  const [editTime, setEditTime] = useState({ start_time: '', end_time: '' })
+  const [aiOpen, setAiOpen] = useState(false)
+  const [dragIndex, setDragIndex] = useState(null)
+  const activeDayRef = useRef(null)
+  const placeDayRef = useRef('')
+
+  useEffect(() => {
+    activeDayRef.current = activeDayId
+  }, [activeDayId])
+
+  useEffect(() => {
+    placeDayRef.current = placeForm.trip_day_id
+  }, [placeForm.trip_day_id])
 
   const loadList = async () => {
     setLoading(true)
@@ -94,27 +109,42 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     setTrips(Array.isArray(rows) ? rows : [])
   }
 
-  const loadDetail = async (id) => {
-    setLoading(true)
+  const loadDetail = async (id, { preserveSelection = false, showLoading = true } = {}) => {
+    if (showLoading) setLoading(true)
     setErr('')
     const r = await api.get(`/trips/${id}`)
-    setLoading(false)
+    if (showLoading) setLoading(false)
     if (r?.error) {
       setErr(r.error)
       setDetail(null)
       return
     }
     setDetail(r)
-    setActiveDayId(r.days?.[0]?.id || null)
+    const days = r.days || []
+    const prevDay = activeDayRef.current
+    const prevFormDay = placeDayRef.current
+    const keepActive = preserveSelection && prevDay && days.some((d) => d.id === prevDay)
+    const nextActive = keepActive ? prevDay : (days[0]?.id || null)
+    setActiveDayId(nextActive)
+
+    const keepForm =
+      preserveSelection &&
+      prevFormDay &&
+      days.some((d) => String(d.id) === String(prevFormDay))
     setPlaceForm((prev) => ({
       ...prev,
-      trip_day_id: r.days?.[0]?.id ? String(r.days[0].id) : '',
+      trip_day_id: keepForm
+        ? String(prevFormDay)
+        : (nextActive ? String(nextActive) : ''),
     }))
   }
 
   useEffect(() => {
-    if (tripId) loadDetail(tripId)
-    else {
+    if (tripId) {
+      activeDayRef.current = null
+      placeDayRef.current = ''
+      loadDetail(tripId)
+    } else {
       setDetail(null)
       loadList()
     }
@@ -165,8 +195,9 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
       setErr(r.error)
       return
     }
-    await loadDetail(detail.id)
+    await loadDetail(detail.id, { preserveSelection: true, showLoading: false })
     setActiveDayId(r.id)
+    setPlaceForm((prev) => ({ ...prev, trip_day_id: String(r.id) }))
   }
 
   const addPlace = async (payloadOverride) => {
@@ -188,10 +219,13 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     if (!payloadOverride) {
       setPlaceForm({
         ...emptyPlaceForm,
+        type: placeForm.type,
         trip_day_id: placeForm.trip_day_id || (activeDayId ? String(activeDayId) : ''),
+        start_time: '',
+        end_time: '',
       })
     }
-    await loadDetail(detail.id)
+    await loadDetail(detail.id, { preserveSelection: true, showLoading: false })
     return true
   }
 
@@ -206,6 +240,8 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
       photo_url: result.photoUrl || null,
       external_id: result.externalId || result.id || null,
       external_source: result.source || null,
+      start_time: placeForm.start_time || null,
+      end_time: placeForm.end_time || null,
     })
   }
 
@@ -219,8 +255,93 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
       return
     }
     setConfirmDelete(null)
-    await loadDetail(detail.id)
+    await loadDetail(detail.id, { preserveSelection: true, showLoading: false })
   }
+
+  const savePlaceTimes = async (place) => {
+    setSaving(true)
+    setErr('')
+    const r = await api.put(`/trips/${detail.id}/places/${place.id}`, {
+      ...place,
+      start_time: editTime.start_time || null,
+      end_time: editTime.end_time || null,
+    })
+    setSaving(false)
+    if (r?.error) {
+      setErr(r.error)
+      return
+    }
+    setEditingPlaceId(null)
+    await loadDetail(detail.id, { preserveSelection: true, showLoading: false })
+  }
+
+  const persistOrder = async (orderedPlaces) => {
+    if (!activeDayId || !detail) return
+    const r = await api.put(`/trips/${detail.id}/places/reorder`, {
+      day_id: activeDayId,
+      place_ids: orderedPlaces.map((p) => p.id),
+    })
+    if (r?.error) {
+      setErr(r.error)
+      await loadDetail(detail.id, { preserveSelection: true, showLoading: false })
+      return
+    }
+    setDetail(r)
+  }
+
+  const movePlace = async (index, direction) => {
+    const next = index + direction
+    if (next < 0 || next >= placesForActiveDay.length) return
+    const ordered = [...placesForActiveDay]
+    const [item] = ordered.splice(index, 1)
+    ordered.splice(next, 0, item)
+    setDetail((prev) => {
+      if (!prev) return prev
+      const others = (prev.places || []).filter((p) => p.trip_day_id !== activeDayId)
+      return { ...prev, places: [...others, ...ordered] }
+    })
+    await persistOrder(ordered)
+  }
+
+  const onDropPlace = async (toIndex) => {
+    if (dragIndex == null || dragIndex === toIndex) {
+      setDragIndex(null)
+      return
+    }
+    const ordered = [...placesForActiveDay]
+    const [item] = ordered.splice(dragIndex, 1)
+    ordered.splice(toIndex, 0, item)
+    setDragIndex(null)
+    setDetail((prev) => {
+      if (!prev) return prev
+      const others = (prev.places || []).filter((p) => p.trip_day_id !== activeDayId)
+      return { ...prev, places: [...others, ...ordered] }
+    })
+    await persistOrder(ordered)
+  }
+
+  const timeFields = (
+    <div className="trip-form-row">
+      <label>
+        <span>เวลาเริ่ม</span>
+        <input
+          style={inp({ marginBottom: 0 })}
+          placeholder="เช่น 09:00"
+          value={placeForm.start_time}
+          onChange={(e) => setPlaceForm({ ...placeForm, start_time: e.target.value })}
+        />
+      </label>
+      <label>
+        <span>เวลาจบ</span>
+        <input
+          style={inp({ marginBottom: 0 })}
+          placeholder="เช่น 11:00"
+          value={placeForm.end_time}
+          onChange={(e) => setPlaceForm({ ...placeForm, end_time: e.target.value })}
+        />
+      </label>
+    </div>
+  )
 
   return (
     <div className="trip-shell">
@@ -252,13 +373,22 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 <h1>ทริปของฉัน</h1>
                 <p className="dash-text-muted">สร้างแผนเที่ยว จัดวัน และจุดแวะพักได้ในที่เดียว</p>
               </div>
-              <button
-                type="button"
-                style={{ ...btnPrimary, width: 'auto' }}
-                onClick={() => setCreating((v) => !v)}
-              >
-                {creating ? 'ปิดฟอร์ม' : '+ สร้างทริป'}
-              </button>
+              <div className="trip-list-head-actions">
+                <button
+                  type="button"
+                  style={{ ...btnGhost, width: 'auto' }}
+                  onClick={() => setAiOpen(true)}
+                >
+                  AI จัดทริป
+                </button>
+                <button
+                  type="button"
+                  style={{ ...btnPrimary, width: 'auto' }}
+                  onClick={() => setCreating((v) => !v)}
+                >
+                  {creating ? 'ปิดฟอร์ม' : '+ สร้างทริป'}
+                </button>
+              </div>
             </div>
 
             {creating && (
@@ -308,7 +438,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
 
             {loading && <p className="dash-text-muted">กำลังโหลด...</p>}
             {!loading && trips.length === 0 && (
-              <div className="trip-empty">ยังไม่มีทริป — กดสร้างทริปเพื่อเริ่มวางแผน</div>
+              <div className="trip-empty">ยังไม่มีทริป — กดสร้างทริปหรือใช้ AI จัดทริปเพื่อเริ่มวางแผน</div>
             )}
             <div className="trip-list">
               {trips.map((t) => (
@@ -379,9 +509,17 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   {placesForActiveDay.length === 0 && (
                     <p className="dash-text-muted" style={{ fontSize: 13 }}>ยังไม่มีจุดแวะในวันนี้</p>
                   )}
-                  {placesForActiveDay.map((p) => (
-                    <div key={p.id} className="trip-place-row">
-                      <div className="trip-place-row-with-photo">
+                  {placesForActiveDay.map((p, index) => (
+                    <div
+                      key={p.id}
+                      className={`trip-place-card${dragIndex === index ? ' is-dragging' : ''}`}
+                      draggable
+                      onDragStart={() => setDragIndex(index)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => onDropPlace(index)}
+                      onDragEnd={() => setDragIndex(null)}
+                    >
+                      <div className="trip-place-card-main">
                         <PlacePhoto
                           url={p.photo_url}
                           alt={p.name}
@@ -393,31 +531,92 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                             <span className="trip-place-type">{typeLabel(p.type)}</span>
                             {p.name}
                           </div>
-                          <div className="dash-text-muted" style={{ fontSize: 12, marginTop: 4 }}>
-                            {[p.start_time, p.end_time].filter(Boolean).join(' – ') || 'ไม่ระบุเวลา'}
-                            {p.address ? ` · ${p.address}` : ''}
-                            {p.budget != null ? ` · ฿${Number(p.budget).toLocaleString('th-TH')}` : ''}
-                          </div>
-                          {p.lat != null && p.lng != null && (
-                            <a
-                              className="dash-link-btn"
-                              style={{ fontSize: 12, marginTop: 6, display: 'inline-block' }}
-                              href={`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=15/${p.lat}/${p.lng}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              เปิดแผนที่
-                            </a>
+                          {editingPlaceId === p.id ? (
+                            <div className="trip-place-edit-time">
+                              <input
+                                style={inp({ marginBottom: 0 })}
+                                placeholder="เริ่ม"
+                                value={editTime.start_time}
+                                onChange={(e) => setEditTime({ ...editTime, start_time: e.target.value })}
+                              />
+                              <input
+                                style={inp({ marginBottom: 0 })}
+                                placeholder="จบ"
+                                value={editTime.end_time}
+                                onChange={(e) => setEditTime({ ...editTime, end_time: e.target.value })}
+                              />
+                              <button type="button" className="dash-link-btn" disabled={saving} onClick={() => savePlaceTimes(p)}>
+                                บันทึก
+                              </button>
+                              <button type="button" className="dash-link-btn" onClick={() => setEditingPlaceId(null)}>
+                                ยกเลิก
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="dash-text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                              {[p.start_time, p.end_time].filter(Boolean).join(' – ') || 'ไม่ระบุเวลา'}
+                              {p.address ? ` · ${p.address}` : ''}
+                              {p.budget != null ? ` · ฿${Number(p.budget).toLocaleString('th-TH')}` : ''}
+                            </div>
                           )}
+                          <div className="trip-place-card-links">
+                            {p.lat != null && p.lng != null && (
+                              <a
+                                className="dash-link-btn"
+                                style={{ fontSize: 12 }}
+                                href={`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=15/${p.lat}/${p.lng}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                เปิดแผนที่
+                              </a>
+                            )}
+                            {editingPlaceId !== p.id && (
+                              <button
+                                type="button"
+                                className="dash-link-btn"
+                                style={{ fontSize: 12 }}
+                                onClick={() => {
+                                  setEditingPlaceId(p.id)
+                                  setEditTime({
+                                    start_time: p.start_time || '',
+                                    end_time: p.end_time || '',
+                                  })
+                                }}
+                              >
+                                แก้เวลา
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="dash-link-btn"
-                        onClick={() => setConfirmDelete({ type: 'place', id: p.id, name: p.name })}
-                      >
-                        ลบ
-                      </button>
+                      <div className="trip-place-card-actions">
+                        <button
+                          type="button"
+                          className="trip-reorder-btn"
+                          disabled={index === 0}
+                          onClick={() => movePlace(index, -1)}
+                          title="เลื่อนขึ้น"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="trip-reorder-btn"
+                          disabled={index === placesForActiveDay.length - 1}
+                          onClick={() => movePlace(index, 1)}
+                          title="เลื่อนลง"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          className="dash-link-btn"
+                          onClick={() => setConfirmDelete({ type: 'place', id: p.id, name: p.name })}
+                        >
+                          ลบ
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -471,6 +670,8 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                     </label>
                   </div>
 
+                  {timeFields}
+
                   {placeAddMode === 'search' ? (
                     <TripPlaceSearch
                       destination={detail.destination}
@@ -509,18 +710,6 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                       <div className="trip-form-row">
                         <input
                           style={inp({ marginBottom: 0 })}
-                          placeholder="เวลาเริ่ม เช่น 09:00"
-                          value={placeForm.start_time}
-                          onChange={(e) => setPlaceForm({ ...placeForm, start_time: e.target.value })}
-                        />
-                        <input
-                          style={inp({ marginBottom: 0 })}
-                          placeholder="เวลาจบ เช่น 11:00"
-                          value={placeForm.end_time}
-                          onChange={(e) => setPlaceForm({ ...placeForm, end_time: e.target.value })}
-                        />
-                        <input
-                          style={inp({ marginBottom: 0 })}
                           placeholder="งบ (บาท)"
                           value={placeForm.budget}
                           onChange={(e) => setPlaceForm({ ...placeForm, budget: e.target.value })}
@@ -550,13 +739,23 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   </div>
                 )}
                 <p className="dash-text-muted" style={{ fontSize: 12, marginTop: 10 }}>
-                  MVP ใช้แผนที่เปิด — ยังไม่ผูก affiliate จองที่พัก (เฟส 2)
+                  ลากการ์ดหรือกด ↑↓ เพื่อจัดลำดับจุดแวะในแต่ละวัน
                 </p>
               </section>
             </div>
           </>
         )}
       </main>
+
+      {aiOpen && (
+        <TripAIPlanner
+          onClose={() => setAiOpen(false)}
+          onCreated={(id) => {
+            setAiOpen(false)
+            navigate(`/trip/${id}`)
+          }}
+        />
+      )}
 
       {confirmDelete?.type === 'trip' && detail && (
         <Modal title="ลบทริป?" onClose={() => !deleting && setConfirmDelete(null)}>

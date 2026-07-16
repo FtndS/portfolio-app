@@ -6,12 +6,21 @@ import { requireAiQuota } from '../middleware/aiQuota.js'
 import {
   AI_FEATURES,
   getAiQuota,
+  getFeatureQuota,
   quotaExceededMessage,
   reserveAiQuota,
 } from '../lib/aiQuota.js'
 import { getPlanConfigForUser } from '../lib/aiPlan.js'
 import { buildAnalyzePayload } from '../lib/aiAnalyzeContext.js'
 import { buildCopilotContext, resolveCopilotQuestion } from '../lib/aiCopilotContext.js'
+import {
+  applyAiTripPlan,
+  buildTripPlanSystemPrompt,
+  enrichPlanPlaces,
+  normalizeAiPlanResponse,
+  normalizeAiTripPlanMessages,
+} from '../lib/aiTripPlan.js'
+import pool from '../db/index.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -68,6 +77,10 @@ function parseClaudeJson(text) {
 }
 
 async function callClaude(systemPrompt, userMessage, maxTokens = 4096) {
+  return callClaudeMessages(systemPrompt, [{ role: 'user', content: userMessage }], maxTokens)
+}
+
+async function callClaudeMessages(systemPrompt, messages, maxTokens = 4096) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -79,7 +92,10 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 4096) {
       model: 'claude-sonnet-4-6',
       max_tokens: maxTokens,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }]
+      messages: messages.map((m) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content,
+      })),
     }),
     signal: AbortSignal.timeout(180_000),
   })
@@ -377,6 +393,123 @@ ${journalText || '— ไม่มี'}
     res.json({ summary: text.trim() })
   } catch (err) {
     console.error('Ticker journal summary error:', err)
+    serverError(res, err)
+  }
+})
+
+// AI Trip Planner — clarify หรือสร้างแผน (นับโควต้าเมื่อ apply สำเร็จเท่านั้น)
+router.post('/trip-plan', async (req, res) => {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(503).json({ error: 'ยังไม่ได้ตั้งค่า AI' })
+    }
+
+    const apply = !!req.body?.apply
+    const messages = normalizeAiTripPlanMessages(req.body?.messages)
+    if (!messages.length) {
+      return res.status(400).json({ error: 'กรุณาพิมพ์ข้อความอย่างน้อยหนึ่งข้อความ' })
+    }
+
+    const planConfig = getPlanConfigForUser(
+      req.userRole,
+      req.userEmail,
+      req.userPlan,
+      req.userPlanExpiresAt
+    )
+
+    if (apply) {
+      const status = await getFeatureQuota(
+        req.userId,
+        req.userEmail,
+        AI_FEATURES.TRIP_PLAN,
+        req.userRole,
+        req.userPlan,
+        req.userPlanExpiresAt
+      )
+      if (!status.allowed) {
+        return res.status(429).json({
+          error: quotaExceededMessage(AI_FEATURES.TRIP_PLAN, status.nextAvailableAt, { limit: status.limit }),
+          code: 'AI_QUOTA_EXCEEDED',
+          feature: AI_FEATURES.TRIP_PLAN,
+          nextAvailableAt: status.nextAvailableAt,
+        })
+      }
+    }
+
+    const text = await callClaudeMessages(
+      buildTripPlanSystemPrompt(),
+      messages,
+      planConfig.tripPlan?.maxTokens || 4096
+    )
+    const parsedRaw = parseClaudeJson(text)
+    const normalized = normalizeAiPlanResponse(parsedRaw)
+    if (normalized.error) {
+      return res.status(502).json({ error: normalized.error || 'AI ตอบไม่ถูกต้อง' })
+    }
+
+    if (normalized.status === 'clarify') {
+      return res.json({
+        status: 'clarify',
+        questions: normalized.questions,
+      })
+    }
+
+    if (!apply) {
+      return res.json({
+        status: 'plan',
+        trip: {
+          title: normalized.trip.title,
+          destination: normalized.trip.destination,
+          start_date: normalized.trip.start_date,
+          end_date: normalized.trip.end_date,
+          notes: normalized.trip.notes,
+          days: normalized.trip.days,
+        },
+      })
+    }
+
+    const enriched = await enrichPlanPlaces(normalized, {
+      maxEnrich: planConfig.tripPlan?.maxEnrich || 8,
+    })
+
+    const reserved = await reserveAiQuota(
+      req.userId,
+      req.userEmail,
+      AI_FEATURES.TRIP_PLAN,
+      req.userRole,
+      req.userPlan,
+      req.userPlanExpiresAt
+    )
+    if (!reserved.allowed) {
+      return res.status(429).json({
+        error: quotaExceededMessage(AI_FEATURES.TRIP_PLAN, reserved.nextAvailableAt, { limit: reserved.limit }),
+        code: 'AI_QUOTA_EXCEEDED',
+        feature: AI_FEATURES.TRIP_PLAN,
+        nextAvailableAt: reserved.nextAvailableAt,
+      })
+    }
+
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const created = await applyAiTripPlan(client, req.userId, enriched)
+      await client.query('COMMIT')
+      res.json({
+        status: 'created',
+        trip_id: created.id,
+        trip: created,
+      })
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {})
+      throw err
+    } finally {
+      client.release()
+    }
+  } catch (err) {
+    console.error('AI trip-plan error:', err)
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      return res.status(504).json({ error: 'AI ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง', code: 'AI_TIMEOUT' })
+    }
     serverError(res, err)
   }
 })

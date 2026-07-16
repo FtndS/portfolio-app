@@ -124,3 +124,18 @@ export function normalizePlacePayload(body = {}) {
     sort_order: body.sort_order == null || body.sort_order === '' ? 0 : Number(body.sort_order) || 0,
   }
 }
+
+/** Validate reorder payload: day_id + ordered place_ids for one day. */
+export function normalizeReorderPayload(body = {}) {
+  const dayId = body.day_id == null || body.day_id === '' ? null : Number(body.day_id)
+  if (dayId == null || Number.isNaN(dayId)) return { error: 'วันทริปไม่ถูกต้อง' }
+
+  const rawIds = Array.isArray(body.place_ids) ? body.place_ids : null
+  if (!rawIds || !rawIds.length) return { error: 'รายการจุดแวะว่าง' }
+
+  const placeIds = rawIds.map((id) => Number(id))
+  if (placeIds.some((id) => Number.isNaN(id))) return { error: 'รหัสจุดแวะไม่ถูกต้อง' }
+  if (new Set(placeIds).size !== placeIds.length) return { error: 'รหัสจุดแวะซ้ำ' }
+
+  return { day_id: dayId, place_ids: placeIds }
+}

@@ -34,6 +34,7 @@ const QUOTA_KEYS = [
   ['copilot', 'Copilot'],
   ['newsSummary', 'สรุปข่าว'],
   ['tickerJournal', 'สรุป journal หุ้น'],
+  ['tripPlan', 'AI จัดทริป'],
 ]
 const PAYMENT_MAINTENANCE_POPUP_SEEN_KEY = 'portdiary_payment_maintenance_popup_seen'
 

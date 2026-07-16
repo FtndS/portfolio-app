@@ -11,6 +11,7 @@ import {
 import {
   enumerateDateRange,
   normalizePlacePayload,
+  normalizeReorderPayload,
   normalizeTripPayload,
 } from '../lib/tripHelpers.js'
 
@@ -337,6 +338,57 @@ router.post('/:id/places', async (req, res) => {
     res.json(r.rows[0])
   } catch (err) {
     serverError(res, err, 'POST trip place error:')
+  }
+})
+
+router.put('/:id/places/reorder', async (req, res) => {
+  const tripId = Number(req.params.id)
+  const trip = await getOwnedTrip(req.userId, tripId)
+  if (!trip) return res.status(404).json({ error: 'ไม่พบทริป' })
+
+  const parsed = normalizeReorderPayload(req.body)
+  if (parsed.error) return res.status(400).json({ error: parsed.error })
+
+  const day = await pool.query(
+    'SELECT id FROM trip_days WHERE id = $1 AND trip_id = $2',
+    [parsed.day_id, tripId]
+  )
+  if (!day.rows[0]) return res.status(400).json({ error: 'วันทริปไม่ตรงกับทริปนี้' })
+
+  const existing = await pool.query(
+    `SELECT id FROM trip_places
+     WHERE trip_id = $1 AND trip_day_id = $2
+     ORDER BY sort_order ASC, id ASC`,
+    [tripId, parsed.day_id]
+  )
+  const existingIds = existing.rows.map((r) => r.id)
+  if (existingIds.length !== parsed.place_ids.length) {
+    return res.status(400).json({ error: 'รายการจุดแวะไม่ครบ' })
+  }
+  const sameSet =
+    existingIds.length === parsed.place_ids.length &&
+    existingIds.every((id) => parsed.place_ids.includes(id))
+  if (!sameSet) return res.status(400).json({ error: 'รายการจุดแวะไม่ตรงกับวันนี้' })
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    for (let i = 0; i < parsed.place_ids.length; i += 1) {
+      await client.query(
+        `UPDATE trip_places
+         SET sort_order = $1, updated_at = NOW()
+         WHERE id = $2 AND trip_id = $3 AND trip_day_id = $4`,
+        [i, parsed.place_ids[i], tripId, parsed.day_id]
+      )
+    }
+    await client.query('COMMIT')
+    const detail = await loadTripDetail(req.userId, tripId)
+    res.json(detail)
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    serverError(res, err, 'PUT trip places reorder error:')
+  } finally {
+    client.release()
   }
 })
 

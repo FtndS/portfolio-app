@@ -82,7 +82,7 @@ export const historyLimiter = rateLimit({
 
 export const placeSearchLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'ค้นหาสถานที่บ่อยเกินไป กรุณารอสักครู่' },

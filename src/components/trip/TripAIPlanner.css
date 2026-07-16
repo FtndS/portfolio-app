@@ -1,0 +1,94 @@
+.trip-ai-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  padding-right: 4px;
+}
+
+.trip-ai-empty {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.trip-ai-bubble {
+  max-width: 92%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.trip-ai-bubble--user {
+  align-self: flex-end;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.trip-ai-bubble--assistant {
+  align-self: flex-start;
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface));
+  border: 1px solid var(--border-subtle);
+}
+
+.trip-ai-questions-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.trip-ai-plan-preview {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+}
+
+.trip-ai-plan-days {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.trip-ai-plan-day-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.trip-ai-plan-day ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.trip-ai-plan-day li {
+  margin-bottom: 4px;
+}
+
+.trip-ai-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.trip-ai-compose-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

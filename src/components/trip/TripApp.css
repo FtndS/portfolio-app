@@ -182,11 +182,82 @@
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+.trip-list-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .trip-places {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-bottom: 18px;
+}
+
+.trip-place-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg) 65%, var(--surface));
+  cursor: grab;
+}
+
+.trip-place-card.is-dragging {
+  opacity: 0.65;
+  border-color: var(--accent);
+}
+
+.trip-place-card-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+
+.trip-place-card-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.trip-reorder-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.trip-reorder-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.trip-place-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.trip-place-edit-time {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
 }
 
 .trip-place-row {
@@ -240,5 +311,9 @@
 
   .trip-list-head {
     flex-direction: column;
+  }
+
+  .trip-place-edit-time {
+    grid-template-columns: 1fr 1fr;
   }
 }

@@ -9,6 +9,7 @@ const FEATURE_ROWS = [
   { key: 'copilotCustom', label: 'ถาม Copilot เอง', free: '—', pro: '✓' },
   { key: 'newsSummary', label: 'AI สรุปข่าว', weekly: true },
   { key: 'tickerJournal', label: 'AI สรุป journal หุ้น', weekly: true },
+  { key: 'tripPlan', label: 'AI จัดทริป', weekly: true },
 ]
 
 const WEEKLY_KEYS = {
@@ -16,6 +17,7 @@ const WEEKLY_KEYS = {
   copilot: 'copilot',
   newsSummary: 'news-summary',
   tickerJournal: 'ticker-journal',
+  tripPlan: 'trip-plan',
 }
 
 export function buildSubscriptionCatalog() {
