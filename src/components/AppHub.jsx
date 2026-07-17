@@ -32,7 +32,8 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
             สวัสดี, <span>{user?.name || 'นักลงทุน'}</span>
           </h1>
           <p>
-            เลือกแอปที่ต้องการใช้งาน — สมัครครั้งเดียว ใช้ได้ทั้ง Stock และ Trip
+            PortDiary รวมสองเครื่องมือในบัญชีเดียว — ติดตามพอร์ตหุ้น และวางแผนท่องเที่ยว
+            เลือกแอปด้านล่างเพื่อเริ่มใช้งานได้ทันที
           </p>
         </div>
       </section>
@@ -43,7 +44,9 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
             <span className="landing-app-card-tag">พร้อมใช้</span>
             <h2>Stock Asset Tracker</h2>
           </div>
-          <p>บันทึกพอร์ต รายงาน AI journal และติดตามหุ้นไทย–ต่างประเทศ</p>
+          <p>
+            บันทึกธุรกรรม ดูรายงานผลตอบแทน AI journal และติดตามหุ้นไทย–ต่างประเทศในมุมมองเดียว
+          </p>
           <span className="landing-app-card-cta">เปิดแอปหุ้น →</span>
         </button>
 
@@ -52,7 +55,9 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
             <span className="landing-app-card-tag">พร้อมใช้</span>
             <h2>Trip Planner</h2>
           </div>
-          <p>วางแผนท่องเที่ยว จุดแวะพัก ที่พัก ร้านอาหาร และสนามบินในที่เดียว</p>
+          <p>
+            ให้ AI จัดแผนเที่ยวรายวัน พร้อมที่พัก ร้านอาหาร การเดินทาง และลิงก์จองภายนอก — Export PDF ได้
+          </p>
           <span className="landing-app-card-cta">เปิดแอปทริป →</span>
         </button>
       </section>

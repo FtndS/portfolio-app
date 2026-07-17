@@ -59,7 +59,7 @@ function photoCaption(place) {
   return TYPE_LABELS[place.type] || 'จุดแวะ'
 }
 
-export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false, tripHeader = null }) {
+export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
   const sorted = [...(places || [])].sort((a, b) => {
     const ao = a.sort_order ?? 0
     const bo = b.sort_order ?? 0
@@ -71,12 +71,6 @@ export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false, tri
 
   return (
     <section className="trip-tl-day">
-      {tripHeader && (
-        <div className="trip-tl-trip-title">
-          <h1>{tripHeader.title}</h1>
-          {tripHeader.meta && <p>{tripHeader.meta}</p>}
-        </div>
-      )}
       <header className="trip-tl-day-head">
         <div className="trip-tl-day-label">
           <strong>{dayHeading(day.day_index)}</strong>
@@ -161,16 +155,46 @@ export default function TripTimeline({ trip, days, places, fmtDate, activeDayId,
     ? `${fmtDate(trip.start_date)} – ${fmtDate(trip.end_date)}`
     : null].filter(Boolean).join(' · ')
 
+  const nightCount = Math.max(0, dayList.length - 1)
+  const durationLabel = dayList.length
+    ? (nightCount > 0 ? `${dayList.length} วัน ${nightCount} คืน` : `${dayList.length} วัน`)
+    : null
+  const highlightNames = dayList
+    .flatMap((d) => placesByDay(d.id))
+    .map((p) => p.name)
+    .filter(Boolean)
+    .slice(0, 8)
+
   return (
     <div className={`trip-tl${allDays ? ' trip-tl--export' : ''}`}>
-      {dayList.map((day, index) => (
+      {allDays && (
+        <header className="trip-tl-cover">
+          <p className="trip-tl-cover-kicker">PortDiary Trip Plan</p>
+          <h1 className="trip-tl-cover-title">{trip?.title || 'แผนทริป'}</h1>
+          {tripMeta && <p className="trip-tl-cover-meta">{tripMeta}</p>}
+          {durationLabel && <p className="trip-tl-cover-duration">{durationLabel}</p>}
+          {highlightNames.length > 0 && (
+            <div className="trip-tl-cover-highlights">
+              <p className="trip-tl-cover-highlights-label">ไฮไลต์ในทริป</p>
+              <ul>
+                {highlightNames.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="trip-tl-cover-note">
+            แผนแนะนำเท่านั้น — ลิงก์จองเปิดไปยังเว็บภายนอก ไม่ได้จองในแอป
+          </p>
+        </header>
+      )}
+      {dayList.map((day) => (
         <TripDayTimeline
           key={day.id}
           day={day}
           places={placesByDay(day.id)}
           fmtDate={fmtDate}
           eagerPhotos={eagerPhotos || allDays}
-          tripHeader={allDays && index === 0 ? { title: trip?.title, meta: tripMeta || null } : null}
         />
       ))}
     </div>

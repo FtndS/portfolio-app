@@ -451,28 +451,43 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
 
         {!tripId && (
           <>
-            <div className="trip-list-head">
-              <div>
-                <h1>ทริปของฉัน</h1>
-                <p className="dash-text-muted">สร้างแผนเที่ยว จัดวัน และจุดแวะพักได้ในที่เดียว</p>
-              </div>
-              <div className="trip-list-head-actions">
+            <section className="trip-home-intro">
+              <h1>ทริปของฉัน</h1>
+              <p className="trip-home-intro-lead">
+                วางแผนเที่ยวแบบครบในที่เดียว — ให้ AI ช่วยร่างเส้นทาง ที่พัก ร้านอาหาร และการเดินทาง
+                จากนั้นจัดวันใน Timeline พร้อมลิงก์จอง Agoda / Booking / Trip.com / ตั๋วเครื่องบิน และ Export เป็น PDF ได้ทันที
+              </p>
+              <div className="trip-home-actions">
                 <button
                   type="button"
-                  style={{ ...btnGhost, width: 'auto' }}
+                  className="trip-btn-ai"
                   onClick={() => setAiOpen(true)}
                 >
                   AI จัดทริป
                 </button>
                 <button
                   type="button"
-                  style={{ ...btnPrimary, width: 'auto' }}
+                  className="trip-btn-secondary"
                   onClick={() => setCreating((v) => !v)}
                 >
-                  {creating ? 'ปิดฟอร์ม' : '+ สร้างทริป'}
+                  {creating ? 'ปิดฟอร์ม' : '+ สร้างทริปเอง'}
                 </button>
               </div>
-            </div>
+              <div className="trip-home-features">
+                <div className="trip-home-feature">
+                  <strong>AI ร่างแผน</strong>
+                  <p>บอกปลายทางและสไตล์เที่ยว แล้วได้แผนวันต่อวันพร้อมเวลา</p>
+                </div>
+                <div className="trip-home-feature">
+                  <strong>จองนอกแอป</strong>
+                  <p>ลิงก์ไป Agoda, Booking, Trip.com, 12Go, Grab, Google Flights</p>
+                </div>
+                <div className="trip-home-feature">
+                  <strong>Export PDF</strong>
+                  <p>พิมพ์แผนทั้งทริปเป็นโบรชัวร์ พร้อมหน้าปกและรายละเอียดรายวัน</p>
+                </div>
+              </div>
+            </section>
 
             {creating && (
               <div className="trip-card">
@@ -521,8 +536,9 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
 
             {loading && <p className="dash-text-muted">กำลังโหลด...</p>}
             {!loading && trips.length === 0 && (
-              <div className="trip-empty">ยังไม่มีทริป — กดสร้างทริปหรือใช้ AI จัดทริปเพื่อเริ่มวางแผน</div>
+              <div className="trip-empty">ยังไม่มีทริป — กด AI จัดทริป หรือสร้างทริปเองเพื่อเริ่มวางแผน</div>
             )}
+            {trips.length > 0 && <p className="trip-section-label">ทริปที่บันทึกไว้</p>}
             <div className="trip-list">
               {trips.map((t) => (
                 <button

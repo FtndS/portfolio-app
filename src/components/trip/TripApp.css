@@ -1,7 +1,19 @@
 .trip-shell {
   min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
+  /* Soft sage / sand — not site purple theme */
+  --trip-bg0: #eef4f1;
+  --trip-bg1: #f6f2ea;
+  --trip-ink: #1f3531;
+  --trip-muted: #5d736e;
+  --trip-surface: rgba(255, 252, 247, 0.92);
+  --trip-accent: #3f7a70;
+  --trip-accent-strong: #2f6b62;
+  --trip-border: #c9dbd5;
+  background:
+    radial-gradient(900px 420px at 12% -10%, #d9ebe6 0%, transparent 55%),
+    radial-gradient(700px 380px at 92% 8%, #f0e8d8 0%, transparent 50%),
+    linear-gradient(180deg, var(--trip-bg0), var(--trip-bg1));
+  color: var(--trip-ink);
 }
 
 .trip-topbar {
@@ -10,11 +22,17 @@
   justify-content: space-between;
   gap: 16px;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--trip-border) 70%, transparent);
+  background: color-mix(in srgb, var(--trip-surface) 88%, transparent);
+  backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
   z-index: 20;
+}
+
+.trip-topbar-sub {
+  font-size: 12px;
+  color: var(--trip-muted);
 }
 
 .trip-topbar-left {
@@ -87,11 +105,12 @@
 }
 
 .trip-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--trip-surface, var(--surface));
+  border: 1px solid var(--trip-border, var(--border));
   border-radius: 16px;
   padding: 18px 18px 20px;
   margin-bottom: 16px;
+  box-shadow: 0 8px 24px color-mix(in srgb, #1f3531 4%, transparent);
 }
 
 .trip-card h3,
@@ -112,7 +131,7 @@
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--trip-muted, var(--text-muted));
 }
 
 .trip-list {
@@ -130,29 +149,129 @@
   width: 100%;
   padding: 16px 18px;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid var(--trip-border, var(--border));
+  background: var(--trip-surface, var(--surface));
   color: inherit;
   cursor: pointer;
   font: inherit;
 }
 
 .trip-list-item:hover {
-  border-color: var(--accent);
+  border-color: var(--trip-accent, var(--accent));
 }
 
 .trip-list-meta {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--trip-muted, var(--text-muted));
   white-space: nowrap;
 }
 
+.trip-home-intro {
+  margin-bottom: 22px;
+  padding: 22px 22px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--trip-border);
+  background: var(--trip-surface);
+  box-shadow: 0 10px 28px color-mix(in srgb, #1f3531 5%, transparent);
+}
+
+.trip-home-intro h1 {
+  margin: 0 0 8px;
+  font-size: clamp(24px, 3.2vw, 32px);
+  letter-spacing: -0.03em;
+  color: var(--trip-ink);
+}
+
+.trip-home-intro-lead {
+  margin: 0 0 16px;
+  max-width: 58ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--trip-muted);
+}
+
+.trip-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.trip-btn-ai {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #3f7a70 0%, #2f6b62 100%);
+  box-shadow: 0 8px 18px color-mix(in srgb, #2f6b62 28%, transparent);
+}
+
+.trip-btn-ai:hover {
+  filter: brightness(1.05);
+}
+
+.trip-btn-secondary {
+  border: 1px solid var(--trip-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--trip-ink);
+  background: color-mix(in srgb, #fff 70%, transparent);
+}
+
+.trip-home-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.trip-home-feature {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, #dcece7 55%, #fff);
+  border: 1px solid color-mix(in srgb, var(--trip-border) 70%, transparent);
+}
+
+.trip-home-feature strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--trip-accent-strong);
+}
+
+.trip-home-feature p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--trip-muted);
+}
+
+.trip-section-label {
+  margin: 8px 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--trip-muted);
+}
+
+@media (max-width: 800px) {
+  .trip-home-features {
+    grid-template-columns: 1fr;
+  }
+}
+
 .trip-empty {
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--trip-border, var(--border));
   border-radius: 12px;
   padding: 28px 18px;
   text-align: center;
-  color: var(--text-muted);
+  color: var(--trip-muted, var(--text-muted));
   font-size: 14px;
 }
 
