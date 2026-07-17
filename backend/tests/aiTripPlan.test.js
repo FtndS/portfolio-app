@@ -57,6 +57,13 @@ describe('aiTripPlan normalize', () => {
               { type: 'airport', name: 'สนามบินนาริตะ', start_time: '10:00' },
               { type: 'hotel', name: 'Hotel Gracery Shinjuku' },
               { type: 'restaurant', name: 'Ichiran Shinjuku' },
+              {
+                type: 'transport',
+                name: 'เที่ยวบิน กรุงเทพ–โตเกียว',
+                notes: 'โหมด: บิน',
+                start_time: '08:00',
+                end_time: '16:00',
+              },
             ],
           },
         ],
@@ -64,8 +71,13 @@ describe('aiTripPlan normalize', () => {
     })
     expect(r.error).toBeUndefined()
     expect(r.status).toBe('plan')
-    expect(r.trip.days[0].places).toHaveLength(3)
+    expect(r.trip.days[0].places).toHaveLength(4)
     expect(r.trip.days[0].places[0].type).toBe('airport')
+    const hotel = r.trip.days[0].places.find((p) => p.type === 'hotel')
+    expect(hotel.booking_links?.length).toBeGreaterThan(0)
+    const transport = r.trip.days[0].places.find((p) => p.type === 'transport')
+    expect(transport.notes).toContain('โหมด: บิน')
+    expect(transport.booking_links?.some((l) => l.label === 'Google Flights')).toBe(true)
   })
 
   it('rejects empty place plan', () => {

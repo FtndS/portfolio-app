@@ -80,6 +80,11 @@
   margin-bottom: 4px;
 }
 
+.trip-ai-booking-hint {
+  color: var(--accent);
+  font-size: 11px;
+}
+
 .trip-ai-compose {
   display: flex;
   flex-direction: column;

@@ -16,6 +16,7 @@ import {
   normalizeReorderPayload,
   normalizeTripPayload,
 } from '../lib/tripHelpers.js'
+import { attachBookingLinks, sanitizeBookingLinks } from '../lib/bookingLinks.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -376,11 +377,16 @@ router.post('/:id/places', async (req, res) => {
   }
 
   try {
+    const withLinks = parsed.booking_links?.length
+      ? parsed
+      : attachBookingLinks(parsed, trip.destination || '')
+    const bookingLinks = sanitizeBookingLinks(withLinks.booking_links || [])
+
     const r = await pool.query(
       `INSERT INTO trip_places
         (trip_id, trip_day_id, type, name, lat, lng, address, photo_url, external_id, external_source,
-         start_time, end_time, budget, notes, sort_order)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         start_time, end_time, budget, notes, sort_order, booking_links)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb)
        RETURNING *`,
       [
         tripId,
@@ -398,6 +404,7 @@ router.post('/:id/places', async (req, res) => {
         parsed.budget,
         parsed.notes,
         parsed.sort_order,
+        JSON.stringify(bookingLinks),
       ]
     )
     res.json(r.rows[0])
@@ -481,12 +488,19 @@ router.put('/:id/places/:placeId', async (req, res) => {
   }
 
   try {
+    const bookingLinks = parsed.booking_links !== undefined
+      ? sanitizeBookingLinks(parsed.booking_links)
+      : sanitizeBookingLinks(
+          Array.isArray(existing.rows[0].booking_links) ? existing.rows[0].booking_links : []
+        )
+
     const r = await pool.query(
       `UPDATE trip_places
        SET trip_day_id = $1, type = $2, name = $3, lat = $4, lng = $5, address = $6,
            photo_url = $7, external_id = $8, external_source = $9,
-           start_time = $10, end_time = $11, budget = $12, notes = $13, sort_order = $14, updated_at = NOW()
-       WHERE id = $15 AND trip_id = $16
+           start_time = $10, end_time = $11, budget = $12, notes = $13, sort_order = $14,
+           booking_links = $15::jsonb, updated_at = NOW()
+       WHERE id = $16 AND trip_id = $17
        RETURNING *`,
       [
         parsed.trip_day_id,
@@ -503,6 +517,7 @@ router.put('/:id/places/:placeId', async (req, res) => {
         parsed.budget,
         parsed.notes,
         parsed.sort_order,
+        JSON.stringify(bookingLinks),
         placeId,
         tripId,
       ]

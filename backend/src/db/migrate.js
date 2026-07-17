@@ -650,6 +650,13 @@ const migrations = [
       ALTER TABLE trip_places ADD COLUMN IF NOT EXISTS external_source VARCHAR(32);
     `,
   },
+  {
+    name: '030_trip_place_booking_links',
+    sql: `
+      ALTER TABLE trip_places
+        ADD COLUMN IF NOT EXISTS booking_links JSONB NOT NULL DEFAULT '[]'::jsonb;
+    `,
+  },
 ]
 
 export async function runMigrations() {

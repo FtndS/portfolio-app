@@ -1,4 +1,5 @@
 import { PlacePhoto } from './TripPlaceSearch'
+import { BookingLinks } from './BookingLinks'
 import './TripTimeline.css'
 
 const TYPE_LABELS = {
@@ -119,6 +120,7 @@ export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false, tri
                       <span className="trip-tl-end"> (ถึง {formatTimeTh(place.end_time)})</span>
                     )}
                   </p>
+                  <BookingLinks links={place.booking_links} />
                   {place.photo_url && (
                     <div className={hero ? 'trip-tl-photo-hero' : 'trip-tl-photo-inline'}>
                       <PlacePhoto

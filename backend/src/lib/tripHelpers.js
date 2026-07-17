@@ -1,5 +1,7 @@
 /** Trip helpers — date range days + place types */
 
+import { sanitizeBookingLinks } from './bookingLinks.js'
+
 export const TRIP_PLACE_TYPES = ['hotel', 'restaurant', 'airport', 'attraction', 'transport', 'other']
 
 export function isValidPlaceType(type) {
@@ -106,6 +108,9 @@ export function normalizePlacePayload(body = {}) {
   const photoUrl = body.photo_url != null ? String(body.photo_url).trim() || null : null
   const externalId = body.external_id != null ? String(body.external_id).trim() || null : null
   const externalSource = body.external_source != null ? String(body.external_source).trim().slice(0, 32) || null : null
+  const bookingLinks = body.booking_links !== undefined
+    ? sanitizeBookingLinks(body.booking_links)
+    : undefined
 
   return {
     trip_day_id: tripDayId,
@@ -122,6 +127,7 @@ export function normalizePlacePayload(body = {}) {
     budget,
     notes: body.notes != null ? String(body.notes).trim() || null : null,
     sort_order: body.sort_order == null || body.sort_order === '' ? 0 : Number(body.sort_order) || 0,
+    ...(bookingLinks !== undefined ? { booking_links: bookingLinks } : {}),
   }
 }
 

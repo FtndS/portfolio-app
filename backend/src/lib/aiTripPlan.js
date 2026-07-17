@@ -8,6 +8,7 @@ import {
   pickUniquePlaceHit,
   resolvePlaceDisplayName,
 } from './placeMatch.js'
+import { attachBookingLinks, attachBookingLinksToPlan } from './bookingLinks.js'
 
 const MAX_ENRICH = 40
 const MAX_DAYS = 14
@@ -99,13 +100,13 @@ export function normalizeAiPlanResponse(raw) {
     return { error: 'แผนไม่มีจุดแวะ' }
   }
 
-  return {
+  return attachBookingLinksToPlan({
     status: 'plan',
     trip: {
       ...trip,
       days,
     },
-  }
+  })
 }
 
 async function enrichOnePlace(place, { near, usedKeys }) {
@@ -168,7 +169,7 @@ export async function enrichPlanPlaces(plan, { maxEnrich = MAX_ENRICH } = {}) {
     places: dayBuckets[i],
   }))
 
-  return { ...plan, trip: { ...plan.trip, days } }
+  return attachBookingLinksToPlan({ ...plan, trip: { ...plan.trip, days } })
 }
 
 function collectUsedMediaKeys(places) {
@@ -254,7 +255,8 @@ export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnri
 }
 
 export async function applyAiTripPlan(client, userId, plan) {
-  const { trip } = plan
+  const withLinks = attachBookingLinksToPlan(plan)
+  const { trip } = withLinks
   const tripIns = await client.query(
     `INSERT INTO trips (user_id, title, destination, start_date, end_date, currency, status, notes)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -291,12 +293,12 @@ export async function applyAiTripPlan(client, userId, plan) {
     const dayRow = dayRows[i]
     const dayPlaces = trip.days[i].places || []
     for (let j = 0; j < dayPlaces.length; j += 1) {
-      const p = dayPlaces[j]
+      const p = attachBookingLinks(dayPlaces[j], trip.destination || '')
       const placeIns = await client.query(
         `INSERT INTO trip_places
           (trip_id, trip_day_id, type, name, lat, lng, address, photo_url, external_id, external_source,
-           start_time, end_time, budget, notes, sort_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+           start_time, end_time, budget, notes, sort_order, booking_links)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb)
          RETURNING *`,
         [
           created.id,
@@ -314,6 +316,7 @@ export async function applyAiTripPlan(client, userId, plan) {
           null,
           p.notes ?? null,
           j,
+          JSON.stringify(p.booking_links || []),
         ]
       )
       places.push(placeIns.rows[0])
@@ -354,10 +357,14 @@ export function buildTripPlanSystemPrompt() {
 
 กฎแผน:
 - ต้องมีสนามบินเข้า/ออก (type airport) ตามความเหมาะสมของทริป
+- ต้องมีขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมืองหรือระยะทางไกล เช่น เครื่องบิน รถไฟ เรือ รถ — พร้อม start_time/end_time
+- ชื่อขาเดินทางใช้รูปแบบชัดเจน เช่น "เที่ยวบิน กรุงเทพ–เชียงใหม่" / "รถไฟสายใต้ กรุงเทพ–หัวหิน" / "เรือข้ามฟาก..." / "Grab ไปตลาด..."
+- ใน notes ของ transport ให้ขึ้นต้นด้วย "โหมด: บิน" หรือ "โหมด: รถไฟ" หรือ "โหมด: เรือ" หรือ "โหมด: รถ"
 - ต้องมีที่พัก (hotel) และร้านอาหาร (restaurant) อย่างน้อยวันละรายการเมื่อเป็นทริปหลายวัน
 - ชื่อสถานที่ต้องเป็นชื่อจริงที่ค้นหาได้ (เช่น "ร้านเจ๊ไฝ ซีฟู้ด" ไม่ใช่ "ร้านซีฟู้ดมื้อเย็น" หรือ "แนะนำร้านอาหารทะเล")
 - ห้ามใช้คำว่า แนะนำ / หรือ / ค้นหา / เช่น ในชื่อสถานที่
 - ร้านอาหารและโรงแรมต้องระบุชื่อร้านหรือแบรนด์จริง ไม่ใช่แค่ประเภทหรือย่าน
+- ห้ามใส่ URL หรือลิงก์จองใน JSON (ระบบจะสร้างลิงก์ Agoda/Booking/Trip.com/12Go/Grab/Google Flights ให้เอง)
 - เป็นแผนแนะนำเท่านั้น ห้ามอ้างว่าจองแล้วหรือราคาการันตี
 - ใช้ภาษาไทยใน title/notes ได้`
 }

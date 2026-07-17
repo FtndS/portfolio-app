@@ -8,7 +8,7 @@ const TYPE_ICONS = {
   restaurant: '🍽️',
   airport: '✈️',
   attraction: '📍',
-  transport: '🚉',
+  transport: '🚌',
   other: '📌',
 }
 

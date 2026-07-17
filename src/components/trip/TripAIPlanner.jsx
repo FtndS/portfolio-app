@@ -169,6 +169,12 @@ export default function TripAIPlanner({ onClose, onCreated }) {
                           {[p.start_time, p.end_time].filter(Boolean).join('–')}
                         </span>
                       )}
+                      {Array.isArray(p.booking_links) && p.booking_links.length > 0 && (
+                        <span className="trip-ai-booking-hint">
+                          {' '}
+                          · จองผ่าน {p.booking_links.map((l) => l.label).join(', ')}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
