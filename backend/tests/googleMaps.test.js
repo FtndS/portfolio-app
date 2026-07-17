@@ -49,7 +49,7 @@ describe('googleMaps urls', () => {
 
   it('resolve prefers search hit coords over 0,0 request', async () => {
     const search = async () => [{
-      name: 'บ้านริมผา',
+      name: 'Baan Rim Pa',
       address: 'Patong, Phuket',
       lat: 7.916,
       lng: 98.296,
@@ -66,6 +66,8 @@ describe('googleMaps urls', () => {
     })
     expect(r.place.lat).toBeCloseTo(7.916)
     expect(r.place.lng).toBeCloseTo(98.296)
+    expect(r.place.name).toBe('Baan Rim Pa')
+    expect(r.place.matchQuality).toBe('strong')
     expect(decodeURIComponent(r.embedUrl)).toMatch(/Baan|บ้านริมผา|Patong|Phuket/i)
     expect(r.embedUrl).not.toMatch(/q=0(,|%2C)0/)
   })
@@ -148,5 +150,28 @@ describe('googleMaps urls', () => {
     expect(calls.some((c) => c.near === 'เชียงใหม่')).toBe(true)
     expect(r.place.lat).toBeCloseTo(18.788)
     expect(r.place.placeId).toBe('ChIJkhong')
+    expect(r.place.name).toContain('โขงข้าว')
+  })
+
+  it('keeps itinerary name when search match is weak', async () => {
+    const search = async () => [{
+      name: 'At Beach Bar & Restaurant - Kata',
+      address: 'Kata Beach, Phuket',
+      lat: 7.817,
+      lng: 98.298,
+      externalId: 'ChIJwrong',
+      source: 'google',
+    }]
+    const r = await resolveTripPlaceMap(search, {
+      name: 'Mama Noi Seafood',
+      type: 'restaurant',
+      near: 'Phuket',
+      address: 'Kata Noi, Phuket',
+      lat: 7.82,
+      lng: 98.30,
+    })
+    expect(r.place.name).toBe('Mama Noi Seafood')
+    expect(r.place.matchQuality).toBe('stored')
+    expect(r.place.lat).toBeCloseTo(7.82)
   })
 })

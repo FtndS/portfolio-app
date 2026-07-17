@@ -2,7 +2,6 @@
 
 import {
   enrichFlightPlace,
-  isFlightPlace,
 } from './flightLeg.js'
 
 function planDayDate(trip, dayIndex) {
@@ -208,9 +207,7 @@ export function attachBookingLinks(place, destination = '', context = {}) {
     dayDate,
     allPlaces,
   })
-  const enriched = isFlightPlace(place)
-    ? enrichFlightPlace({ ...place, booking_links: sanitizeBookingLinks(links) }, { trip, dayDate, allPlaces })
-    : { ...place, booking_links: sanitizeBookingLinks(links) }
+  const enriched = enrichFlightPlace({ ...place, booking_links: sanitizeBookingLinks(links) }, { trip, dayDate, allPlaces })
   return enriched
 }
 

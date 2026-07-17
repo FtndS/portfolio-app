@@ -1,5 +1,5 @@
 import { PlacePhoto } from './TripPlaceSearch'
-import { TripPlaceBooking } from './FlightBookingPanel'
+import { BookingLinks } from './BookingLinks'
 
 const TYPE_LABELS = {
   hotel: 'ที่พัก',
@@ -17,9 +17,15 @@ export default function TripMapPanel({
   bookingLinks = [],
   emptyHint = 'คลิกชื่อสถานที่ (ที่พัก, ร้านอาหาร, สถานที่เที่ยว) เพื่อดูบน Google Maps',
 }) {
-  const place = mapState?.place
+  const resolved = mapState?.place
   const embedUrl = mapState?.embedUrl
   const openUrl = mapState?.openUrl
+  const displayName = focusPlace?.name || resolved?.name
+  const displayType = focusPlace?.type || resolved?.category
+  const displayAddress = focusPlace?.address || resolved?.address
+  const displayPhoto = focusPlace?.photo_url || (resolved?.matchQuality === 'strong' ? resolved?.photoUrl : null)
+  const showWeakWarn = resolved?.matchQuality === 'weak'
+    || (resolved?.matchedName && displayName && resolved.matchedName !== displayName)
 
   return (
     <section className="trip-card trip-map-card trip-no-print">
@@ -29,28 +35,33 @@ export default function TripMapPanel({
         <p className="trip-map-hint" style={{ marginTop: 0 }}>กำลังโหลดรายละเอียดสถานที่...</p>
       )}
 
-      {place && !loading && (
+      {displayName && !loading && (
         <div className="trip-map-place-card">
-          {place.photoUrl && (
+          {displayPhoto && (
             <PlacePhoto
-              url={place.photoUrl}
-              alt={place.name}
+              url={displayPhoto}
+              alt={displayName}
               className="trip-map-place-photo"
-              type={place.category || 'other'}
+              type={displayType || 'other'}
             />
           )}
           <div className="trip-map-place-body">
             <div className="trip-map-place-type">
-              {TYPE_LABELS[place.category] || TYPE_LABELS[place.type] || place.category || 'สถานที่'}
+              {TYPE_LABELS[displayType] || displayType || 'สถานที่'}
             </div>
-            <h4 className="trip-map-place-name">{place.name}</h4>
-            {place.rating != null && (
-              <p className="trip-map-place-rating">
-                ★ {Number(place.rating).toFixed(1)}
-                {place.userRatingCount != null ? ` · ${Number(place.userRatingCount).toLocaleString('th-TH')} รีวิว` : ''}
+            <h4 className="trip-map-place-name">{displayName}</h4>
+            {showWeakWarn && (
+              <p className="trip-map-match-warn">
+                แผนที่อาจไม่ตรง 100% — ลองเปิด Google Maps หรือแก้ชื่อ/ที่อยู่ในแผน
               </p>
             )}
-            {place.address && <p className="trip-map-place-address">{place.address}</p>}
+            {resolved?.matchQuality === 'strong' && resolved?.rating != null && (
+              <p className="trip-map-place-rating">
+                ★ {Number(resolved.rating).toFixed(1)}
+                {resolved.userRatingCount != null ? ` · ${Number(resolved.userRatingCount).toLocaleString('th-TH')} รีวิว` : ''}
+              </p>
+            )}
+            {displayAddress && <p className="trip-map-place-address">{displayAddress}</p>}
             <div className="trip-map-place-actions">
               {openUrl && (
                 <a className="trip-map-open-btn" href={openUrl} target="_blank" rel="noopener noreferrer">
@@ -58,10 +69,9 @@ export default function TripMapPanel({
                 </a>
               )}
             </div>
-            <TripPlaceBooking
-              place={focusPlace ? { ...focusPlace, booking_links: bookingLinks } : null}
-              compact
-            />
+            {focusPlace?.type !== 'transport' && (
+              <BookingLinks links={bookingLinks} />
+            )}
           </div>
         </div>
       )}

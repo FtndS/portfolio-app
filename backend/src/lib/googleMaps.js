@@ -84,14 +84,39 @@ function buildQueryText({ name, address }) {
   return [name, address].map((s) => String(s || '').trim()).filter(Boolean).join(', ')
 }
 
+const MAP_STOPWORDS = new Set([
+  'restaurant', 'hotel', 'beach', 'bar', 'cafe', 'the', 'and', 'at', 'kata', 'patong',
+  'phuket', 'chiang', 'mai', 'bangkok', 'resort', 'international', 'airport', 'food',
+])
+
+function significantWords(text = '') {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !MAP_STOPWORDS.has(w))
+}
+
+function scoreSignificantOverlap(query, candidate) {
+  const aw = new Set(significantWords(query))
+  const bw = new Set(significantWords(candidate))
+  if (!aw.size || !bw.size) return 0
+  let overlap = 0
+  for (const w of aw) if (bw.has(w)) overlap += 1
+  return overlap / Math.max(aw.size, bw.size)
+}
+
 function scoreMapHit(query, candidate, altQueries = []) {
   const all = [query, ...altQueries].filter(Boolean)
   let best = 0
   for (const q of all) {
     best = Math.max(best, scorePlaceNameMatch(q, candidate))
-    // English in parens vs Thai name — compare stripped cores
+    best = Math.max(best, scoreSignificantOverlap(q, candidate))
     const en = /\(([^)]*[A-Za-z][^)]*)\)/.exec(q)
-    if (en?.[1]) best = Math.max(best, scorePlaceNameMatch(en[1], candidate))
+    if (en?.[1]) {
+      best = Math.max(best, scorePlaceNameMatch(en[1], candidate))
+      best = Math.max(best, scoreSignificantOverlap(en[1], candidate))
+    }
   }
   return best
 }
@@ -206,45 +231,64 @@ export async function resolveTripPlaceMap(searchTripPlaces, {
   }
 
   const hitCoordsOk = isValidMapCoords(hit?.lat, hit?.lng)
-  // Prefer search hit when it matches well; override wrong stored coords for mappable POIs
-  const strongHit = hit && hitScore >= 0.2
-  const placeTypes = ['restaurant', 'hotel', 'attraction', 'airport', 'other']
-  const useHit = hit && hitCoordsOk && (
-    strongHit
-    || !requestCoordsOk
-    || (hitScore >= 0.15 && placeTypes.includes(type))
-  )
-  const resolvedLat = useHit && hitCoordsOk ? Number(hit.lat) : (requestCoordsOk ? Number(lat) : (hitCoordsOk ? Number(hit.lat) : null))
-  const resolvedLng = useHit && hitCoordsOk ? Number(hit.lng) : (requestCoordsOk ? Number(lng) : (hitCoordsOk ? Number(hit.lng) : null))
+  const minStrong = type === 'airport' ? 0.2 : (['hotel', 'restaurant', 'attraction'].includes(type) ? 0.35 : 0.25)
+  const strongHit = hit && hitScore >= minStrong
+  const weakHit = hit && !strongHit && hitScore >= 0.15
 
-  const resolved = {
-    name: (useHit && hit?.name) || name || 'สถานที่',
-    address: (useHit && hit?.address) || address || null,
-    lat: resolvedLat,
-    lng: resolvedLng,
-    placeId: (strongHit && hit?.externalId) || placeId || (useHit && hit?.externalId) || null,
-    photoUrl: (useHit && hit?.photoUrl) || null,
-    rating: useHit ? (hit?.rating ?? null) : null,
-    userRatingCount: useHit ? (hit?.userRatingCount ?? null) : null,
-    category: type || (useHit && hit?.category) || null,
-    source: (useHit && hit?.source) || null,
+  const displayName = String(name || '').trim() || 'สถานที่'
+  const displayAddress = String(address || '').trim() || null
+
+  let resolvedLat = null
+  let resolvedLng = null
+  let resolvedPlaceId = placeId || null
+
+  if (strongHit && hitCoordsOk) {
+    resolvedLat = Number(hit.lat)
+    resolvedLng = Number(hit.lng)
+    resolvedPlaceId = hit.externalId || placeId || null
+  } else if (requestCoordsOk) {
+    resolvedLat = Number(lat)
+    resolvedLng = Number(lng)
+  } else if (weakHit && hitCoordsOk) {
+    resolvedLat = Number(hit.lat)
+    resolvedLng = Number(hit.lng)
+    resolvedPlaceId = hit.externalId || null
   }
 
-  const openUrl = (useHit && hit?.googleMapsUri) || buildGoogleMapsOpenUrl({
+  const matchQuality = strongHit
+    ? 'strong'
+    : (requestCoordsOk ? 'stored' : (weakHit ? 'weak' : 'none'))
+  const embedCoordsOk = (strongHit || (requestCoordsOk && matchQuality === 'stored')) && isValidMapCoords(resolvedLat, resolvedLng)
+
+  const resolved = {
+    name: displayName,
+    matchedName: strongHit || weakHit ? (hit?.name || null) : null,
+    matchQuality,
+    address: displayAddress || (strongHit && hit?.address) || (weakHit && hit?.address) || null,
+    lat: resolvedLat,
+    lng: resolvedLng,
+    placeId: strongHit ? resolvedPlaceId : (requestCoordsOk ? placeId : null),
+    photoUrl: strongHit ? (hit?.photoUrl || null) : null,
+    rating: strongHit ? (hit?.rating ?? null) : null,
+    userRatingCount: strongHit ? (hit?.userRatingCount ?? null) : null,
+    category: type || (strongHit && hit?.category) || null,
+    source: strongHit ? (hit?.source || null) : null,
+  }
+
+  const openUrl = (strongHit && hit?.googleMapsUri) || buildGoogleMapsOpenUrl({
     name: resolved.name,
     address: resolved.address,
-    lat: resolved.lat,
-    lng: resolved.lng,
-    placeId: resolved.placeId,
+    lat: embedCoordsOk ? resolved.lat : null,
+    lng: embedCoordsOk ? resolved.lng : null,
+    placeId: strongHit ? resolved.placeId : null,
   })
 
-  // Embed: placeId / coords / name only — do NOT append trip destination
   const embedUrl = buildGoogleMapsEmbedUrl({
     name: resolved.name,
     address: resolved.address,
-    lat: resolved.lat,
-    lng: resolved.lng,
-    placeId: resolved.placeId,
+    lat: embedCoordsOk ? resolved.lat : null,
+    lng: embedCoordsOk ? resolved.lng : null,
+    placeId: strongHit ? resolved.placeId : null,
   })
 
   return {

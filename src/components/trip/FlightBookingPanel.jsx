@@ -39,7 +39,7 @@ export function FlightBookingPanel({ flightLeg, links, className = '', compact =
       </div>
 
       <div className="trip-flight-options">
-        <p className="trip-flight-options-head">เปรียบเทียบราคา</p>
+        <p className="trip-flight-options-head">เปรียบเทียบราคา — กดเพื่อดูที่เว็บ</p>
         <ul className="trip-flight-options-list">
           {list.map((link) => (
             <li key={link.url}>
@@ -58,7 +58,7 @@ export function FlightBookingPanel({ flightLeg, links, className = '', compact =
       </div>
 
       <p className="trip-flight-disclaimer">
-        ราคาอาจเปลี่ยน · จองที่เว็บพาร์ทเนอร์ · PortDiary ไม่ได้เป็นตัวแทนจำหน่าย
+        ราคาจริงแสดงบนเว็บพาร์ทเนอร์เมื่อกดดูราคา (ยังไม่ดึงราคาเข้าแอป)
       </p>
     </div>
   )
@@ -66,7 +66,7 @@ export function FlightBookingPanel({ flightLeg, links, className = '', compact =
 
 export function TripPlaceBooking({ place, className = '', compact = false }) {
   if (!place) return null
-  if (place.flight_leg && place.booking_links?.length) {
+  if (place.type === 'transport' && place.flight_leg && place.booking_links?.length) {
     return (
       <FlightBookingPanel
         flightLeg={place.flight_leg}

@@ -254,9 +254,10 @@ export function buildFlightProviderLinks(leg) {
   ]
 }
 
-/** Attach flight_leg + booking links for a place (computed, not persisted). */
+/** Attach flight_leg + booking links for transport flight legs only (computed, not persisted). */
 export function enrichFlightPlace(place, context = {}) {
-  if (!isFlightPlace(place)) return place
+  if (!place || String(place.type || '').toLowerCase() !== 'transport') return place
+  if (!inferFlightMode(place.name, place.notes)) return place
   const leg = resolveFlightLeg({
     place,
     trip: context.trip || {},
