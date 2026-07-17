@@ -48,10 +48,17 @@ router.get('/places/map', placeSearchLimiter, async (req, res) => {
   const near = String(req.query.near || '').trim()
   const address = String(req.query.address || '').trim() || null
   const placeId = String(req.query.placeId || req.query.place_id || '').trim() || null
-  const lat = req.query.lat === '' || req.query.lat == null ? null : Number(req.query.lat)
-  const lng = req.query.lng === '' || req.query.lng == null ? null : Number(req.query.lng)
+  const latRaw = req.query.lat
+  const lngRaw = req.query.lng
+  const lat = latRaw === '' || latRaw == null ? null : Number(latRaw)
+  const lng = lngRaw === '' || lngRaw == null ? null : Number(lngRaw)
+  // Ignore Null Island / NaN so resolve can search for the real place
+  const safeLat = Number.isFinite(lat) && !(Math.abs(lat) < 0.01 && Number.isFinite(lng) && Math.abs(lng) < 0.01)
+    ? lat
+    : null
+  const safeLng = Number.isFinite(lng) && safeLat != null ? lng : null
 
-  if (name.length < 1 && near.length < 2 && !(Number.isFinite(lat) && Number.isFinite(lng))) {
+  if (name.length < 1 && near.length < 2 && !(safeLat != null && safeLng != null)) {
     return res.status(400).json({ error: 'ระบุชื่อสถานที่หรือพิกัด' })
   }
 
@@ -60,8 +67,8 @@ router.get('/places/map', placeSearchLimiter, async (req, res) => {
       name,
       type,
       near,
-      lat: Number.isFinite(lat) ? lat : null,
-      lng: Number.isFinite(lng) ? lng : null,
+      lat: safeLat,
+      lng: safeLng,
       placeId,
       address,
     })

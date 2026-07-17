@@ -217,17 +217,22 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
         return
       }
       setMapPanel(r)
-      // Persist coords if we discovered them and place was missing them
-      if (
-        place.id
-        && (place.lat == null || place.lng == null)
-        && r?.place?.lat != null
-        && r?.place?.lng != null
-      ) {
+      // Persist coords if we discovered valid ones and place was missing them
+      const foundLat = r?.place?.lat
+      const foundLng = r?.place?.lng
+      const foundOk =
+        Number.isFinite(Number(foundLat))
+        && Number.isFinite(Number(foundLng))
+        && !(Math.abs(Number(foundLat)) < 0.01 && Math.abs(Number(foundLng)) < 0.01)
+      const placeMissingCoords =
+        place.lat == null
+        || place.lng == null
+        || (Math.abs(Number(place.lat)) < 0.01 && Math.abs(Number(place.lng)) < 0.01)
+      if (place.id && placeMissingCoords && foundOk) {
         const updated = await api.put(`/trips/${detail.id}/places/${place.id}`, {
           ...place,
-          lat: r.place.lat,
-          lng: r.place.lng,
+          lat: foundLat,
+          lng: foundLng,
           address: place.address || r.place.address || null,
           photo_url: place.photo_url || r.place.photoUrl || null,
           external_id: place.external_id || r.place.placeId || null,
