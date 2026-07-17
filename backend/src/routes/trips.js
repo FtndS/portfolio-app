@@ -18,7 +18,6 @@ import {
   normalizeTripPayload,
 } from '../lib/tripHelpers.js'
 import { attachBookingLinks, sanitizeBookingLinks } from '../lib/bookingLinks.js'
-import { enumerateDateRange } from '../lib/tripHelpers.js'
 
 const router = express.Router()
 router.use(authMiddleware)
