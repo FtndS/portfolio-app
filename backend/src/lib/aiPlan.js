@@ -39,7 +39,7 @@ export const AI_PLANS = {
       allowCustomQuestion: false,
     },
     tripPlan: {
-      maxTokens: 4096,
+      maxTokens: 8192,
       maxEnrich: 36,
     },
   },
@@ -71,7 +71,7 @@ export const AI_PLANS = {
       allowCustomQuestion: true,
     },
     tripPlan: {
-      maxTokens: 6144,
+      maxTokens: 8192,
       maxEnrich: 36,
     },
   },

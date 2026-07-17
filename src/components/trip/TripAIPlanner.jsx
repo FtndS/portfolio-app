@@ -58,35 +58,42 @@ export default function TripAIPlanner({ onClose, onCreated }) {
     setDraftPlan(null)
     setLoading(true)
 
-    const r = await api.post('/ai/trip-plan', { messages: nextMessages, apply: false })
-    setLoading(false)
+    try {
+      const r = await api.post('/ai/trip-plan', { messages: nextMessages, apply: false })
+      if (r?.error) {
+        setErr(r.error)
+        return
+      }
 
-    if (r?.error) {
-      setErr(r.error)
-      return
-    }
+      if (r.status === 'clarify') {
+        setQuestions(r.questions || [])
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `ขอข้อมูลเพิ่มนิดหน่อย:\n${(r.questions || []).map((q, i) => `${i + 1}. ${q}`).join('\n')}`,
+          },
+        ])
+        return
+      }
 
-    if (r.status === 'clarify') {
-      setQuestions(r.questions || [])
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `ขอข้อมูลเพิ่มนิดหน่อย:\n${(r.questions || []).map((q, i) => `${i + 1}. ${q}`).join('\n')}`,
-        },
-      ])
-      return
-    }
+      if (r.status === 'plan' && r.trip) {
+        setDraftPlan(r.trip)
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `ร่างแผน: ${r.trip.title}${r.trip.destination ? ` · ${r.trip.destination}` : ''} (${r.trip.days?.length || 0} วัน)`,
+          },
+        ])
+        return
+      }
 
-    if (r.status === 'plan' && r.trip) {
-      setDraftPlan(r.trip)
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `ร่างแผน: ${r.trip.title}${r.trip.destination ? ` · ${r.trip.destination}` : ''} (${r.trip.days?.length || 0} วัน)`,
-        },
-      ])
+      setErr('ไม่ได้รับแผนจาก AI กรุณาลองใหม่')
+    } catch {
+      setErr('เชื่อมต่อ AI ไม่สำเร็จ กรุณาลองใหม่')
+    } finally {
+      setLoading(false)
     }
   }
 

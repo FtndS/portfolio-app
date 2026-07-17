@@ -43,7 +43,7 @@ router.get('/quota', async (req, res) => {
 })
 
 function parseClaudeJson(text) {
-  let raw = text.replace(/^```(?:json)?\s*\n?|\n?```\s*$/gm, '').trim()
+  let raw = String(text || '').replace(/^```(?:json)?\s*\n?|\n?```\s*$/gm, '').trim()
   const start = raw.indexOf('{')
   if (start === -1) throw new Error('No JSON found in AI response')
   raw = raw.slice(start)
@@ -74,6 +74,41 @@ function parseClaudeJson(text) {
       throw firstErr
     }
   }
+}
+
+function tryParseClaudeJson(text) {
+  try {
+    return { ok: true, data: parseClaudeJson(text) }
+  } catch (err) {
+    return { ok: false, error: err?.message || 'JSON parse failed' }
+  }
+}
+
+async function generateTripPlanFromMessages(systemPrompt, claudeMessages, maxTokens) {
+  const text = await callClaudeMessages(systemPrompt, claudeMessages, maxTokens)
+  const parsed = tryParseClaudeJson(text)
+  if (parsed.ok) {
+    const normalized = normalizeAiPlanResponse(parsed.data)
+    if (!normalized.error) return { normalized, text }
+  }
+
+  // Retry once with compact instruction (truncated / invalid JSON is common on long plans)
+  const retryMessages = [
+    ...claudeMessages,
+    {
+      role: 'user',
+      content:
+        'ตอบใหม่เป็น JSON เท่านั้น status=plan หรือ clarify — กระชับมาก วันละไม่เกิน 6 จุด notes สั้น ไม่ใส่ markdown',
+    },
+  ]
+  const retryText = await callClaudeMessages(systemPrompt, retryMessages, maxTokens)
+  const retryParsed = tryParseClaudeJson(retryText)
+  if (!retryParsed.ok) {
+    return { error: 'AI ตอบแผนไม่ครบ กรุณาลองส่งใหม่อีกครั้ง' }
+  }
+  const normalized = normalizeAiPlanResponse(retryParsed.data)
+  if (normalized.error) return { error: normalized.error }
+  return { normalized, text: retryText }
 }
 
 async function callClaude(systemPrompt, userMessage, maxTokens = 4096) {
@@ -530,16 +565,15 @@ router.post('/trip-plan', async (req, res) => {
       })
     }
 
-    const text = await callClaudeMessages(
+    const generated = await generateTripPlanFromMessages(
       buildTripPlanSystemPrompt(),
       claudeMessages,
-      planConfig.tripPlan?.maxTokens || 4096
+      planConfig.tripPlan?.maxTokens || 8192
     )
-    const parsedRaw = parseClaudeJson(text)
-    const normalized = normalizeAiPlanResponse(parsedRaw)
-    if (normalized.error) {
-      return res.status(502).json({ error: normalized.error || 'AI ตอบไม่ถูกต้อง' })
+    if (generated.error) {
+      return res.status(502).json({ error: generated.error })
     }
+    const { normalized } = generated
 
     if (normalized.status === 'clarify') {
       return res.json({
@@ -563,6 +597,14 @@ router.post('/trip-plan', async (req, res) => {
     console.error('AI trip-plan error:', err)
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
       return res.status(504).json({ error: 'AI ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง', code: 'AI_TIMEOUT' })
+    }
+    // Surface Anthropic / parse errors more clearly to the client
+    const msg = String(err?.message || '')
+    if (/JSON|Empty response|AI request failed|No JSON/i.test(msg)) {
+      return res.status(502).json({
+        error: 'AI ตอบแผนไม่สำเร็จ กรุณาลองส่งใหม่ หรือย่อรายละเอียดทริป',
+        detail: msg.slice(0, 200),
+      })
     }
     serverError(res, err)
   }
