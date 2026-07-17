@@ -36,7 +36,7 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
           </h1>
           <p>
             จัดการพอร์ตลงทุน และวางแผนท่องเที่ยวได้ในที่เดียว —
-            สมัครครั้งเดียว ใช้ได้ทั้ง Stock Asset Tracker และ Trip Planner
+            สมัครครั้งเดียว ใช้ได้ทั้ง PortDiary Stock และ Trip Planner
           </p>
         </div>
       </section>
@@ -45,7 +45,7 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
         <button type="button" className="landing-app-card" onClick={onChooseStock}>
           <div className="landing-app-card-top">
             <span className="landing-app-card-tag">พร้อมใช้</span>
-            <h2>Stock Asset Tracker</h2>
+            <h2>PortDiary Stock</h2>
           </div>
           <p>
             บันทึกพอร์ตหลายกอง รายงาน journal AI และติดตามหุ้นไทย–ต่างประเทศอย่างเป็นระบบ

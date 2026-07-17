@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import Logo from './Logo'
 import ThemeToggle from './ThemeToggle'
+import SupportModal from './modals/SupportModal'
 import './Landing.css'
 
 export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscription, onLogout, onOpenAdmin }) {
   const planLabel = user?.plan === 'pro' ? 'Pro' : 'Free'
+  const [supportOpen, setSupportOpen] = useState(false)
 
   return (
     <div className="landing landing--hub">
@@ -18,6 +21,14 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
           )}
           <button type="button" className="landing-btn-ghost" onClick={onOpenSubscription}>
             แผน {planLabel}
+          </button>
+          <button
+            type="button"
+            className="landing-btn-ghost"
+            onClick={() => setSupportOpen(true)}
+            title="ช่วยเหลือ / แจ้งปัญหา"
+          >
+            ช่วยเหลือ
           </button>
           <button type="button" className="landing-btn-ghost" onClick={onLogout}>
             ออกจากระบบ
@@ -42,12 +53,12 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
         <button type="button" className="landing-app-card" onClick={onOpenStock}>
           <div className="landing-app-card-top">
             <span className="landing-app-card-tag">พร้อมใช้</span>
-            <h2>Stock Asset Tracker</h2>
+            <h2>PortDiary Stock</h2>
           </div>
           <p>
             บันทึกธุรกรรม ดูรายงานผลตอบแทน AI journal และติดตามหุ้นไทย–ต่างประเทศในมุมมองเดียว
           </p>
-          <span className="landing-app-card-cta">เปิดแอปหุ้น →</span>
+          <span className="landing-app-card-cta">เปิดพอร์ตไดอารี่ →</span>
         </button>
 
         <button type="button" className="landing-app-card landing-app-card--trip" onClick={onOpenTrip}>
@@ -61,6 +72,13 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
           <span className="landing-app-card-cta">เปิดแอปทริป →</span>
         </button>
       </section>
+
+      {supportOpen && (
+        <SupportModal
+          onClose={() => setSupportOpen(false)}
+          onOpenSubscription={onOpenSubscription}
+        />
+      )}
     </div>
   )
 }

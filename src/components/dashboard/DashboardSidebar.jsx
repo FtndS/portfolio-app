@@ -44,7 +44,7 @@ export default function DashboardSidebar({
           <Logo size={24} className="dash-sidebar-logo" />
         </button>
         <p className="dash-sidebar-sub">
-          Stock · สวัสดี, {user.name}
+          PortDiary · สวัสดี, {user.name}
           {user.plan === 'pro' && (
             <span className="dash-plan-badge dash-plan-badge--pro">Pro</span>
           )}

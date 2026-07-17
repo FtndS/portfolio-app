@@ -12,6 +12,7 @@ import TripAIPlanner from './TripAIPlanner'
 import TripTimeline from './TripTimeline'
 import { BookingLinks } from './BookingLinks'
 import TripMapPanel from './TripMapPanel'
+import SupportModal from '../modals/SupportModal'
 import './TripApp.css'
 import './TripPlaceSearch.css'
 import './TripTimeline.css'
@@ -76,6 +77,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [mapFocusId, setMapFocusId] = useState(null)
   const [mapPanel, setMapPanel] = useState(null)
   const [mapLoading, setMapLoading] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [exportReady, setExportReady] = useState(false)
   const enrichedTripRef = useRef(null)
@@ -485,7 +487,15 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
         </div>
         <div className="trip-topbar-actions">
           <ThemeToggle />
-          <button type="button" className="landing-btn-ghost" onClick={onOpenStock}>Stock</button>
+          <button
+            type="button"
+            className="landing-btn-ghost"
+            onClick={() => setSupportOpen(true)}
+            title="ช่วยเหลือ / แจ้งปัญหา"
+          >
+            ช่วยเหลือ
+          </button>
+          <button type="button" className="landing-btn-ghost" onClick={onOpenStock}>พอร์ต</button>
           <button type="button" className="landing-btn-ghost" onClick={onBackHub}>Hub</button>
           <button type="button" className="landing-btn-ghost" onClick={onLogout}>ออก</button>
         </div>
@@ -964,6 +974,10 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
             navigate(`/trip/${id}`)
           }}
         />
+      )}
+
+      {supportOpen && (
+        <SupportModal onClose={() => setSupportOpen(false)} />
       )}
 
       {confirmDelete?.type === 'trip' && detail && (
