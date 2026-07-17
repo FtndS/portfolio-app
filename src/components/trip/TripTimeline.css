@@ -11,6 +11,24 @@
   --tl-period: #5a8f86;
   --tl-link: #2f6b62;
   --tl-border: #c5d9d3;
+  --tl-cover0: #e8f3ef;
+  --tl-cover1: #f7f3eb;
+  --tl-cover2: #eef6f3;
+  color: var(--tl-ink);
+}
+
+[data-theme='dark'] .trip-tl {
+  --tl-ink: #e6efec;
+  --tl-muted: #9bb0aa;
+  --tl-surface: #1c2623;
+  --tl-body: #16201d;
+  --tl-head: #3f7a70;
+  --tl-period: #5a8f86;
+  --tl-link: #8fd0c4;
+  --tl-border: #334843;
+  --tl-cover0: #1a2925;
+  --tl-cover1: #1e2620;
+  --tl-cover2: #182421;
   color: var(--tl-ink);
 }
 
@@ -22,7 +40,7 @@
   padding: 28px 24px;
   border-radius: 16px;
   border: 1px solid var(--tl-border);
-  background: linear-gradient(160deg, #e8f3ef 0%, #f7f3eb 48%, #eef6f3 100%);
+  background: linear-gradient(160deg, var(--tl-cover0) 0%, var(--tl-cover1) 48%, var(--tl-cover2) 100%);
   color: var(--tl-ink);
 }
 
@@ -265,7 +283,7 @@
   padding: 3px 9px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--tl-link) 35%, var(--tl-border));
-  background: color-mix(in srgb, var(--tl-link) 10%, #fff);
+  background: color-mix(in srgb, var(--tl-link) 12%, var(--tl-surface));
   color: var(--tl-link);
   font-size: 12px;
   font-weight: 600;
@@ -274,7 +292,7 @@
 }
 
 .trip-booking-chip:hover {
-  background: color-mix(in srgb, var(--tl-link) 16%, #fff);
+  background: color-mix(in srgb, var(--tl-link) 20%, var(--tl-surface));
 }
 
 .trip-tl-trip-title {

@@ -9,9 +9,27 @@
   --trip-accent: #3f7a70;
   --trip-accent-strong: #2f6b62;
   --trip-border: #c9dbd5;
+  --trip-feature-bg: color-mix(in srgb, #dcece7 55%, #fff);
   background:
     radial-gradient(900px 420px at 12% -10%, #d9ebe6 0%, transparent 55%),
     radial-gradient(700px 380px at 92% 8%, #f0e8d8 0%, transparent 50%),
+    linear-gradient(180deg, var(--trip-bg0), var(--trip-bg1));
+  color: var(--trip-ink);
+}
+
+[data-theme='dark'] .trip-shell {
+  --trip-bg0: #121a19;
+  --trip-bg1: #171f1d;
+  --trip-ink: #e6efec;
+  --trip-muted: #9bb0aa;
+  --trip-surface: rgba(28, 38, 35, 0.94);
+  --trip-accent: #6fb5a8;
+  --trip-accent-strong: #8fd0c4;
+  --trip-border: #334843;
+  --trip-feature-bg: color-mix(in srgb, #243530 80%, #1a2421);
+  background:
+    radial-gradient(900px 420px at 12% -10%, rgba(63, 122, 112, 0.28) 0%, transparent 55%),
+    radial-gradient(700px 380px at 92% 8%, rgba(90, 80, 55, 0.18) 0%, transparent 50%),
     linear-gradient(180deg, var(--trip-bg0), var(--trip-bg1));
   color: var(--trip-ink);
 }
@@ -206,12 +224,18 @@
   font-weight: 700;
   cursor: pointer;
   color: #fff;
-  background: linear-gradient(135deg, #3f7a70 0%, #2f6b62 100%);
-  box-shadow: 0 8px 18px color-mix(in srgb, #2f6b62 28%, transparent);
+  background: linear-gradient(135deg, var(--trip-accent) 0%, var(--trip-accent-strong) 100%);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--trip-accent-strong) 28%, transparent);
 }
 
 .trip-btn-ai:hover {
   filter: brightness(1.05);
+}
+
+[data-theme='dark'] .trip-btn-ai {
+  color: #10201c;
+  background: linear-gradient(135deg, #6fb5a8 0%, #8fd0c4 100%);
+  box-shadow: 0 8px 18px color-mix(in srgb, #6fb5a8 22%, transparent);
 }
 
 .trip-btn-secondary {
@@ -223,7 +247,7 @@
   font-weight: 600;
   cursor: pointer;
   color: var(--trip-ink);
-  background: color-mix(in srgb, #fff 70%, transparent);
+  background: color-mix(in srgb, var(--trip-surface) 80%, transparent);
 }
 
 .trip-home-features {
@@ -235,7 +259,7 @@
 .trip-home-feature {
   padding: 12px 14px;
   border-radius: 12px;
-  background: color-mix(in srgb, #dcece7 55%, #fff);
+  background: var(--trip-feature-bg, color-mix(in srgb, #dcece7 55%, #fff));
   border: 1px solid color-mix(in srgb, var(--trip-border) 70%, transparent);
 }
 
