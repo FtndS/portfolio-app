@@ -100,13 +100,63 @@ export function normalizeAiPlanResponse(raw) {
     return { error: 'แผนไม่มีจุดแวะ' }
   }
 
-  return attachBookingLinksToPlan({
+  const withHotel = ensureOvernightHotel({
     status: 'plan',
     trip: {
       ...trip,
       days,
     },
   })
+
+  return attachBookingLinksToPlan(withHotel)
+}
+
+/** True when trip spans 2+ days or date range has overnight. */
+export function isOvernightTrip(trip, days) {
+  const dayCount = Array.isArray(days) ? days.length : 0
+  if (dayCount >= 2) return true
+  const dates = enumerateDateRange(trip?.start_date, trip?.end_date)
+  return dates.length >= 2
+}
+
+function planHasHotel(days) {
+  return (days || []).some((d) => (d.places || []).some((p) => p.type === 'hotel'))
+}
+
+/**
+ * Overnight trips must include at least one hotel.
+ * If AI omitted it, insert a searchable hotel stop on day 1 (evening check-in).
+ */
+export function ensureOvernightHotel(plan) {
+  if (!plan?.trip?.days?.length) return plan
+  const { trip } = plan
+  if (!isOvernightTrip(trip, trip.days)) return plan
+  if (planHasHotel(trip.days)) return plan
+
+  const destination = String(trip.destination || '').trim() || 'ปลายทาง'
+  const hotelPlace = {
+    type: 'hotel',
+    name: `โรงแรมใน${destination}`,
+    address: null,
+    start_time: '15:00',
+    end_time: '11:00',
+    notes: 'เช็คอินวันแรก · เช็คเอาท์เช้าวันสุดท้าย',
+  }
+
+  const days = trip.days.map((day, i) => {
+    if (i !== 0) return day
+    const places = [...(day.places || [])]
+    // Insert after morning transport/airport if present, else append
+    const insertAt = places.findIndex((p) => {
+      const h = Number(String(p.start_time || '').split(':')[0])
+      return Number.isFinite(h) && h >= 14
+    })
+    if (insertAt >= 0) places.splice(insertAt, 0, hotelPlace)
+    else places.push(hotelPlace)
+    return { ...day, places: places.slice(0, MAX_PLACES_PER_DAY) }
+  })
+
+  return { ...plan, trip: { ...trip, days } }
 }
 
 async function enrichOnePlace(place, { near, usedKeys }) {
@@ -144,10 +194,19 @@ async function enrichOnePlace(place, { near, usedKeys }) {
 export async function enrichPlanPlaces(plan, { maxEnrich = MAX_ENRICH } = {}) {
   const near = plan.trip.destination || ''
   const usedKeys = new Set()
-  const dayBuckets = plan.trip.days.map((day) =>
+  // Ensure overnight hotel exists before enrich so it gets a real POI name/photo
+  const ensured = ensureOvernightHotel(plan)
+  const dayBuckets = ensured.trip.days.map((day) =>
     (day.places || []).map((place) => ({ ...place }))
   )
-  const indices = dayBuckets.map(() => 0)
+  // Prioritize hotels then restaurants in enrichment order within each day
+  const priority = { hotel: 0, restaurant: 1, airport: 2, transport: 3, attraction: 4, other: 5 }
+  const indices = dayBuckets.map((places) => {
+    const order = places
+      .map((_, i) => i)
+      .sort((a, b) => (priority[places[a].type] ?? 9) - (priority[places[b].type] ?? 9))
+    return { order, cursor: 0 }
+  })
   let remaining = maxEnrich
   let progressed = true
 
@@ -155,21 +214,22 @@ export async function enrichPlanPlaces(plan, { maxEnrich = MAX_ENRICH } = {}) {
     progressed = false
     for (let d = 0; d < dayBuckets.length && remaining > 0; d += 1) {
       const places = dayBuckets[d]
-      const i = indices[d]
-      if (i >= places.length) continue
-      indices[d] += 1
+      const idxState = indices[d]
+      if (idxState.cursor >= idxState.order.length) continue
+      const i = idxState.order[idxState.cursor]
+      idxState.cursor += 1
       progressed = true
       remaining -= 1
       places[i] = await enrichOnePlace(places[i], { near, usedKeys })
     }
   }
 
-  const days = plan.trip.days.map((day, i) => ({
+  const days = ensured.trip.days.map((day, i) => ({
     ...day,
     places: dayBuckets[i],
   }))
 
-  return attachBookingLinksToPlan({ ...plan, trip: { ...plan.trip, days } })
+  return attachBookingLinksToPlan({ ...ensured, trip: { ...ensured.trip, days } })
 }
 
 function collectUsedMediaKeys(places) {
@@ -355,13 +415,15 @@ export function buildTripPlanSystemPrompt() {
   }]
 }}
 
-กฎแผน:
-- ต้องมีสนามบินเข้า/ออก (type airport) ตามความเหมาะสมของทริป
-- ต้องมีขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมืองหรือระยะทางไกล เช่น เครื่องบิน รถไฟ เรือ รถ — พร้อม start_time/end_time
+กฎแผน (เรียงความสำคัญ):
+1) ทริปค้างคืน (2 วันขึ้นไป / 2 วัน 1 คืน) ต้องมี type "hotel" อย่างน้อย 1 จุด — ใส่ในวันแรกช่วงบ่าย-เย็น (เช่น 15:00) พร้อมชื่อโรงแรมจริงในเมืองนั้น และลิงก์จองที่พักระบบจะสร้างให้เอง
+2) ห้ามส่งแผนที่มีแค่เที่ยวบิน/สนามบินโดยไม่มีที่พัก เมื่อเป็นการค้างคืน
+3) ต้องมีร้านอาหาร (restaurant) อย่างน้อยวันละ 1 จุด ชื่อร้านจริง
+4) ต้องมีสนามบินเข้า/ออก (type airport) หรือขา transport ตามความเหมาะสม
+5) ขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมือง เช่น เครื่องบิน รถไฟ เรือ รถ — พร้อม start_time/end_time
 - ชื่อขาเดินทางใช้รูปแบบชัดเจน เช่น "เที่ยวบิน กรุงเทพ–เชียงใหม่" / "รถไฟสายใต้ กรุงเทพ–หัวหิน" / "เรือข้ามฟาก..." / "Grab ไปตลาด..."
 - ใน notes ของ transport ให้ขึ้นต้นด้วย "โหมด: บิน" หรือ "โหมด: รถไฟ" หรือ "โหมด: เรือ" หรือ "โหมด: รถ"
-- ต้องมีที่พัก (hotel) และร้านอาหาร (restaurant) อย่างน้อยวันละรายการเมื่อเป็นทริปหลายวัน
-- ชื่อสถานที่ต้องเป็นชื่อจริงที่ค้นหาได้ (เช่น "ร้านเจ๊ไฝ ซีฟู้ด" ไม่ใช่ "ร้านซีฟู้ดมื้อเย็น" หรือ "แนะนำร้านอาหารทะเล")
+- ชื่อสถานที่ต้องเป็นชื่อจริงที่ค้นหาได้ (เช่น "U Nimman Chiang Mai" หรือ "โรงแรมดุสิตดีทู เชียงใหม่" ไม่ใช่ "ที่พักแนะนำ")
 - ห้ามใช้คำว่า แนะนำ / หรือ / ค้นหา / เช่น ในชื่อสถานที่
 - ร้านอาหารและโรงแรมต้องระบุชื่อร้านหรือแบรนด์จริง ไม่ใช่แค่ประเภทหรือย่าน
 - ห้ามใส่ URL หรือลิงก์จองใน JSON (ระบบจะสร้างลิงก์ Agoda/Booking/Trip.com/12Go/Grab/Google Flights ให้เอง)

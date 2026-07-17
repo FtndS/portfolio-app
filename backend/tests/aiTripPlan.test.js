@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   normalizeAiPlanResponse,
   normalizeAiTripPlanMessages,
+  ensureOvernightHotel,
+  isOvernightTrip,
 } from '../src/lib/aiTripPlan.js'
 import { normalizeReorderPayload } from '../src/lib/tripHelpers.js'
 
@@ -86,5 +88,68 @@ describe('aiTripPlan normalize', () => {
       trip: { title: 'X', days: [{ day_index: 1, places: [] }] },
     })
     expect(r.error).toBeTruthy()
+  })
+
+  it('injects hotel for overnight plan missing accommodation', () => {
+    const r = normalizeAiPlanResponse({
+      status: 'plan',
+      trip: {
+        title: 'เชียงใหม่ 2 วัน 1 คืน',
+        destination: 'เชียงใหม่',
+        start_date: '2026-08-01',
+        end_date: '2026-08-02',
+        days: [
+          {
+            day_index: 1,
+            title: 'วันแรก',
+            places: [
+              {
+                type: 'transport',
+                name: 'เที่ยวบิน กรุงเทพ–เชียงใหม่',
+                notes: 'โหมด: บิน',
+                start_time: '07:00',
+                end_time: '08:30',
+              },
+            ],
+          },
+          {
+            day_index: 2,
+            title: 'วันที่ 2',
+            places: [
+              {
+                type: 'transport',
+                name: 'เที่ยวบิน เชียงใหม่–กรุงเทพ',
+                notes: 'โหมด: บิน',
+                start_time: '18:00',
+              },
+            ],
+          },
+        ],
+      },
+    })
+    expect(r.error).toBeUndefined()
+    expect(isOvernightTrip(r.trip, r.trip.days)).toBe(true)
+    const hotel = r.trip.days[0].places.find((p) => p.type === 'hotel')
+    expect(hotel).toBeTruthy()
+    expect(hotel.name).toContain('เชียงใหม่')
+    expect(hotel.booking_links?.some((l) => l.label === 'Agoda')).toBe(true)
+  })
+
+  it('ensureOvernightHotel is idempotent when hotel exists', () => {
+    const plan = {
+      status: 'plan',
+      trip: {
+        destination: 'เชียงใหม่',
+        days: [
+          {
+            day_index: 1,
+            places: [{ type: 'hotel', name: 'U Nimman Chiang Mai', start_time: '15:00' }],
+          },
+          { day_index: 2, places: [{ type: 'attraction', name: 'วัดพระสิงห์' }] },
+        ],
+      },
+    }
+    const next = ensureOvernightHotel(plan)
+    expect(next.trip.days[0].places.filter((p) => p.type === 'hotel')).toHaveLength(1)
   })
 })
