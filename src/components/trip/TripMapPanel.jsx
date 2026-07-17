@@ -14,7 +14,7 @@ export default function TripMapPanel({
   mapState,
   loading,
   bookingLinks = [],
-  emptyHint = 'คลิกชื่อสถานที่ในแผนเพื่อดูบน Google Maps',
+  emptyHint = 'คลิกชื่อสถานที่ (ที่พัก, ร้านอาหาร, สถานที่เที่ยว) เพื่อดูบนแผนที่',
 }) {
   const place = mapState?.place
   const embedUrl = mapState?.embedUrl
@@ -78,7 +78,7 @@ export default function TripMapPanel({
         </div>
       )}
       <p className="trip-map-hint">
-        คลิกชื่อสถานที่ (รวมร้านอาหาร) เพื่อดูรายละเอียดและซูมแผนที่
+        คลิกชื่อสถานที่ (ที่พัก, ร้านอาหาร, สถานที่เที่ยว) เพื่อดูรายละเอียดและซูมแผนที่
       </p>
     </section>
   )

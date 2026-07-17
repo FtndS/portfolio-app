@@ -199,7 +199,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   )
 
   const focusPlaceOnMap = async (place) => {
-    if (!place) return
+    if (!place || place.type === 'transport') return
     setErr('')
     setMapFocusId(place.id)
     setMapLoading(true)
@@ -739,14 +739,18 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                       <div className="trip-place-card-body">
                         <div className="trip-place-card-top">
                           <span className="trip-place-type">{typeLabel(p.type)}</span>
-                          <button
-                            type="button"
-                            className="trip-place-card-title-btn"
-                            onClick={() => focusPlaceOnMap(p)}
-                            title={p.lat != null ? 'แสดงบนแผนที่' : 'ยังไม่มีพิกัด'}
-                          >
+                          {p.type === 'transport' ? (
                             <h4 className="trip-place-card-title">{p.name}</h4>
-                          </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="trip-place-card-title-btn"
+                              onClick={() => focusPlaceOnMap(p)}
+                              title={p.lat != null ? 'แสดงบนแผนที่' : 'ยังไม่มีพิกัด'}
+                            >
+                              <h4 className="trip-place-card-title">{p.name}</h4>
+                            </button>
+                          )}
                         </div>
                         {editingPlaceId === p.id ? (
                           <div className="trip-place-edit-time">

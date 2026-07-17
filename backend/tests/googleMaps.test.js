@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   buildGoogleMapsEmbedUrl,
   buildGoogleMapsOpenUrl,
+  buildMapSearchQueries,
+  cleanMapSearchQuery,
   isValidMapCoords,
   resolveTripPlaceMap,
+  shouldBiasSearchWithDestination,
 } from '../src/lib/googleMaps.js'
 
 describe('googleMaps urls', () => {
@@ -98,5 +101,52 @@ describe('googleMaps urls', () => {
     expect(r.place.lat).toBeCloseTo(13.9126)
     expect(r.place.placeId).toBe('ChIJdmk')
     expect(decodeURIComponent(r.embedUrl)).not.toMatch(/เชียงใหม่/)
+  })
+
+  it('builds restaurant search queries with English name and destination', () => {
+    const qs = buildMapSearchQueries(
+      'ร้านอาหาร โขงข้าว (Khong Khao Restaurant)',
+      'ถนนราชดำเนิน เมืองเก่า เชียงใหม่',
+      'เชียงใหม่',
+      'restaurant',
+    )
+    expect(qs.some((q) => /Khong Khao/i.test(q))).toBe(true)
+    expect(qs.some((q) => /เชียงใหม่/.test(q))).toBe(true)
+    expect(cleanMapSearchQuery('ร้านอาหาร โขงข้าว (Khong Khao Restaurant)')).toBe('โขงข้าว (Khong Khao Restaurant)')
+  })
+
+  it('uses destination bias for restaurants but not airports', () => {
+    expect(shouldBiasSearchWithDestination('ร้านอาหาร โขงข้าว (Khong Khao Restaurant)', 'restaurant')).toBe(true)
+    expect(shouldBiasSearchWithDestination('สนามบินดอนเมือง (DMK)', 'airport')).toBe(false)
+  })
+
+  it('resolves bilingual restaurant via English search query', async () => {
+    const calls = []
+    const search = async (opts) => {
+      calls.push(opts)
+      if (/Khong Khao/i.test(opts.query)) {
+        return [{
+          name: 'Khong Khao Restaurant',
+          address: 'Ratchadamnoen Rd, Chiang Mai',
+          lat: 18.788,
+          lng: 98.993,
+          externalId: 'ChIJkhong',
+          source: 'google',
+        }]
+      }
+      return []
+    }
+    const r = await resolveTripPlaceMap(search, {
+      name: 'ร้านอาหาร โขงข้าว (Khong Khao Restaurant)',
+      type: 'restaurant',
+      near: 'เชียงใหม่',
+      address: 'ถนนราชดำเนิน เมืองเก่า เชียงใหม่',
+      lat: 18.79,
+      lng: 98.99,
+    })
+    expect(calls.some((c) => /Khong Khao/i.test(c.query))).toBe(true)
+    expect(calls.some((c) => c.near === 'เชียงใหม่')).toBe(true)
+    expect(r.place.lat).toBeCloseTo(18.788)
+    expect(r.place.placeId).toBe('ChIJkhong')
   })
 })

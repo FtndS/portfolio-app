@@ -105,7 +105,7 @@ export function TripDayTimeline({
           const inline = Boolean(place.photo_url) && !hero
           const timeLabel = formatTimeTh(place.start_time)
           const isFocused = focusedPlaceId != null && String(focusedPlaceId) === String(place.id)
-          const canFocus = Boolean(onSelectPlace)
+          const canFocus = Boolean(onSelectPlace) && place.type !== 'transport'
 
           return (
             <div

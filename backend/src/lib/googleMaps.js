@@ -17,7 +17,7 @@ export function isValidMapCoords(lat, lng) {
   return true
 }
 
-/** Clean place name for map search — keep airport codes, drop trip destination bias. */
+/** Clean place name for map search — strip generic prefixes, keep airport codes. */
 export function cleanMapSearchQuery(name = '') {
   let q = String(name || '').trim()
   if (!q) return ''
@@ -26,8 +26,47 @@ export function cleanMapSearchQuery(name = '') {
   if (code) {
     const base = q.replace(/\s*\([^)]*\)\s*/g, ' ').trim()
     q = `${base} ${code[1]} Airport`
+    return q.slice(0, 160)
   }
+  q = q
+    .replace(/^ร้านอาหาร\s+/i, '')
+    .replace(/^โรงแรม\s+/i, '')
+    .replace(/^ที่พัก\s+/i, '')
+    .trim()
   return q.slice(0, 160)
+}
+
+/** Alternate search strings — English in parens, name + destination, etc. */
+export function buildMapSearchQueries(name = '', address = '', near = '', type = 'other') {
+  const raw = String(name || '').trim()
+  const addr = String(address || '').trim()
+  const dest = String(near || '').trim()
+  const cleaned = cleanMapSearchQuery(raw)
+  const queries = []
+
+  if (cleaned) queries.push(cleaned)
+  if (raw && raw !== cleaned) queries.push(raw)
+
+  const parenEn = /\(([^)]*[A-Za-z][^)]*)\)/.exec(raw)
+  if (parenEn?.[1]) {
+    const en = parenEn[1].trim()
+    if (en) queries.push(en)
+    if (dest && !en.toLowerCase().includes(dest.toLowerCase())) {
+      queries.push(`${en} ${dest}`)
+    }
+  }
+
+  const core = cleaned.replace(/\([^)]*\)/g, '').trim()
+  if (core && core !== cleaned) queries.push(core)
+  if (core && dest) queries.push(`${core} ${dest}`)
+  if (cleaned && dest && type === 'restaurant') queries.push(`${cleaned} ${dest}`)
+  if (addr) {
+    const shortAddr = addr.split(',')[0].trim()
+    if (cleaned && shortAddr) queries.push(`${cleaned} ${shortAddr}`)
+    if (dest && shortAddr) queries.push(`${shortAddr} ${dest}`)
+  }
+
+  return [...new Set(queries.filter(Boolean))].slice(0, 6)
 }
 
 /**
@@ -38,7 +77,6 @@ export function shouldBiasSearchWithDestination(name, type) {
   const q = String(name || '')
   if (/airport|สนามบิน|\([A-Z]{3}\)/i.test(q)) return false
   if (type === 'airport') return false
-  if (q.length >= 12) return false
   return true
 }
 
@@ -46,20 +84,30 @@ function buildQueryText({ name, address }) {
   return [name, address].map((s) => String(s || '').trim()).filter(Boolean).join(', ')
 }
 
-function pickBestHit(results, query) {
+function scoreMapHit(query, candidate, altQueries = []) {
+  const all = [query, ...altQueries].filter(Boolean)
+  let best = 0
+  for (const q of all) {
+    best = Math.max(best, scorePlaceNameMatch(q, candidate))
+    // English in parens vs Thai name — compare stripped cores
+    const en = /\(([^)]*[A-Za-z][^)]*)\)/.exec(q)
+    if (en?.[1]) best = Math.max(best, scorePlaceNameMatch(en[1], candidate))
+  }
+  return best
+}
+
+function pickBestHit(results, query, altQueries = []) {
   if (!Array.isArray(results) || !results.length) return null
   let best = null
   let bestScore = -1
   for (const hit of results) {
-    const score = scorePlaceNameMatch(query, hit?.name || '')
+    const score = scoreMapHit(query, hit?.name || '', altQueries)
     if (score > bestScore) {
       best = hit
       bestScore = score
     }
   }
-  // Require a weak match; otherwise first result can be unrelated
   if (bestScore < 0.15 && results[0]) {
-    // Still allow first if query is very short
     if (String(query || '').trim().length < 4) return results[0]
   }
   return bestScore >= 0.15 ? best : results[0]
@@ -120,37 +168,61 @@ export async function resolveTripPlaceMap(searchTripPlaces, {
   address = null,
 } = {}) {
   let hit = null
+  let hitScore = 0
   const requestCoordsOk = isValidMapCoords(lat, lng)
+  const hasStoredPlaceId = Boolean(placeId)
   const searchQ = cleanMapSearchQuery(name) || String(name || '').trim() || String(near || '').trim()
   const nearForSearch = shouldBiasSearchWithDestination(name, type) ? near : ''
+  const searchQueries = buildMapSearchQueries(name, address, nearForSearch, type)
+  const altQueries = searchQueries.filter((q) => q !== searchQ)
 
-  // Always search by name when possible — stored lat/lng can be wrong (destination-biased).
-  if (searchQ) {
+  // Search when missing reliable placeId/coords, or to improve weak stored data
+  const needsSearch = !hasStoredPlaceId || !requestCoordsOk || type === 'restaurant'
+  if (needsSearch && searchQueries.length) {
     try {
-      const results = await searchTripPlaces({
-        query: searchQ,
-        type: type || 'other',
-        near: nearForSearch,
-      })
-      hit = pickBestHit(results, searchQ)
+      let bestHit = null
+      let bestScore = -1
+      let bestQuery = searchQ
+      for (const q of searchQueries) {
+        const results = await searchTripPlaces({
+          query: q,
+          type: type || 'other',
+          near: nearForSearch,
+        })
+        for (const candidate of results) {
+          const score = scoreMapHit(q, candidate?.name || '', altQueries)
+          if (score > bestScore) {
+            bestScore = score
+            bestHit = candidate
+            bestQuery = q
+          }
+        }
+      }
+      hit = bestHit
+      hitScore = bestScore >= 0 ? bestScore : scoreMapHit(bestQuery, bestHit?.name || '', altQueries)
     } catch {
       hit = null
     }
   }
 
   const hitCoordsOk = isValidMapCoords(hit?.lat, hit?.lng)
-  const hitScore = hit ? scorePlaceNameMatch(searchQ, hit.name || '') : 0
-  // Prefer search hit when it matches the place name; otherwise keep request coords
-  const useHit = hit && (hitScore >= 0.15 || !requestCoordsOk)
-  const resolvedLat = useHit && hitCoordsOk ? Number(hit.lat) : (requestCoordsOk ? Number(lat) : null)
-  const resolvedLng = useHit && hitCoordsOk ? Number(hit.lng) : (requestCoordsOk ? Number(lng) : null)
+  // Prefer search hit when it matches well; override wrong stored coords for mappable POIs
+  const strongHit = hit && hitScore >= 0.2
+  const placeTypes = ['restaurant', 'hotel', 'attraction', 'airport', 'other']
+  const useHit = hit && hitCoordsOk && (
+    strongHit
+    || !requestCoordsOk
+    || (hitScore >= 0.15 && placeTypes.includes(type))
+  )
+  const resolvedLat = useHit && hitCoordsOk ? Number(hit.lat) : (requestCoordsOk ? Number(lat) : (hitCoordsOk ? Number(hit.lat) : null))
+  const resolvedLng = useHit && hitCoordsOk ? Number(hit.lng) : (requestCoordsOk ? Number(lng) : (hitCoordsOk ? Number(hit.lng) : null))
 
   const resolved = {
     name: (useHit && hit?.name) || name || 'สถานที่',
     address: (useHit && hit?.address) || address || null,
     lat: resolvedLat,
     lng: resolvedLng,
-    placeId: (useHit && hit?.externalId) || placeId || null,
+    placeId: (strongHit && hit?.externalId) || placeId || (useHit && hit?.externalId) || null,
     photoUrl: (useHit && hit?.photoUrl) || null,
     rating: useHit ? (hit?.rating ?? null) : null,
     userRatingCount: useHit ? (hit?.userRatingCount ?? null) : null,
