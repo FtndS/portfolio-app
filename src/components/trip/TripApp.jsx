@@ -36,6 +36,7 @@ function fmtDate(iso) {
 
 const emptyTripForm = {
   title: '',
+  origin: '',
   destination: '',
   start_date: '',
   end_date: '',
@@ -555,6 +556,12 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 />
                 <input
                   style={inp()}
+                  placeholder="ต้นทาง (ถ้ามีเที่ยวบิน) เช่น กรุงเทพ หรือ DMK"
+                  value={tripForm.origin}
+                  onChange={(e) => setTripForm({ ...tripForm, origin: e.target.value })}
+                />
+                <input
+                  style={inp()}
                   placeholder="ปลายทาง"
                   value={tripForm.destination}
                   onChange={(e) => setTripForm({ ...tripForm, destination: e.target.value })}
@@ -628,7 +635,14 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 </button>
                 <h1>{detail.title}</h1>
                 <p className="trip-detail-meta">
-                  <span>{detail.destination || 'ไม่ระบุปลายทาง'}</span>
+                  {(detail.origin || detail.destination) && (
+                    <span>
+                      {detail.origin || '—'}
+                      {' → '}
+                      {detail.destination || 'ไม่ระบุปลายทาง'}
+                    </span>
+                  )}
+                  {!detail.origin && !detail.destination && <span>ไม่ระบุเส้นทาง</span>}
                   {(detail.start_date || detail.end_date) && (
                     <span>{fmtDate(detail.start_date)} – {fmtDate(detail.end_date)}</span>
                   )}

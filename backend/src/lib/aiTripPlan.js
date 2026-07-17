@@ -50,6 +50,7 @@ export function normalizeAiPlanResponse(raw) {
 
   const tripBody = {
     title: raw.trip.title,
+    origin: raw.trip.origin,
     destination: raw.trip.destination,
     start_date: nullishDate(raw.trip.start_date),
     end_date: nullishDate(raw.trip.end_date),
@@ -338,12 +339,13 @@ export async function applyAiTripPlan(client, userId, plan) {
   const withLinks = attachBookingLinksToPlan(plan)
   const { trip } = withLinks
   const tripIns = await client.query(
-    `INSERT INTO trips (user_id, title, destination, start_date, end_date, currency, status, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO trips (user_id, title, origin, destination, start_date, end_date, currency, status, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING *`,
     [
       userId,
       trip.title,
+      trip.origin,
       trip.destination,
       trip.start_date,
       trip.end_date,
@@ -423,6 +425,7 @@ export function buildTripPlanSystemPrompt() {
 เมื่อข้อมูลพอแล้ว ให้ตอบ:
 {"status":"plan","trip":{
   "title":"...",
+  "origin":"ต้นทาง/เมืองออก เช่น กรุงเทพ หรือ DMK",
   "destination":"...",
   "start_date":"YYYY-MM-DD หรือ null",
   "end_date":"YYYY-MM-DD หรือ null",
@@ -449,7 +452,8 @@ export function buildTripPlanSystemPrompt() {
 5) ขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมือง — พร้อม start_time/end_time
 - ชื่อขาเดินทางใช้รูปแบบชัดเจน เช่น "เที่ยวบิน กรุงเทพ–ภูเก็ต" / "ขับรถ กรุงเทพ–ภูเก็ต"
 - ใน notes ของ transport ให้ขึ้นต้นด้วย "โหมด: บิน" หรือ "โหมด: รถไฟ" หรือ "โหมด: เรือ" หรือ "โหมด: รถ"
-- ถ้าโหมดบิน: ใน notes เพิ่ม "จาก:XXX ถึง:YYY" โดย XXX/YYY เป็นรหัสสนามบิน IATA (เช่น จาก:DMK ถึง:CNX) หรือใช้ชื่อเมืองชัดในชื่อ เช่น "เที่ยวบิน กรุงเทพ–เชียงใหม่"
+- ถ้าโหมดบิน: ใน notes เพิ่ม "จาก:XXX ถึง:YYY" (รหัส IATA หรือชื่อเมืองจาก input) และถ้าทราบ "ผู้โดยสาร:N" "ชั้น:economy|business"
+- ใส่ origin ใน trip เมื่อทริปมีเที่ยวบิน — อย่าเดาต้นทางเองถ้า user ไม่ได้บอก
 - เรียงสถานที่ตามเวลาจริงในวัน (เช้า→เย็น) hotel ค้างคืนอยู่ช่วงเย็น
 - ชื่อสถานที่ต้องเป็นชื่อจริงที่ค้นหาได้
 - ห้ามใช้คำว่า แนะนำ / หรือ / ค้นหา / เช่น ในชื่อสถานที่

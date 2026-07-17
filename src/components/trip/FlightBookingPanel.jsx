@@ -14,20 +14,25 @@ export function FlightBookingPanel({ flightLeg, links, className = '', compact =
   if (!flightLeg || !list.length) return null
 
   const tripTypeLabel = flightLeg.tripType === 'roundtrip' ? 'ไป–กลับ' : 'เที่ยวเดียว'
+  const metaParts = [
+    tripTypeLabel,
+    flightLeg.cabin || null,
+    flightLeg.passengers ? `${flightLeg.passengers} ผู้โดยสาร` : null,
+  ].filter(Boolean)
 
   return (
     <div className={`trip-flight-panel${compact ? ' trip-flight-panel--compact' : ''} ${className}`.trim()}>
       <div className="trip-flight-summary">
         <div className="trip-flight-summary-head">
           <strong>เที่ยวบิน</strong>
-          <span className="trip-flight-meta">
-            {tripTypeLabel} · Economy · {flightLeg.passengers || 1} ผู้โดยสาร
-          </span>
+          {metaParts.length > 0 && (
+            <span className="trip-flight-meta">{metaParts.join(' · ')}</span>
+          )}
         </div>
         <div className="trip-flight-leg">
-          <span className="trip-flight-code">{flightLeg.origin}</span>
+          <span className="trip-flight-code">{flightLeg.originLabel || flightLeg.origin}</span>
           <span className="trip-flight-arrow" aria-hidden>→</span>
-          <span className="trip-flight-code">{flightLeg.destination}</span>
+          <span className="trip-flight-code">{flightLeg.destinationLabel || flightLeg.destination}</span>
           {flightLeg.departDate && (
             <span className="trip-flight-dates">
               · {fmtDate(flightLeg.departDate)}

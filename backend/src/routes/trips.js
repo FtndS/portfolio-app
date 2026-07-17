@@ -167,12 +167,13 @@ router.post('/', async (req, res) => {
   try {
     await client.query('BEGIN')
     const tripIns = await client.query(
-      `INSERT INTO trips (user_id, title, destination, start_date, end_date, currency, status, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO trips (user_id, title, origin, destination, start_date, end_date, currency, status, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         req.userId,
         parsed.title,
+        parsed.origin,
         parsed.destination,
         parsed.start_date,
         parsed.end_date,
@@ -234,12 +235,13 @@ router.put('/:id', async (req, res) => {
   try {
     const r = await pool.query(
       `UPDATE trips
-       SET title = $1, destination = $2, start_date = $3, end_date = $4,
-           currency = $5, status = $6, notes = $7, updated_at = NOW()
-       WHERE id = $8 AND user_id = $9
+       SET title = $1, origin = $2, destination = $3, start_date = $4, end_date = $5,
+           currency = $6, status = $7, notes = $8, updated_at = NOW()
+       WHERE id = $9 AND user_id = $10
        RETURNING *`,
       [
         parsed.title,
+        parsed.origin,
         parsed.destination,
         parsed.start_date,
         parsed.end_date,

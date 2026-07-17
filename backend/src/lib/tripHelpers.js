@@ -54,6 +54,7 @@ function toDateOnlyString(value) {
 
 export function normalizeTripPayload(body = {}) {
   const title = String(body.title || '').trim()
+  const origin = String(body.origin || '').trim() || null
   const destination = String(body.destination || '').trim() || null
   const startRaw = body.start_date !== undefined ? body.start_date : body.startDate
   const endRaw = body.end_date !== undefined ? body.end_date : body.endDate
@@ -75,6 +76,7 @@ export function normalizeTripPayload(body = {}) {
 
   return {
     title,
+    origin,
     destination,
     start_date: startDate,
     end_date: endDate,
