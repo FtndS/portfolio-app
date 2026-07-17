@@ -944,11 +944,13 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 )}
               </section>
 
-              <TripMapPanel
-                mapState={mapPanel}
-                loading={mapLoading}
-                bookingLinks={mapFocusPlace?.booking_links || []}
-              />
+              <div className="trip-map-col">
+                <TripMapPanel
+                  mapState={mapPanel}
+                  loading={mapLoading}
+                  bookingLinks={mapFocusPlace?.booking_links || []}
+                />
+              </div>
             </div>
 
             <div className={`trip-tl-print-root${exportReady ? ' is-exporting' : ''}`} aria-hidden={!exportReady}>

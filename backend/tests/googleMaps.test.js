@@ -66,4 +66,37 @@ describe('googleMaps urls', () => {
     expect(decodeURIComponent(r.embedUrl)).toMatch(/Baan|บ้านริมผา|Patong|Phuket/i)
     expect(r.embedUrl).not.toMatch(/q=0(,|%2C)0/)
   })
+
+  it('does not bias airport search with trip destination and ignores wrong stored coords', async () => {
+    const calls = []
+    const search = async (opts) => {
+      calls.push(opts)
+      return [{
+        name: 'Don Mueang International Airport',
+        address: 'Don Mueang, Bangkok',
+        lat: 13.9126,
+        lng: 100.6067,
+        externalId: 'ChIJdmk',
+        source: 'google',
+      }, {
+        name: 'Navatanee Golf Course',
+        address: 'Khan Na Yao',
+        lat: 13.82,
+        lng: 100.68,
+        externalId: 'ChIJwrong',
+        source: 'google',
+      }]
+    }
+    const r = await resolveTripPlaceMap(search, {
+      name: 'สนามบินดอนเมือง (DMK)',
+      type: 'airport',
+      near: 'เชียงใหม่',
+      lat: 13.82,
+      lng: 100.68,
+    })
+    expect(calls[0].near).toBe('')
+    expect(r.place.lat).toBeCloseTo(13.9126)
+    expect(r.place.placeId).toBe('ChIJdmk')
+    expect(decodeURIComponent(r.embedUrl)).not.toMatch(/เชียงใหม่/)
+  })
 })

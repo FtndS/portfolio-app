@@ -306,14 +306,31 @@
 
 .trip-detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.9fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.trip-map-col {
+  min-width: 0;
+  align-self: stretch;
 }
 
 .trip-map-card {
   position: sticky;
-  top: 72px;
+  top: 80px;
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  z-index: 5;
+}
+
+.trip-map-frame {
+  width: 100%;
+  min-height: 280px;
+  height: min(42vh, 380px);
+  border: 0;
+  border-radius: 12px;
+  background: #e8eee9;
 }
 
 .trip-section-head {
@@ -597,15 +614,6 @@
   border-top: 1px solid var(--border-subtle);
   padding-top: 16px;
   margin-top: 4px;
-}
-
-.trip-map-frame {
-  width: 100%;
-  min-height: 420px;
-  height: min(62vh, 560px);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg);
 }
 
 .trip-view-switch {
