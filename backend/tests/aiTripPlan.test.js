@@ -152,4 +152,22 @@ describe('aiTripPlan normalize', () => {
     const next = ensureOvernightHotel(plan)
     expect(next.trip.days[0].places.filter((p) => p.type === 'hotel')).toHaveLength(1)
   })
+
+  it('injects hotel on each overnight night', () => {
+    const plan = {
+      status: 'plan',
+      trip: {
+        destination: 'ภูเก็ต',
+        days: [
+          { day_index: 1, places: [{ type: 'transport', name: 'ขับรถไปภูเก็ต', notes: 'โหมด: รถ', start_time: '06:00' }] },
+          { day_index: 2, places: [{ type: 'attraction', name: 'หาดป่าตอง' }] },
+          { day_index: 3, places: [{ type: 'transport', name: 'ขับรถกลับ', notes: 'โหมด: รถ', start_time: '14:00' }] },
+        ],
+      },
+    }
+    const next = ensureOvernightHotel(plan)
+    expect(next.trip.days[0].places.some((p) => p.type === 'hotel')).toBe(true)
+    expect(next.trip.days[1].places.some((p) => p.type === 'hotel')).toBe(true)
+    expect(next.trip.days[2].places.some((p) => p.type === 'hotel')).toBe(false)
+  })
 })

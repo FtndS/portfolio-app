@@ -32,22 +32,30 @@ function fmtDate(iso) {
   return fmtDateDmy(iso) || '—'
 }
 
-function mapEmbedUrl(places) {
-  const withCoords = places.filter((p) => p.lat != null && p.lng != null)
+function mapEmbedUrl(places, focusId = null) {
+  const withCoords = (places || []).filter((p) => p.lat != null && p.lng != null)
   if (!withCoords.length) return null
+  const focus =
+    (focusId != null && withCoords.find((p) => String(p.id) === String(focusId)))
+    || withCoords[0]
+  const lat = Number(focus.lat)
+  const lng = Number(focus.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+
+  // When focusing one place, zoom in; otherwise fit all markers
+  if (focusId != null && withCoords.some((p) => String(p.id) === String(focusId))) {
+    const pad = 0.035
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - pad}%2C${lat - pad}%2C${lng + pad}%2C${lat + pad}&layer=mapnik&marker=${lat}%2C${lng}`
+  }
+
   const lats = withCoords.map((p) => Number(p.lat))
   const lngs = withCoords.map((p) => Number(p.lng))
   const minLat = Math.min(...lats)
   const maxLat = Math.max(...lats)
   const minLng = Math.min(...lngs)
   const maxLng = Math.max(...lngs)
-  const pad = 0.02
-  const left = minLng - pad
-  const right = maxLng + pad
-  const top = maxLat + pad
-  const bottom = minLat - pad
-  const marker = withCoords[0]
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${marker.lat}%2C${marker.lng}`
+  const pad = Math.max(0.02, (maxLat - minLat) * 0.2, (maxLng - minLng) * 0.2)
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${minLng - pad}%2C${minLat - pad}%2C${maxLng + pad}%2C${maxLat + pad}&layer=mapnik&marker=${lat}%2C${lng}`
 }
 
 const emptyTripForm = {
@@ -90,6 +98,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [aiOpen, setAiOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState(null)
   const [detailView, setDetailView] = useState('plan') // plan | edit
+  const [mapFocusId, setMapFocusId] = useState(null)
   const [enriching, setEnriching] = useState(false)
   const [exportReady, setExportReady] = useState(false)
   const enrichedTripRef = useRef(null)
@@ -206,9 +215,19 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   }, [detail, activeDayId])
 
   const mapUrl = useMemo(
-    () => mapEmbedUrl(detail?.places || []),
-    [detail]
+    () => mapEmbedUrl(placesForActiveDay.length ? placesForActiveDay : (detail?.places || []), mapFocusId),
+    [placesForActiveDay, detail?.places, mapFocusId]
   )
+
+  const focusPlaceOnMap = (place) => {
+    if (!place) return
+    if (place.lat == null || place.lng == null) {
+      setErr('จุดนี้ยังไม่มีพิกัดบนแผนที่ — ลองกดเติมรูปหรือแก้พิกัดในแท็บแก้ไข')
+      return
+    }
+    setErr('')
+    setMapFocusId(place.id)
+  }
 
   const createTrip = async () => {
     setSaving(true)
@@ -630,6 +649,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                       className={`trip-day-tab${activeDayId === d.id ? ' is-active' : ''}`}
                       onClick={() => {
                         setActiveDayId(d.id)
+                        setMapFocusId(null)
                         setPlaceForm((prev) => ({ ...prev, trip_day_id: String(d.id) }))
                       }}
                     >
@@ -648,6 +668,8 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                       fmtDate={fmtDate}
                       activeDayId={activeDayId}
                       allDays={false}
+                      focusedPlaceId={mapFocusId}
+                      onSelectPlace={focusPlaceOnMap}
                     />
                   </div>
                 ) : (
@@ -680,7 +702,14 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                       <div className="trip-place-card-body">
                         <div className="trip-place-card-top">
                           <span className="trip-place-type">{typeLabel(p.type)}</span>
-                          <h4 className="trip-place-card-title">{p.name}</h4>
+                          <button
+                            type="button"
+                            className="trip-place-card-title-btn"
+                            onClick={() => focusPlaceOnMap(p)}
+                            title={p.lat != null ? 'แสดงบนแผนที่' : 'ยังไม่มีพิกัด'}
+                          >
+                            <h4 className="trip-place-card-title">{p.name}</h4>
+                          </button>
                         </div>
                         {editingPlaceId === p.id ? (
                           <div className="trip-place-edit-time">
@@ -882,6 +911,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 <h3>แผนที่</h3>
                 {mapUrl ? (
                   <iframe
+                    key={mapFocusId || 'map-default'}
                     title="Trip map"
                     className="trip-map-frame"
                     src={mapUrl}
@@ -894,7 +924,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   </div>
                 )}
                 <p className="trip-map-hint">
-                  สลับไปแท็บแก้ไข เพื่อจัดลำดับและแก้เวลา
+                  คลิกชื่อสถานที่ในแผนเพื่อซูมแผนที่ · สลับแท็บแก้ไขเพื่อจัดลำดับและแก้เวลา
                 </p>
               </section>
             </div>

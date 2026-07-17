@@ -199,6 +199,33 @@
   font-weight: 700;
 }
 
+.trip-tl-place-name--btn {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  color: var(--tl-link);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.trip-tl-place-name--btn:hover {
+  color: var(--tl-head);
+}
+
+.trip-tl-block.is-map-focused {
+  outline: 2px solid color-mix(in srgb, var(--tl-link) 55%, transparent);
+  outline-offset: 4px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--tl-link) 8%, transparent);
+}
+
 .trip-tl-type {
   color: var(--tl-muted);
   font-weight: 500;

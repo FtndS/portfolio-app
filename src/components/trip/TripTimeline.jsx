@@ -59,8 +59,20 @@ function photoCaption(place) {
   return TYPE_LABELS[place.type] || 'จุดแวะ'
 }
 
-export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
+export function TripDayTimeline({
+  day,
+  places,
+  fmtDate,
+  eagerPhotos = false,
+  focusedPlaceId = null,
+  onSelectPlace = null,
+}) {
   const sorted = [...(places || [])].sort((a, b) => {
+    const at = String(a.start_time || '')
+    const bt = String(b.start_time || '')
+    if (at && bt && at !== bt) return at.localeCompare(bt)
+    if (at && !bt) return -1
+    if (!at && bt) return 1
     const ao = a.sort_order ?? 0
     const bo = b.sort_order ?? 0
     if (ao !== bo) return ao - bo
@@ -92,9 +104,14 @@ export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
           const hero = Boolean(place.photo_url) && (place.type === 'attraction' || place.type === 'airport')
           const inline = Boolean(place.photo_url) && !hero
           const timeLabel = formatTimeTh(place.start_time)
+          const isFocused = focusedPlaceId != null && String(focusedPlaceId) === String(place.id)
+          const canFocus = Boolean(onSelectPlace)
 
           return (
-            <div key={place.id} className="trip-tl-block">
+            <div
+              key={place.id || `${place.name}-${place.start_time}`}
+              className={`trip-tl-block${isFocused ? ' is-map-focused' : ''}`}
+            >
               {showPeriod && (
                 <div className="trip-tl-period">{period}</div>
               )}
@@ -104,7 +121,18 @@ export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
                 </div>
                 <div className={`trip-tl-content${hero ? ' trip-tl-content--hero' : ''}`}>
                   <p className="trip-tl-text">
-                    <span className="trip-tl-place-name">{place.name}</span>
+                    {canFocus ? (
+                      <button
+                        type="button"
+                        className="trip-tl-place-name trip-tl-place-name--btn"
+                        onClick={() => onSelectPlace(place)}
+                        title={place.lat != null ? 'แสดงบนแผนที่' : 'ยังไม่มีพิกัด'}
+                      >
+                        {place.name}
+                      </button>
+                    ) : (
+                      <span className="trip-tl-place-name">{place.name}</span>
+                    )}
                     {place.type && (
                       <span className="trip-tl-type"> · {TYPE_LABELS[place.type] || place.type}</span>
                     )}
@@ -139,7 +167,17 @@ export function TripDayTimeline({ day, places, fmtDate, eagerPhotos = false }) {
   )
 }
 
-export default function TripTimeline({ trip, days, places, fmtDate, activeDayId, allDays = false, eagerPhotos = false }) {
+export default function TripTimeline({
+  trip,
+  days,
+  places,
+  fmtDate,
+  activeDayId,
+  allDays = false,
+  eagerPhotos = false,
+  focusedPlaceId = null,
+  onSelectPlace = null,
+}) {
   const dayList = allDays
     ? (days || [])
     : (days || []).filter((d) => d.id === activeDayId)
@@ -195,6 +233,8 @@ export default function TripTimeline({ trip, days, places, fmtDate, activeDayId,
           places={placesByDay(day.id)}
           fmtDate={fmtDate}
           eagerPhotos={eagerPhotos || allDays}
+          focusedPlaceId={allDays ? null : focusedPlaceId}
+          onSelectPlace={allDays ? null : onSelectPlace}
         />
       ))}
     </div>

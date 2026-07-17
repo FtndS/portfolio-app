@@ -123,39 +123,59 @@ function planHasHotel(days) {
   return (days || []).some((d) => (d.places || []).some((p) => p.type === 'hotel'))
 }
 
+function dayHasHotel(day) {
+  return (day?.places || []).some((p) => p.type === 'hotel')
+}
+
+function makeHotelPlace(destination, nightIndex, nightCount) {
+  const dest = String(destination || '').trim() || 'ปลายทาง'
+  const isFirst = nightIndex === 0
+  const isLastNight = nightIndex === nightCount - 1
+  return {
+    type: 'hotel',
+    name: `โรงแรมใน${dest}`,
+    address: null,
+    start_time: isFirst ? '15:00' : '20:00',
+    end_time: isLastNight ? '11:00' : null,
+    notes: isFirst
+      ? 'เช็คอิน · ที่พักค้างคืน'
+      : (isLastNight ? 'ที่พักค้างคืน · เช็คเอาท์เช้าวันถัดไป' : 'ที่พักค้างคืน'),
+  }
+}
+
+function insertHotelInDay(day, hotelPlace) {
+  const places = [...(day.places || [])]
+  const insertAt = places.findIndex((p) => {
+    const h = Number(String(p.start_time || '').split(':')[0])
+    return Number.isFinite(h) && h >= 14
+  })
+  if (insertAt >= 0) places.splice(insertAt, 0, hotelPlace)
+  else places.push(hotelPlace)
+  return { ...day, places: places.slice(0, MAX_PLACES_PER_DAY) }
+}
+
 /**
- * Overnight trips must include at least one hotel.
- * If AI omitted it, insert a searchable hotel stop on day 1 (evening check-in).
+ * Overnight trips need a hotel for each night (day 1 .. day N-1).
+ * If AI omitted any, insert a searchable hotel stop that evening.
  */
 export function ensureOvernightHotel(plan) {
   if (!plan?.trip?.days?.length) return plan
   const { trip } = plan
   if (!isOvernightTrip(trip, trip.days)) return plan
-  if (planHasHotel(trip.days)) return plan
 
-  const destination = String(trip.destination || '').trim() || 'ปลายทาง'
-  const hotelPlace = {
-    type: 'hotel',
-    name: `โรงแรมใน${destination}`,
-    address: null,
-    start_time: '15:00',
-    end_time: '11:00',
-    notes: 'เช็คอินวันแรก · เช็คเอาท์เช้าวันสุดท้าย',
-  }
+  const nightCount = Math.max(0, trip.days.length - 1)
+  if (nightCount < 1) return plan
 
+  const destination = trip.destination || ''
+  let changed = false
   const days = trip.days.map((day, i) => {
-    if (i !== 0) return day
-    const places = [...(day.places || [])]
-    // Insert after morning transport/airport if present, else append
-    const insertAt = places.findIndex((p) => {
-      const h = Number(String(p.start_time || '').split(':')[0])
-      return Number.isFinite(h) && h >= 14
-    })
-    if (insertAt >= 0) places.splice(insertAt, 0, hotelPlace)
-    else places.push(hotelPlace)
-    return { ...day, places: places.slice(0, MAX_PLACES_PER_DAY) }
+    if (i >= nightCount) return day
+    if (dayHasHotel(day)) return day
+    changed = true
+    return insertHotelInDay(day, makeHotelPlace(destination, i, nightCount))
   })
 
+  if (!changed && planHasHotel(trip.days)) return plan
   return { ...plan, trip: { ...trip, days } }
 }
 
@@ -416,18 +436,18 @@ export function buildTripPlanSystemPrompt() {
 }}
 
 กฎแผน (เรียงความสำคัญ):
-1) ทริปค้างคืน (2 วันขึ้นไป / 2 วัน 1 คืน) ต้องมี type "hotel" อย่างน้อย 1 จุด — ใส่ในวันแรกช่วงบ่าย-เย็น (เช่น 15:00) พร้อมชื่อโรงแรมจริงในเมืองนั้น
-2) ห้ามส่งแผนที่มีแค่เที่ยวบิน/สนามบินโดยไม่มีที่พัก เมื่อเป็นการค้างคืน
+1) ทริปค้างคืน: ทุกคืนต้องมี type "hotel" (เช่น 3 วัน 2 คืน = มี hotel ในวันที่ 1 และวันที่ 2) ชื่อโรงแรมจริง
+2) ห้ามส่งแผนที่มีแค่เที่ยวบิน/รถโดยไม่มีที่พัก เมื่อเป็นการค้างคืน
 3) ต้องมีร้านอาหาร (restaurant) อย่างน้อยวันละ 1 จุด ชื่อร้านจริง
-4) ถ้าบิน: มีสนามบิน/เที่ยวบิน (airport หรือ transport โหมดบิน) — ถ้าขับรถไปเอง: ใช้ type transport โหมดรถ ห้ามบังคับใส่สนามบิน
-5) ขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมือง เช่น เครื่องบิน รถไฟ เรือ รถ — พร้อม start_time/end_time
-- ชื่อขาเดินทางใช้รูปแบบชัดเจน เช่น "เที่ยวบิน กรุงเทพ–เชียงใหม่" / "ขับรถ กรุงเทพ–เชียงใหม่" / "Grab ไปตลาด..."
+4) ถ้าบิน: มีสนามบิน/เที่ยวบิน — ถ้าขับรถไปเอง: ใช้ type transport โหมดรถ ห้ามบังคับใส่สนามบิน
+5) ขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมือง — พร้อม start_time/end_time
+- ชื่อขาเดินทางใช้รูปแบบชัดเจน เช่น "เที่ยวบิน กรุงเทพ–ภูเก็ต" / "ขับรถ กรุงเทพ–ภูเก็ต"
 - ใน notes ของ transport ให้ขึ้นต้นด้วย "โหมด: บิน" หรือ "โหมด: รถไฟ" หรือ "โหมด: เรือ" หรือ "โหมด: รถ"
-- ชื่อสถานที่ต้องเป็นชื่อจริงที่ค้นหาได้ (เช่น "U Nimman Chiang Mai" ไม่ใช่ "ที่พักแนะนำ")
+- เรียงสถานที่ตามเวลาจริงในวัน (เช้า→เย็น) hotel ค้างคืนอยู่ช่วงเย็น
+- ชื่อสถานที่ต้องเป็นชื่อจริงที่ค้นหาได้
 - ห้ามใช้คำว่า แนะนำ / หรือ / ค้นหา / เช่น ในชื่อสถานที่
-- ร้านอาหารและโรงแรมต้องระบุชื่อร้านหรือแบรนด์จริง
-- วันละไม่เกิน 6–8 จุด notes สั้นมาก (ไม่เกิน 1 ประโยค) เพื่อให้ JSON ไม่ยาวเกิน
-- ห้ามใส่ URL หรือลิงก์จองใน JSON (ระบบสร้างลิงก์ให้เอง)
+- วันละไม่เกิน 6–8 จุด notes สั้นมาก (ไม่เกิน 1 ประโยค)
+- ห้ามใส่ URL หรือลิงก์จองใน JSON
 - เป็นแผนแนะนำเท่านั้น ห้ามอ้างว่าจองแล้วหรือราคาการันตี
 - ใช้ภาษาไทยใน title/notes ได้`
 }

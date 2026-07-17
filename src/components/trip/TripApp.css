@@ -482,6 +482,23 @@
   letter-spacing: -0.01em;
 }
 
+.trip-place-card-title-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.trip-place-card-title-btn:hover .trip-place-card-title {
+  color: var(--trip-accent-strong, var(--accent));
+  text-decoration: underline;
+}
+
 .trip-place-card-address {
   margin: 0;
   font-size: 12px;
