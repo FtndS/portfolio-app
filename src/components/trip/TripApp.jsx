@@ -81,6 +81,8 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [supportOpen, setSupportOpen] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [exportReady, setExportReady] = useState(false)
+  const [editingTripRoute, setEditingTripRoute] = useState(false)
+  const [tripRouteForm, setTripRouteForm] = useState({ origin: '', destination: '' })
   const enrichedTripRef = useRef(null)
   const activeDayRef = useRef(null)
   const placeDayRef = useRef('')
@@ -93,6 +95,10 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   useEffect(() => {
     placeDayRef.current = placeForm.trip_day_id
   }, [placeForm.trip_day_id])
+
+  useEffect(() => {
+    setEditingTripRoute(false)
+  }, [tripId])
 
   const loadList = async () => {
     setLoading(true)
@@ -256,6 +262,38 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     } finally {
       setMapLoading(false)
     }
+  }
+
+  const openTripRouteEdit = () => {
+    if (!detail) return
+    setTripRouteForm({
+      origin: detail.origin || '',
+      destination: detail.destination || '',
+    })
+    setEditingTripRoute(true)
+  }
+
+  const saveTripRoute = async () => {
+    if (!detail) return
+    setSaving(true)
+    setErr('')
+    const r = await api.put(`/trips/${detail.id}`, {
+      title: detail.title,
+      origin: tripRouteForm.origin,
+      destination: tripRouteForm.destination,
+      start_date: detail.start_date,
+      end_date: detail.end_date,
+      notes: detail.notes,
+      currency: detail.currency,
+      status: detail.status,
+    })
+    setSaving(false)
+    if (r?.error) {
+      setErr(r.error)
+      return
+    }
+    setEditingTripRoute(false)
+    await loadDetail(detail.id, { preserveSelection: true, showLoading: false })
   }
 
   const createTrip = async () => {
@@ -648,6 +686,53 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   )}
                   <span>{(detail.days || []).length} วัน · {(detail.places || []).length} จุด</span>
                 </p>
+                {!editingTripRoute ? (
+                  <button
+                    type="button"
+                    className="dash-link-btn trip-route-edit-toggle"
+                    onClick={openTripRouteEdit}
+                  >
+                    แก้ไขเส้นทาง
+                  </button>
+                ) : (
+                  <div className="trip-route-edit trip-no-print">
+                    <p className="trip-route-edit-hint">
+                      ใช้สำหรับเที่ยวบินและค้นหาสถานที่ — เช่น กรุงเทพ, DMK
+                    </p>
+                    <div className="trip-route-edit-fields">
+                      <input
+                        style={inp({ marginBottom: 0 })}
+                        placeholder="ต้นทาง เช่น กรุงเทพ หรือ DMK"
+                        value={tripRouteForm.origin}
+                        onChange={(e) => setTripRouteForm({ ...tripRouteForm, origin: e.target.value })}
+                      />
+                      <input
+                        style={inp({ marginBottom: 0 })}
+                        placeholder="ปลายทาง"
+                        value={tripRouteForm.destination}
+                        onChange={(e) => setTripRouteForm({ ...tripRouteForm, destination: e.target.value })}
+                      />
+                    </div>
+                    <div className="trip-route-edit-actions">
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, width: 'auto' }}
+                        disabled={saving}
+                        onClick={saveTripRoute}
+                      >
+                        {saving ? 'กำลังบันทึก...' : 'บันทึกเส้นทาง'}
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...btnGhost, width: 'auto' }}
+                        disabled={saving}
+                        onClick={() => setEditingTripRoute(false)}
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="trip-list-head-actions">
                 <button

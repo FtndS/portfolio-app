@@ -122,6 +122,38 @@
   content: '';
 }
 
+.trip-route-edit-toggle {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.trip-route-edit {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--trip-border, var(--border));
+  background: color-mix(in srgb, var(--trip-surface, var(--surface)) 92%, var(--text-muted));
+}
+
+.trip-route-edit-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.trip-route-edit-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.trip-route-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .trip-card {
   background: var(--trip-surface, var(--surface));
   border: 1px solid var(--trip-border, var(--border));
