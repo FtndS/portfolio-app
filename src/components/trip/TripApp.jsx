@@ -10,7 +10,7 @@ import { readTripId } from '../../lib/appRoutes'
 import TripPlaceSearch, { PlacePhoto } from './TripPlaceSearch'
 import TripAIPlanner from './TripAIPlanner'
 import TripTimeline from './TripTimeline'
-import { BookingLinks } from './BookingLinks'
+import { TripPlaceBooking } from './FlightBookingPanel'
 import TripMapPanel from './TripMapPanel'
 import SupportModal from '../modals/SupportModal'
 import './TripApp.css'
@@ -780,7 +780,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                             {p.budget != null && (
                               <p className="trip-place-card-budget">฿{Number(p.budget).toLocaleString('th-TH')}</p>
                             )}
-                            <BookingLinks links={p.booking_links} />
+                            <TripPlaceBooking place={p} />
                           </>
                         )}
                         <div className="trip-place-card-toolbar">
@@ -952,6 +952,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 <TripMapPanel
                   mapState={mapPanel}
                   loading={mapLoading}
+                  focusPlace={mapFocusPlace}
                   bookingLinks={mapFocusPlace?.booking_links || []}
                 />
               </div>

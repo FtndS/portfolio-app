@@ -1,5 +1,5 @@
 import { PlacePhoto } from './TripPlaceSearch'
-import { BookingLinks } from './BookingLinks'
+import { TripPlaceBooking } from './FlightBookingPanel'
 
 const TYPE_LABELS = {
   hotel: 'ที่พัก',
@@ -13,8 +13,9 @@ const TYPE_LABELS = {
 export default function TripMapPanel({
   mapState,
   loading,
+  focusPlace = null,
   bookingLinks = [],
-  emptyHint = 'คลิกชื่อสถานที่ (ที่พัก, ร้านอาหาร, สถานที่เที่ยว) เพื่อดูบนแผนที่',
+  emptyHint = 'คลิกชื่อสถานที่ (ที่พัก, ร้านอาหาร, สถานที่เที่ยว) เพื่อดูบน Google Maps',
 }) {
   const place = mapState?.place
   const embedUrl = mapState?.embedUrl
@@ -57,7 +58,10 @@ export default function TripMapPanel({
                 </a>
               )}
             </div>
-            <BookingLinks links={bookingLinks} />
+            <TripPlaceBooking
+              place={focusPlace ? { ...focusPlace, booking_links: bookingLinks } : null}
+              compact
+            />
           </div>
         </div>
       )}

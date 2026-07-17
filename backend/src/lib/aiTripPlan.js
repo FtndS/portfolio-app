@@ -369,11 +369,17 @@ export async function applyAiTripPlan(client, userId, plan) {
   }
 
   const places = []
+  const allPlanPlaces = trip.days.flatMap((d) => d.places || [])
   for (let i = 0; i < trip.days.length; i += 1) {
     const dayRow = dayRows[i]
+    const dayDate = dateList[i] || dateList[dateList.length - 1] || null
     const dayPlaces = trip.days[i].places || []
     for (let j = 0; j < dayPlaces.length; j += 1) {
-      const p = attachBookingLinks(dayPlaces[j], trip.destination || '')
+      const p = attachBookingLinks(dayPlaces[j], trip.destination || '', {
+        trip,
+        dayDate,
+        allPlaces: allPlanPlaces,
+      })
       const placeIns = await client.query(
         `INSERT INTO trip_places
           (trip_id, trip_day_id, type, name, lat, lng, address, photo_url, external_id, external_source,
@@ -443,6 +449,7 @@ export function buildTripPlanSystemPrompt() {
 5) ขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมือง — พร้อม start_time/end_time
 - ชื่อขาเดินทางใช้รูปแบบชัดเจน เช่น "เที่ยวบิน กรุงเทพ–ภูเก็ต" / "ขับรถ กรุงเทพ–ภูเก็ต"
 - ใน notes ของ transport ให้ขึ้นต้นด้วย "โหมด: บิน" หรือ "โหมด: รถไฟ" หรือ "โหมด: เรือ" หรือ "โหมด: รถ"
+- ถ้าโหมดบิน: ใน notes เพิ่ม "จาก:XXX ถึง:YYY" โดย XXX/YYY เป็นรหัสสนามบิน IATA (เช่น จาก:DMK ถึง:CNX) หรือใช้ชื่อเมืองชัดในชื่อ เช่น "เที่ยวบิน กรุงเทพ–เชียงใหม่"
 - เรียงสถานที่ตามเวลาจริงในวัน (เช้า→เย็น) hotel ค้างคืนอยู่ช่วงเย็น
 - ชื่อสถานที่ต้องเป็นชื่อจริงที่ค้นหาได้
 - ห้ามใช้คำว่า แนะนำ / หรือ / ค้นหา / เช่น ในชื่อสถานที่

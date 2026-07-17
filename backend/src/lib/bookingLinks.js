@@ -1,5 +1,23 @@
 /** Curated external booking search links for trip places (no in-app booking). */
 
+import {
+  enrichFlightPlace,
+  isFlightPlace,
+} from './flightLeg.js'
+
+function planDayDate(trip, dayIndex) {
+  const start = trip?.start_date
+  if (!start) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(start).slice(0, 10))
+  if (!m) return null
+  const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
+  dt.setUTCDate(dt.getUTCDate() + Math.max(0, (dayIndex || 1) - 1))
+  const y = dt.getUTCFullYear()
+  const mo = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(dt.getUTCDate()).padStart(2, '0')
+  return `${y}-${mo}-${d}`
+}
+
 const ALLOWED_HOSTS = new Set([
   'www.agoda.com',
   'agoda.com',
@@ -14,6 +32,14 @@ const ALLOWED_HOSTS = new Set([
   'google.com',
   'www.grab.com',
   'grab.com',
+  'www.skyscanner.co.th',
+  'skyscanner.co.th',
+  'www.skyscanner.com',
+  'skyscanner.com',
+  'www.expedia.com',
+  'expedia.com',
+  'www.kiwi.com',
+  'kiwi.com',
 ])
 
 const MAX_LINKS = 6
@@ -63,7 +89,11 @@ function hotelLinks(q) {
   ]
 }
 
-function flightLinks(q) {
+function flightLinks(q, context = {}) {
+  if (context?.place) {
+    const enriched = enrichFlightPlace(context.place, context)
+    if (enriched.flight_leg) return enriched.booking_links
+  }
   if (!q) return []
   return [
     {
@@ -106,17 +136,18 @@ function carLinks() {
 }
 
 /** Build curated booking search links from place context. */
-export function buildBookingLinks({ type, name, destination = '', notes = '' } = {}) {
+export function buildBookingLinks({ type, name, destination = '', notes = '', place = null, trip = null, dayDate = null, allPlaces = [] } = {}) {
   const t = String(type || 'other').toLowerCase()
   const q = searchQuery(name, destination)
   const mode = inferTransportMode(name, notes)
+  const ctx = { place: place || { type, name, notes }, trip, dayDate, allPlaces, destination }
 
   if (t === 'hotel') return hotelLinks(q).slice(0, MAX_LINKS)
 
-  if (t === 'airport') return flightLinks(q || destination).slice(0, MAX_LINKS)
+  if (t === 'airport') return flightLinks(q || destination, ctx).slice(0, MAX_LINKS)
 
   if (t === 'transport') {
-    if (mode === 'flight') return flightLinks(q).slice(0, MAX_LINKS)
+    if (mode === 'flight') return flightLinks(q, ctx).slice(0, MAX_LINKS)
     if (mode === 'car') return carLinks().slice(0, MAX_LINKS)
     if (mode === 'train' || mode === 'ferry') return surfaceLinks(q).slice(0, MAX_LINKS)
     // Unknown transport mode: offer both surface + Grab
@@ -149,33 +180,52 @@ export function sanitizeBookingLinks(list) {
     if (!label || !url || !isAllowedUrl(url)) continue
     if (seen.has(url)) continue
     seen.add(url)
-    out.push({ label, url, kind })
+    out.push({
+      label,
+      url,
+      kind,
+      ...(item.provider ? { provider: String(item.provider).trim().slice(0, 32) } : {}),
+      ...(item.primary ? { primary: true } : {}),
+    })
     if (out.length >= MAX_LINKS) break
   }
   return out
 }
 
 /** Attach server-built links onto a place (overwrites any AI-supplied URLs). */
-export function attachBookingLinks(place, destination = '') {
+export function attachBookingLinks(place, destination = '', context = {}) {
   if (!place || typeof place !== 'object') return place
+  const trip = context.trip || {}
+  const allPlaces = context.allPlaces || []
+  const dayDate = context.dayDate ?? null
   const links = buildBookingLinks({
     type: place.type,
     name: place.name,
-    destination,
+    destination: destination || trip.destination || '',
     notes: place.notes,
+    place,
+    trip,
+    dayDate,
+    allPlaces,
   })
-  return {
-    ...place,
-    booking_links: sanitizeBookingLinks(links),
-  }
+  const enriched = isFlightPlace(place)
+    ? enrichFlightPlace({ ...place, booking_links: sanitizeBookingLinks(links) }, { trip, dayDate, allPlaces })
+    : { ...place, booking_links: sanitizeBookingLinks(links) }
+  return enriched
 }
 
 export function attachBookingLinksToPlan(plan) {
   if (!plan?.trip?.days) return plan
-  const destination = plan.trip.destination || ''
-  const days = plan.trip.days.map((day) => ({
+  const trip = plan.trip
+  const destination = trip.destination || ''
+  const allPlaces = trip.days.flatMap((d) => d.places || [])
+  const days = trip.days.map((day) => ({
     ...day,
-    places: (day.places || []).map((p) => attachBookingLinks(p, destination)),
+    places: (day.places || []).map((p) => attachBookingLinks(p, destination, {
+      trip,
+      dayDate: planDayDate(trip, day.day_index),
+      allPlaces,
+    })),
   }))
-  return { ...plan, trip: { ...plan.trip, days } }
+  return { ...plan, trip: { ...trip, days } }
 }

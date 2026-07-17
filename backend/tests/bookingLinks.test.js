@@ -28,9 +28,14 @@ describe('bookingLinks', () => {
       type: 'transport',
       name: 'เที่ยวบิน กรุงเทพ–เชียงใหม่',
       notes: 'โหมด: บิน',
+      destination: 'เชียงใหม่',
+      place: { type: 'transport', name: 'เที่ยวบิน กรุงเทพ–เชียงใหม่', notes: 'โหมด: บิน' },
+      trip: { destination: 'เชียงใหม่', start_date: '2025-11-01', end_date: '2025-11-05' },
+      dayDate: '2025-11-01',
     })
     expect(inferTransportMode('เที่ยวบิน กรุงเทพ–เชียงใหม่', 'โหมด: บิน')).toBe('flight')
     expect(flight.some((l) => l.kind === 'flight')).toBe(true)
+    expect(flight.some((l) => l.label === 'Skyscanner')).toBe(true)
   })
 
   it('builds 12Go links for train/ferry and Grab for car', () => {

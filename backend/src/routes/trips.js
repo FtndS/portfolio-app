@@ -18,6 +18,7 @@ import {
   normalizeTripPayload,
 } from '../lib/tripHelpers.js'
 import { attachBookingLinks, sanitizeBookingLinks } from '../lib/bookingLinks.js'
+import { enumerateDateRange } from '../lib/tripHelpers.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -120,8 +121,26 @@ async function loadTripDetail(userId, tripId) {
   return {
     ...trip,
     days: days.rows,
-    places: places.rows,
+    places: enrichTripPlacesForClient(trip, days.rows, places.rows),
   }
+}
+
+function enrichTripPlacesForClient(trip, days, places) {
+  const dateByDayId = new Map()
+  const dateList = enumerateDateRange(trip.start_date, trip.end_date)
+  for (const day of days) {
+    const idx = Math.max(0, (day.day_index || 1) - 1)
+    dateByDayId.set(day.id, day.date || dateList[idx] || dateList[dateList.length - 1] || null)
+  }
+  return places.map((p) => {
+    const attached = attachBookingLinks(p, trip.destination || '', {
+      trip,
+      dayDate: dateByDayId.get(p.trip_day_id) || null,
+      allPlaces: places,
+    })
+    const { flight_leg, ...rest } = attached
+    return flight_leg ? { ...rest, flight_leg } : rest
+  })
 }
 
 router.get('/', async (req, res) => {
@@ -415,9 +434,30 @@ router.post('/:id/places', async (req, res) => {
   }
 
   try {
+    let dayDate = null
+    if (parsed.trip_day_id) {
+      const dayRow = await pool.query(
+        'SELECT date, day_index FROM trip_days WHERE id = $1 AND trip_id = $2',
+        [parsed.trip_day_id, tripId]
+      )
+      dayDate = dayRow.rows[0]?.date || null
+      if (!dayDate && dayRow.rows[0]?.day_index && trip.start_date) {
+        const dates = enumerateDateRange(trip.start_date, trip.end_date)
+        const idx = Math.max(0, dayRow.rows[0].day_index - 1)
+        dayDate = dates[idx] || dates[dates.length - 1] || null
+      }
+    }
+    const existingPlaces = await pool.query(
+      'SELECT * FROM trip_places WHERE trip_id = $1',
+      [tripId]
+    )
     const withLinks = parsed.booking_links?.length
       ? parsed
-      : attachBookingLinks(parsed, trip.destination || '')
+      : attachBookingLinks(parsed, trip.destination || '', {
+        trip,
+        dayDate,
+        allPlaces: existingPlaces.rows,
+      })
     const bookingLinks = sanitizeBookingLinks(withLinks.booking_links || [])
 
     const r = await pool.query(
