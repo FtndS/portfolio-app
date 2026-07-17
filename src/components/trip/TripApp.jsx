@@ -11,6 +11,7 @@ import TripPlaceSearch, { PlacePhoto } from './TripPlaceSearch'
 import TripAIPlanner from './TripAIPlanner'
 import TripTimeline from './TripTimeline'
 import { BookingLinks } from './BookingLinks'
+import TripMapPanel from './TripMapPanel'
 import './TripApp.css'
 import './TripPlaceSearch.css'
 import './TripTimeline.css'
@@ -30,32 +31,6 @@ function typeLabel(type) {
 
 function fmtDate(iso) {
   return fmtDateDmy(iso) || '—'
-}
-
-function mapEmbedUrl(places, focusId = null) {
-  const withCoords = (places || []).filter((p) => p.lat != null && p.lng != null)
-  if (!withCoords.length) return null
-  const focus =
-    (focusId != null && withCoords.find((p) => String(p.id) === String(focusId)))
-    || withCoords[0]
-  const lat = Number(focus.lat)
-  const lng = Number(focus.lng)
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-
-  // When focusing one place, zoom in; otherwise fit all markers
-  if (focusId != null && withCoords.some((p) => String(p.id) === String(focusId))) {
-    const pad = 0.035
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - pad}%2C${lat - pad}%2C${lng + pad}%2C${lat + pad}&layer=mapnik&marker=${lat}%2C${lng}`
-  }
-
-  const lats = withCoords.map((p) => Number(p.lat))
-  const lngs = withCoords.map((p) => Number(p.lng))
-  const minLat = Math.min(...lats)
-  const maxLat = Math.max(...lats)
-  const minLng = Math.min(...lngs)
-  const maxLng = Math.max(...lngs)
-  const pad = Math.max(0.02, (maxLat - minLat) * 0.2, (maxLng - minLng) * 0.2)
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${minLng - pad}%2C${minLat - pad}%2C${maxLng + pad}%2C${maxLat + pad}&layer=mapnik&marker=${lat}%2C${lng}`
 }
 
 const emptyTripForm = {
@@ -99,6 +74,8 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [dragIndex, setDragIndex] = useState(null)
   const [detailView, setDetailView] = useState('plan') // plan | edit
   const [mapFocusId, setMapFocusId] = useState(null)
+  const [mapPanel, setMapPanel] = useState(null)
+  const [mapLoading, setMapLoading] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [exportReady, setExportReady] = useState(false)
   const enrichedTripRef = useRef(null)
@@ -214,19 +191,63 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
     return (detail.places || []).filter((p) => p.trip_day_id === activeDayId)
   }, [detail, activeDayId])
 
-  const mapUrl = useMemo(
-    () => mapEmbedUrl(placesForActiveDay.length ? placesForActiveDay : (detail?.places || []), mapFocusId),
-    [placesForActiveDay, detail?.places, mapFocusId]
+  const mapFocusPlace = useMemo(
+    () => (detail?.places || []).find((p) => String(p.id) === String(mapFocusId)) || null,
+    [detail?.places, mapFocusId]
   )
 
-  const focusPlaceOnMap = (place) => {
+  const focusPlaceOnMap = async (place) => {
     if (!place) return
-    if (place.lat == null || place.lng == null) {
-      setErr('จุดนี้ยังไม่มีพิกัดบนแผนที่ — ลองกดเติมรูปหรือแก้พิกัดในแท็บแก้ไข')
-      return
-    }
     setErr('')
     setMapFocusId(place.id)
+    setMapLoading(true)
+    try {
+      const r = await api.get('/trips/places/map', {
+        q: place.name,
+        type: place.type || 'other',
+        near: detail?.destination || '',
+        address: place.address || '',
+        lat: place.lat ?? '',
+        lng: place.lng ?? '',
+        placeId: place.external_id || '',
+      })
+      if (r?.error) {
+        setErr(r.error)
+        setMapPanel(null)
+        return
+      }
+      setMapPanel(r)
+      // Persist coords if we discovered them and place was missing them
+      if (
+        place.id
+        && (place.lat == null || place.lng == null)
+        && r?.place?.lat != null
+        && r?.place?.lng != null
+      ) {
+        const updated = await api.put(`/trips/${detail.id}/places/${place.id}`, {
+          ...place,
+          lat: r.place.lat,
+          lng: r.place.lng,
+          address: place.address || r.place.address || null,
+          photo_url: place.photo_url || r.place.photoUrl || null,
+          external_id: place.external_id || r.place.placeId || null,
+          external_source: place.external_source || r.place.source || null,
+        })
+        if (updated && !updated.error) {
+          setDetail((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              places: (prev.places || []).map((p) => (p.id === place.id ? { ...p, ...updated } : p)),
+            }
+          })
+        }
+      }
+    } catch {
+      setErr('โหลดแผนที่ไม่สำเร็จ')
+    } finally {
+      setMapLoading(false)
+    }
   }
 
   const createTrip = async () => {
@@ -650,6 +671,7 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                       onClick={() => {
                         setActiveDayId(d.id)
                         setMapFocusId(null)
+                        setMapPanel(null)
                         setPlaceForm((prev) => ({ ...prev, trip_day_id: String(d.id) }))
                       }}
                     >
@@ -907,26 +929,11 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                 )}
               </section>
 
-              <section className="trip-card trip-map-card trip-no-print">
-                <h3>แผนที่</h3>
-                {mapUrl ? (
-                  <iframe
-                    key={mapFocusId || 'map-default'}
-                    title="Trip map"
-                    className="trip-map-frame"
-                    src={mapUrl}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                ) : (
-                  <div className="trip-empty trip-empty-compact">
-                    จุดแวะที่มีพิกัดจะแสดงบนแผนที่
-                  </div>
-                )}
-                <p className="trip-map-hint">
-                  คลิกชื่อสถานที่ในแผนเพื่อซูมแผนที่ · สลับแท็บแก้ไขเพื่อจัดลำดับและแก้เวลา
-                </p>
-              </section>
+              <TripMapPanel
+                mapState={mapPanel}
+                loading={mapLoading}
+                bookingLinks={mapFocusPlace?.booking_links || []}
+              />
             </div>
 
             <div className={`trip-tl-print-root${exportReady ? ' is-exporting' : ''}`} aria-hidden={!exportReady}>

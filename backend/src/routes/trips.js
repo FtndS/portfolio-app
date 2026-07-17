@@ -8,6 +8,7 @@ import {
   isGooglePlacesConfigured,
   searchTripPlaces,
 } from '../lib/placeSearch.js'
+import { resolveTripPlaceMap } from '../lib/googleMaps.js'
 import { enrichTripPlacesMissingPhotos } from '../lib/aiTripPlan.js'
 import { isGenericPlaceName } from '../lib/placeMatch.js'
 import {
@@ -37,6 +38,36 @@ router.get('/places/search', placeSearchLimiter, async (req, res) => {
     })
   } catch (err) {
     serverError(res, err, 'GET place search error:')
+  }
+})
+
+/** Resolve a place for Google Maps embed + detail card */
+router.get('/places/map', placeSearchLimiter, async (req, res) => {
+  const name = String(req.query.q || req.query.name || '').trim()
+  const type = String(req.query.type || 'other').trim()
+  const near = String(req.query.near || '').trim()
+  const address = String(req.query.address || '').trim() || null
+  const placeId = String(req.query.placeId || req.query.place_id || '').trim() || null
+  const lat = req.query.lat === '' || req.query.lat == null ? null : Number(req.query.lat)
+  const lng = req.query.lng === '' || req.query.lng == null ? null : Number(req.query.lng)
+
+  if (name.length < 1 && near.length < 2 && !(Number.isFinite(lat) && Number.isFinite(lng))) {
+    return res.status(400).json({ error: 'ระบุชื่อสถานที่หรือพิกัด' })
+  }
+
+  try {
+    const resolved = await resolveTripPlaceMap(searchTripPlaces, {
+      name,
+      type,
+      near,
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
+      placeId,
+      address,
+    })
+    res.json(resolved)
+  } catch (err) {
+    serverError(res, err, 'GET place map error:')
   }
 })
 

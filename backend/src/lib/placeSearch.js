@@ -161,7 +161,7 @@ async function searchGooglePlaces({ query, type, near }) {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': key,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.photos,places.primaryType,places.types',
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.photos,places.primaryType,places.types,places.rating,places.userRatingCount,places.googleMapsUri',
       },
       body: JSON.stringify(body),
     })
@@ -187,6 +187,9 @@ async function searchGooglePlaces({ query, type, near }) {
       category: p.primaryType || p.types?.[0] || null,
       externalId: p.id,
       photoRef: photoName,
+      rating: p.rating ?? null,
+      userRatingCount: p.userRatingCount ?? null,
+      googleMapsUri: p.googleMapsUri || null,
     }
   })
 }
