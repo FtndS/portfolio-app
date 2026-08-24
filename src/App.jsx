@@ -171,6 +171,12 @@ export default function App() {
             onBackHub={() => navigate('/hub')}
             onOpenStock={() => navigate('/app')}
             onLogout={logout}
+            onUserUpdate={(u) => {
+              setUser(u)
+              localStorage.setItem('user', JSON.stringify(u))
+            }}
+            onOpenAdmin={user.role === 'admin' ? () => navigate('/admin') : undefined}
+            onOpenSubscription={() => navigate('/app?tab=subscription')}
           />
         </ThemeProvider>
       )

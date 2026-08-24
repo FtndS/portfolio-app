@@ -866,3 +866,160 @@
     height: 140px;
   }
 }
+
+/* ─────────────────────────────────────────────────────────
+   Trip Planner: FX bar + budget estimate card
+   These are used to keep navigation actions consistent
+   with the main dashboard theme.
+   ───────────────────────────────────────────────────────── */
+
+.trip-fx-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-muted);
+}
+
+.trip-fx-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trip-fx-swap {
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.trip-fx-swap:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.trip-fx-select {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+}
+
+.trip-fx-rate {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.trip-budget-card {
+  margin-top: 14px;
+  padding: 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.trip-budget-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.trip-budget-card-head h3 {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+}
+
+.trip-budget-buffer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.trip-budget-buffer select {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--surface-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.trip-budget-card-meta {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.trip-budget-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.trip-budget-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.trip-budget-card strong {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--text);
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+.trip-budget-alt {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.trip-budget-hint {
+  margin-top: 10px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+@media (max-width: 860px) {
+  .trip-budget-grid {
+    grid-template-columns: 1fr;
+  }
+  .trip-fx-rate {
+    display: none;
+  }
+}

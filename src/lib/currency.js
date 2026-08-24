@@ -34,3 +34,15 @@ export function toPortfolioCurrency(amount, holdingCurrency, portfolioCurrency, 
 export function makeConverter(displayCurrency, usdThb = 35) {
   return (amount, fromCurrency = 'USD') => convertAmount(amount, fromCurrency, displayCurrency, usdThb)
 }
+
+/** `unitsPerUsd.JPY = 150` means 1 USD = 150 JPY. */
+export function convertWithRates(amount, fromCurrency, toCurrency, unitsPerUsd = {}) {
+  const from = String(fromCurrency || 'USD').toUpperCase()
+  const to = String(toCurrency || 'USD').toUpperCase()
+  const n = Number(amount) || 0
+  if (from === to) return n
+  const fromPerUsd = from === 'USD' ? 1 : Number(unitsPerUsd[from])
+  const toPerUsd = to === 'USD' ? 1 : Number(unitsPerUsd[to])
+  if (!fromPerUsd || !toPerUsd) return n
+  return (n / fromPerUsd) * toPerUsd
+}

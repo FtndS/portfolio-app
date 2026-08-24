@@ -23,6 +23,18 @@ export function convertAmount(amount, fromCurrency, displayCurrency, usdThb = 35
   return fromUsd(toUsd(amount, fromCurrency, usdThb), displayCurrency, usdThb)
 }
 
+/** `unitsPerUsd.JPY = 150` means 1 USD = 150 JPY. */
+export function convertWithRates(amount, fromCurrency, toCurrency, unitsPerUsd = {}) {
+  const from = String(fromCurrency || 'USD').toUpperCase()
+  const to = String(toCurrency || 'USD').toUpperCase()
+  const n = Number(amount) || 0
+  if (from === to) return n
+  const fromPerUsd = from === 'USD' ? 1 : Number(unitsPerUsd[from])
+  const toPerUsd = to === 'USD' ? 1 : Number(unitsPerUsd[to])
+  if (!fromPerUsd || !toPerUsd) return n
+  return (n / fromPerUsd) * toPerUsd
+}
+
 /** Infer native currency from holdings when portfolios.currency is stale. */
 export function inferPortfolioCurrency(explicitCurrency, holdings = []) {
   if (!holdings?.length) return explicitCurrency || 'USD'

@@ -3,7 +3,8 @@ import { api } from '../../lib/api'
 import { btnGhost, btnPrimary, inp } from '../../lib/styles'
 import { fmtDate as fmtDateDmy } from '../../lib/format'
 import Logo from '../Logo'
-import ThemeToggle from '../ThemeToggle'
+import AccountNav from '../AccountNav'
+import SettingsModal from '../modals/SettingsModal'
 import DateInput from '../ui/DateInput'
 import Modal from '../ui/Modal'
 import { readTripId } from '../../lib/appRoutes'
@@ -13,6 +14,19 @@ import TripTimeline from './TripTimeline'
 import { TripPlaceBooking } from './FlightBookingPanel'
 import TripMapPanel from './TripMapPanel'
 import SupportModal from '../modals/SupportModal'
+import TripFxBar from './TripFxBar'
+import TripBudgetCard from './TripBudgetCard'
+import {
+  HOME_CURRENCY,
+  convertTripAmount,
+  formatTripMoney,
+  inferForeignCurrency,
+  loadTripFxPrefs,
+  saveTripFxPrefs,
+  sumPlaceBudgets,
+  unitsPerUsdFromQuotes,
+  yahooFxTickers,
+} from '../../lib/tripFx'
 import './TripApp.css'
 import './TripPlaceSearch.css'
 import './TripTimeline.css'
@@ -56,7 +70,17 @@ const emptyPlaceForm = {
   notes: '',
 }
 
-export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, onLogout }) {
+export default function TripApp({
+  user,
+  path,
+  navigate,
+  onBackHub,
+  onOpenStock,
+  onLogout,
+  onUserUpdate,
+  onOpenAdmin,
+  onOpenSubscription,
+}) {
   const tripId = readTripId(path)
   const [trips, setTrips] = useState([])
   const [detail, setDetail] = useState(null)
@@ -79,6 +103,12 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
   const [mapPanel, setMapPanel] = useState(null)
   const [mapLoading, setMapLoading] = useState(false)
   const [supportOpen, setSupportOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [fxForeign, setFxForeign] = useState(() => loadTripFxPrefs().foreign || 'USD')
+  const [fxInverted, setFxInverted] = useState(() => loadTripFxPrefs().inverted)
+  const [fxBufferPct, setFxBufferPct] = useState(() => loadTripFxPrefs().bufferPct)
+  const [fxManual, setFxManual] = useState(() => !!loadTripFxPrefs().foreign)
+  const [fxQuotes, setFxQuotes] = useState({})
   const [enriching, setEnriching] = useState(false)
   const [exportReady, setExportReady] = useState(false)
   const [editingTripRoute, setEditingTripRoute] = useState(false)
@@ -193,6 +223,44 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
       loadList()
     }
   }, [tripId])
+
+  useEffect(() => {
+    let cancelled = false
+    const tickers = yahooFxTickers().join(',')
+    api.get('/prices', { tickers }).then((r) => {
+      if (!cancelled && r && !r.error) setFxQuotes(r)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    saveTripFxPrefs({ foreign: fxForeign, inverted: fxInverted, bufferPct: fxBufferPct })
+  }, [fxForeign, fxInverted, fxBufferPct])
+
+  useEffect(() => {
+    if (fxManual) return
+    const hint = inferForeignCurrency(detail?.destination || tripForm.destination)
+    if (hint && hint !== fxForeign) setFxForeign(hint)
+  }, [detail?.destination, tripForm.destination, fxManual, fxForeign])
+
+  const unitsPerUsd = useMemo(() => unitsPerUsdFromQuotes(fxQuotes), [fxQuotes])
+  const nativeCurrency = (detail?.currency || HOME_CURRENCY).toUpperCase()
+  const budgetTotal = useMemo(() => sumPlaceBudgets(detail?.places), [detail?.places])
+  const budgetPricedCount = useMemo(
+    () => (detail?.places || []).filter((p) => p.budget != null && Number(p.budget) > 0).length,
+    [detail?.places]
+  )
+
+  const formatPlaceBudget = (amount, fromCcy = nativeCurrency) => {
+    const home = convertTripAmount(amount, fromCcy, HOME_CURRENCY, unitsPerUsd)
+    const foreignAmt = convertTripAmount(amount, fromCcy, fxForeign, unitsPerUsd)
+    return `${formatTripMoney(home, HOME_CURRENCY)} · ${formatTripMoney(foreignAmt, fxForeign)}`
+  }
+
+  const setForeignManual = (code) => {
+    setFxManual(true)
+    setFxForeign(code)
+  }
 
   const placesForActiveDay = useMemo(() => {
     if (!detail) return []
@@ -525,18 +593,26 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
           </div>
         </div>
         <div className="trip-topbar-actions">
-          <ThemeToggle />
-          <button
-            type="button"
-            className="landing-btn-ghost"
-            onClick={() => setSupportOpen(true)}
-            title="ช่วยเหลือ / แจ้งปัญหา"
-          >
-            ช่วยเหลือ
-          </button>
-          <button type="button" className="landing-btn-ghost" onClick={onOpenStock}>พอร์ต</button>
-          <button type="button" className="landing-btn-ghost" onClick={onBackHub}>Hub</button>
-          <button type="button" className="landing-btn-ghost" onClick={onLogout}>ออก</button>
+          <AccountNav
+            extra={(
+              <>
+                <TripFxBar
+                  foreign={fxForeign}
+                  inverted={fxInverted}
+                  onForeignChange={setForeignManual}
+                  onSwap={() => setFxInverted((v) => !v)}
+                  unitsPerUsd={unitsPerUsd}
+                />
+                <button type="button" className="dash-util-btn trip-nav-extra" onClick={onOpenStock}>
+                  พอร์ต
+                </button>
+              </>
+            )}
+            onHelp={() => setSupportOpen(true)}
+            onSettings={() => setSettingsOpen(true)}
+            onAdmin={onOpenAdmin}
+            onLogout={onLogout}
+          />
         </div>
       </header>
 
@@ -686,6 +762,17 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
                   )}
                   <span>{(detail.days || []).length} วัน · {(detail.places || []).length} จุด</span>
                 </p>
+                <TripBudgetCard
+                  totalNative={budgetTotal}
+                  nativeCurrency={HOME_CURRENCY}
+                  foreign={fxForeign}
+                  unitsPerUsd={unitsPerUsd}
+                  inverted={fxInverted}
+                  bufferPct={fxBufferPct}
+                  onBufferChange={setFxBufferPct}
+                  pricedCount={budgetPricedCount}
+                  placeCount={(detail?.places || []).length}
+                />
                 {!editingTripRoute ? (
                   <button
                     type="button"
@@ -1084,6 +1171,17 @@ export default function TripApp({ user, path, navigate, onBackHub, onOpenStock, 
 
       {supportOpen && (
         <SupportModal onClose={() => setSupportOpen(false)} />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          user={user}
+          onClose={() => setSettingsOpen(false)}
+          onUserUpdate={onUserUpdate}
+          onLogout={onLogout}
+          onOpenSupport={() => setSupportOpen(true)}
+          onOpenSubscription={onOpenSubscription}
+        />
       )}
 
       {confirmDelete?.type === 'trip' && detail && (

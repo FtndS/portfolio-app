@@ -112,8 +112,8 @@ app.get('/api/prices', authMiddleware, pricesLimiter, async (req, res) => {
     const result = {}
 
     const jobs = tickerList.map(async (ticker, i) => {
-      if (ticker === 'USDTHB=X') {
-        const quote = await fetchLiveQuote('USDTHB=X')
+      if (ticker === 'USDTHB=X' || /=[Xx]$/.test(ticker)) {
+        const quote = await fetchLiveQuote(ticker)
         if (quote) {
           result[ticker] = quote.price
           result[`${ticker}_chg`] = quote.changePct
