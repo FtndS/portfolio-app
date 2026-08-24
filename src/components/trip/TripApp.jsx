@@ -4,6 +4,7 @@ import { btnGhost, btnPrimary, inp } from '../../lib/styles'
 import { fmtDate as fmtDateDmy } from '../../lib/format'
 import Logo from '../Logo'
 import AccountNav from '../AccountNav'
+import NavMegaMenu, { suiteAppSections } from '../nav/NavMegaMenu'
 import SettingsModal from '../modals/SettingsModal'
 import DateInput from '../ui/DateInput'
 import Modal from '../ui/Modal'
@@ -594,20 +595,24 @@ export default function TripApp({
           </div>
         </div>
         <div className="trip-topbar-actions">
+          <NavMegaMenu
+            label="แอป"
+            align="right"
+            sections={suiteAppSections({
+              onHub: onBackHub,
+              onStock: onOpenStock,
+              onTrip: () => navigate('/trip'),
+            })}
+          />
           <AccountNav
             extra={(
-              <>
-                <TripFxBar
-                  foreign={fxForeign}
-                  inverted={fxInverted}
-                  onForeignChange={setForeignManual}
-                  onSwap={() => setFxInverted((v) => !v)}
-                  unitsPerUsd={unitsPerUsd}
-                />
-                <button type="button" className="dash-util-btn trip-nav-extra" onClick={onOpenStock}>
-                  พอร์ต
-                </button>
-              </>
+              <TripFxBar
+                foreign={fxForeign}
+                inverted={fxInverted}
+                onForeignChange={setForeignManual}
+                onSwap={() => setFxInverted((v) => !v)}
+                unitsPerUsd={unitsPerUsd}
+              />
             )}
             onHelp={() => setSupportOpen(true)}
             onSettings={() => setSettingsOpen(true)}

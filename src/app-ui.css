@@ -1,0 +1,231 @@
+/* Interior polish: card depth, hover lift, light motion — theme tokens only */
+
+@keyframes app-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes app-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dash-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.dash-shell::before {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(720px 380px at 8% -8%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 58%),
+    radial-gradient(560px 320px at 96% 6%, color-mix(in srgb, #22c3a6 10%, transparent), transparent 52%);
+}
+
+.dash-sidebar,
+.dash-main,
+.dash-admin-page {
+  position: relative;
+  z-index: 1;
+}
+
+.dash-kpi-card,
+.dash-card,
+.dash-chart-card,
+.dash-donut,
+.dash-journal-card,
+.dash-workflow,
+.dash-table-wrap,
+.dash-sub-plan,
+.dash-sub-quota-card,
+.news-card {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    background 0.22s ease;
+}
+
+.dash-kpi-card,
+.dash-card,
+.dash-chart-card,
+.dash-donut,
+.dash-journal-card,
+.dash-workflow,
+.dash-table-wrap {
+  box-shadow: var(--shadow-sm);
+}
+
+.dash-kpi-card:hover,
+.dash-card:hover,
+.dash-chart-card:hover,
+.dash-donut:hover,
+.dash-journal-card:hover,
+.dash-workflow:hover,
+.dash-sub-plan:hover,
+.dash-sub-quota-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  box-shadow:
+    0 14px 32px color-mix(in srgb, var(--accent) 14%, transparent),
+    var(--shadow-md);
+}
+
+.dash-kpi-grid .dash-kpi-card {
+  animation: app-rise 0.55s ease both;
+}
+
+.dash-kpi-grid .dash-kpi-card:nth-child(1) { animation-delay: 0.02s; }
+.dash-kpi-grid .dash-kpi-card:nth-child(2) { animation-delay: 0.08s; }
+.dash-kpi-grid .dash-kpi-card:nth-child(3) { animation-delay: 0.14s; }
+.dash-kpi-grid .dash-kpi-card:nth-child(4) { animation-delay: 0.2s; }
+.dash-kpi-grid .dash-kpi-card:nth-child(5) { animation-delay: 0.26s; }
+.dash-kpi-grid .dash-kpi-card:nth-child(6) { animation-delay: 0.32s; }
+
+.dash-inner > .dash-overview-charts,
+.dash-inner > .dash-card,
+.dash-inner > .dash-chart-card,
+.dash-inner > .dash-table-wrap,
+.dash-inner > .dash-workflow,
+.dash-inner > .dash-holdings-hint {
+  animation: app-rise 0.6s ease both;
+}
+
+.dash-shell .dash-topbar {
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dash-shell .dash-sidebar {
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.dash-ai-panel--drawer .dash-card:hover,
+.dash-admin-list:hover,
+.dash-admin-detail:hover,
+.trip-map-card:hover {
+  transform: none;
+}
+
+.dash-sidebar-nav-btn {
+  transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.18s;
+}
+
+.dash-sidebar-nav-btn:hover {
+  transform: translateX(2px);
+}
+
+.dash-table tbody tr {
+  transition: background 0.15s;
+}
+
+.dash-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-hover));
+}
+
+.dash-sub-plan--pro {
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.dash-ai-cta:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+
+.modal-overlay {
+  animation: app-rise 0.18s ease both;
+}
+
+.modal-panel {
+  box-shadow: 0 24px 64px color-mix(in srgb, #000 28%, transparent);
+  animation: app-pop 0.28s ease both;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+}
+
+.auth-wrap {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.auth-wrap::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(520px 320px at 18% 12%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
+    radial-gradient(420px 280px at 88% 88%, color-mix(in srgb, #22c3a6 14%, transparent), transparent 55%);
+}
+
+.auth-card {
+  position: relative;
+  z-index: 1;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  box-shadow:
+    0 24px 60px color-mix(in srgb, var(--accent) 22%, transparent),
+    var(--shadow-md);
+  animation: app-pop 0.45s ease both;
+}
+
+@media print {
+  .dash-shell::before,
+  .auth-wrap::before {
+    display: none;
+  }
+
+  .dash-kpi-card,
+  .dash-card,
+  .dash-chart-card,
+  .dash-donut,
+  .trip-card,
+  .trip-tl-day {
+    animation: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-kpi-card,
+  .dash-card,
+  .dash-chart-card,
+  .dash-donut,
+  .dash-journal-card,
+  .dash-workflow,
+  .dash-inner > .dash-overview-charts,
+  .dash-inner > .dash-card,
+  .dash-inner > .dash-chart-card,
+  .dash-inner > .dash-table-wrap,
+  .dash-inner > .dash-workflow,
+  .modal-overlay,
+  .modal-panel,
+  .auth-card,
+  .trip-card,
+  .trip-tl-day,
+  .trip-place-card,
+  .trip-place-search-item,
+  .trip-ai-bubble {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

@@ -32,8 +32,9 @@ import { inferPortfolioCurrency } from '../../lib/reportScope'
 import WorkflowGuide from './WorkflowGuide'
 import DashboardSidebar, { tabLabel } from './DashboardSidebar'
 import ThemeToggle from '../ThemeToggle'
+import NavMegaMenu, { suiteAppSections } from '../nav/NavMegaMenu'
 
-export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHub}){
+export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHub,onOpenTrip}){
   const [portfolios,setPortfolios]=useState([])
   const [activePortfolioId,setActivePortfolioId]=useState(null)
   const [portfolioHistory,setPortfolioHistory]=useState([])
@@ -519,6 +520,15 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
               ☰
             </button>
             <h2 className="dash-topbar-title">{tabLabel(tab)}</h2>
+            <NavMegaMenu
+              label="แอป"
+              align="left"
+              sections={suiteAppSections({
+                onHub: onGoHub,
+                onStock: () => selectTab('overview'),
+                onTrip: onOpenTrip,
+              })}
+            />
           </div>
           <div className="dash-topbar-actions">
             <div className="dash-segment dash-currency-toggle">

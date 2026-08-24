@@ -24,6 +24,7 @@
   font-size: 13px;
   line-height: 1.55;
   white-space: pre-wrap;
+  animation: app-pop 0.28s ease both;
 }
 
 .trip-ai-bubble--user {

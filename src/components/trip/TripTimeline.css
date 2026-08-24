@@ -42,6 +42,8 @@
   border: 1px solid var(--tl-border);
   background: linear-gradient(160deg, var(--tl-cover0) 0%, var(--tl-cover1) 48%, var(--tl-cover2) 100%);
   color: var(--tl-ink);
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--tl-head) 16%, transparent);
+  animation: app-rise 0.55s ease both;
 }
 
 .trip-tl-cover-kicker {
@@ -104,6 +106,14 @@
   overflow: hidden;
   border: 1px solid var(--tl-border);
   background: var(--tl-surface);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--tl-head) 10%, transparent);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  animation: app-rise 0.55s ease both;
+}
+
+.trip-tl-day:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--tl-head) 18%, transparent);
 }
 
 .trip-tl-day-head {
@@ -316,10 +326,13 @@
   font-weight: 600;
   text-decoration: none;
   line-height: 1.3;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .trip-booking-chip:hover {
   background: color-mix(in srgb, var(--tl-link) 20%, var(--tl-surface));
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px color-mix(in srgb, var(--tl-link) 18%, transparent);
 }
 
 .trip-flight-panel {

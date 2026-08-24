@@ -45,7 +45,7 @@
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 50;
 }
 
 .trip-topbar-sub {
@@ -161,6 +161,14 @@
   padding: 18px 18px 20px;
   margin-bottom: 16px;
   box-shadow: 0 8px 24px color-mix(in srgb, #1f3531 4%, transparent);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  animation: app-rise 0.55s ease both;
+}
+
+.trip-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--trip-accent, var(--accent)) 45%, var(--trip-border, var(--border)));
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--trip-accent, var(--accent)) 16%, transparent);
 }
 
 .trip-card h3,
@@ -198,16 +206,20 @@
   text-align: left;
   width: 100%;
   padding: 16px 18px;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid var(--trip-border, var(--border));
   background: var(--trip-surface, var(--surface));
   color: inherit;
   cursor: pointer;
   font: inherit;
+  box-shadow: 0 6px 16px color-mix(in srgb, #1f3531 6%, transparent);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .trip-list-item:hover {
   border-color: var(--trip-accent, var(--accent));
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--trip-accent, var(--accent)) 16%, transparent);
 }
 
 .trip-list-meta {
@@ -258,10 +270,12 @@
   color: #fff;
   background: linear-gradient(135deg, var(--trip-accent) 0%, var(--trip-accent-strong) 100%);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--trip-accent-strong) 28%, transparent);
+  transition: transform 0.2s, filter 0.2s;
 }
 
 .trip-btn-ai:hover {
   filter: brightness(1.05);
+  transform: translateY(-1px);
 }
 
 [data-theme='dark'] .trip-btn-ai {
@@ -293,6 +307,13 @@
   border-radius: 12px;
   background: var(--trip-feature-bg, color-mix(in srgb, #dcece7 55%, #fff));
   border: 1px solid color-mix(in srgb, var(--trip-border) 70%, transparent);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.trip-home-feature:hover {
+  transform: translateY(-3px);
+  border-color: var(--trip-accent);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--trip-accent) 14%, transparent);
 }
 
 .trip-home-feature strong {
@@ -445,7 +466,7 @@
 .trip-places {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 10px;
   margin-bottom: 18px;
   position: relative;
 }
@@ -455,16 +476,23 @@
   grid-template-columns: 52px 72px minmax(0, 1fr);
   gap: 12px 14px;
   align-items: start;
-  padding: 14px 4px 14px 0;
-  border: none;
-  border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
-  background: transparent;
+  padding: 12px 12px 12px 10px;
+  border: 1px solid var(--trip-border, var(--border));
+  border-radius: 14px;
+  background: var(--trip-surface, var(--surface));
   cursor: grab;
+  box-shadow: 0 4px 14px color-mix(in srgb, #1f3531 5%, transparent);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.trip-place-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--trip-accent, var(--accent)) 40%, var(--trip-border, var(--border)));
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--trip-accent, var(--accent)) 14%, transparent);
 }
 
 .trip-place-card:last-child {
-  border-bottom: none;
+  border-bottom: 1px solid var(--trip-border, var(--border));
 }
 
 .trip-place-card.is-dragging {
@@ -937,6 +965,12 @@
   border-radius: 14px;
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.trip-budget-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px color-mix(in srgb, var(--trip-accent, var(--accent)) 14%, transparent);
 }
 
 .trip-budget-card-head {

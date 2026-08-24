@@ -209,6 +209,7 @@ export default function App() {
             }}
             onOpenAdmin={user.role === 'admin' ? () => navigate('/admin') : undefined}
             onGoHub={() => navigate('/hub')}
+            onOpenTrip={() => navigate('/trip')}
           />
         </PrivacyProvider>
       </ThemeProvider>
