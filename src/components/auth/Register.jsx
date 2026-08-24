@@ -103,8 +103,8 @@ export default function Register({ onGoLogin, onGoHome, onLogin }) {
     return (
       <div className="auth-wrap"><div className="auth-card" style={{ textAlign: 'center' }}>
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
-        <h2 style={{ color: '#fff', marginBottom: '8px' }}>สมัครสำเร็จ!</h2>
-        <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>ยืนยันอีเมลเรียบร้อยแล้ว</p>
+        <h2 style={{ color: 'var(--text)', marginBottom: '8px' }}>สมัครสำเร็จ!</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>ยืนยันอีเมลเรียบร้อยแล้ว</p>
         <button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button>
       </div></div>
     )
@@ -117,7 +117,7 @@ export default function Register({ onGoLogin, onGoHome, onLogin }) {
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>
           ส่งรหัส OTP 6 หลักไปที่ <strong style={{ color: 'var(--text)' }}>{form.email}</strong>
         </p>
-        {error && <p style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
+        {error && <p style={{ color: 'var(--loss)', fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
         {info && <p style={{ color: 'var(--accent)', fontSize: '13px', marginBottom: '16px' }}>{info}</p>}
         <Field label="รหัส OTP">
           <OtpInput value={otp} onChange={setOtp} onKeyDown={onKeyDown} />
@@ -127,7 +127,7 @@ export default function Register({ onGoLogin, onGoHome, onLogin }) {
         </button>
         <p style={{ textAlign: 'center', marginTop: '14px', fontSize: '12px', color: 'var(--text-muted)' }}>
           {resendIn > 0 ? `ขอรหัสใหม่ได้ใน ${resendIn} วินาที` : (
-            <span onClick={resendOtp} style={{ color: '#a29bfe', cursor: 'pointer' }}>ส่งรหัส OTP อีกครั้ง</span>
+            <span onClick={resendOtp} style={{ color: 'var(--accent-text)', cursor: 'pointer' }}>ส่งรหัส OTP อีกครั้ง</span>
           )}
         </p>
         <p style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: 'var(--text-faint)' }}>
@@ -139,20 +139,20 @@ export default function Register({ onGoLogin, onGoHome, onLogin }) {
 
   return (
     <div className="auth-wrap"><div className="auth-card">
-      <h1 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>สมัครสมาชิก</h1>
-      <p style={{ color: '#555', fontSize: '13px', marginBottom: '20px' }}>ใช้อีเมลจริง — เราจะส่งรหัส OTP เพื่อยืนยันก่อนเปิดบัญชี</p>
-      {error && <p style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
-      {info && <p style={{ color: '#55efc4', fontSize: '13px', marginBottom: '16px' }}>{info}</p>}
+      <h1 style={{ color: 'var(--text)', fontSize: '20px', marginBottom: '8px' }}>สมัครสมาชิก</h1>
+      <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>ใช้อีเมลจริง — เราจะส่งรหัส OTP เพื่อยืนยันก่อนเปิดบัญชี</p>
+      {error && <p style={{ color: 'var(--loss)', fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
+      {info && <p style={{ color: 'var(--gain)', fontSize: '13px', marginBottom: '16px' }}>{info}</p>}
       <Field label="ชื่อ"><input type="text" style={inp()} placeholder="ชื่อของคุณ" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onKeyDown={onKeyDown} /></Field>
       <Field label="Email"><input type="email" style={inp()} placeholder="you@gmail.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} onKeyDown={onKeyDown} /></Field>
       <Field label="Password"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} onKeyDown={onKeyDown} /></Field>
       <Field label="ยืนยัน Password"><input type="password" style={inp({ marginBottom: 0 })} placeholder="พิมพ์อีกครั้ง" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} onKeyDown={onKeyDown} /></Field>
       <button onClick={sendOtp} style={{ ...btnPrimary, marginTop: '20px' }} disabled={loading}>{loading ? 'กำลังส่ง OTP...' : 'ส่งรหัส OTP ยืนยันอีเมล'}</button>
-      <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '12px', color: '#555' }}>
-        การสมัครถือว่ายอมรับ <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: '#a29bfe' }}>ข้อกำหนด</a> และ <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#a29bfe' }}>นโยบายความเป็นส่วนตัว</a>
+      <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '12px', color: 'var(--text-muted)' }}>
+        การสมัครถือว่ายอมรับ <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-text)' }}>ข้อกำหนด</a> และ <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-text)' }}>นโยบายความเป็นส่วนตัว</a>
       </p>
-      <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: '#555' }}>มีบัญชีแล้ว? <span onClick={onGoLogin} style={{ color: '#a29bfe', cursor: 'pointer' }}>เข้าสู่ระบบ</span></p>
-      {onGoHome && <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: '#444' }}><span onClick={onGoHome} style={{ cursor: 'pointer' }}>← กลับหน้าแรก</span></p>}
+      <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>มีบัญชีแล้ว? <span onClick={onGoLogin} style={{ color: 'var(--accent-text)', cursor: 'pointer' }}>เข้าสู่ระบบ</span></p>
+      {onGoHome && <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: 'var(--text-faint)' }}><span onClick={onGoHome} style={{ cursor: 'pointer' }}>← กลับหน้าแรก</span></p>}
     </div></div>
   )
 }

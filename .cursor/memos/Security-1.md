@@ -31,11 +31,11 @@ No Critical issues found. Core controls are solid: parameterized SQL, ownership 
 
 ## Fix plan (when resuming)
 
-### Phase 1 — Quick wins (~1–2 days)
-- [ ] **#6** Cap password 8–128 in `validate.js` + frontend + tests
-- [ ] **#5** `validateTickerSymbol` regex `^[A-Za-z0-9.\-]{1,20}$` in `news.js`
-- [ ] **#4** LRU cache helper; cap `priceCache` (~500) and news cache (~50)
-- [ ] **#7** Add `OTP_SECRET` env; decouple from `JWT_SECRET`
+### Phase 1 — Quick wins (~1–2 days) — DONE 2026-08-24 (commit 1279e47)
+- [x] **#6** Cap password 8–128 in `validate.js` + frontend + tests
+- [x] **#5** `validateTickerSymbol` regex `^[A-Za-z0-9.\-]{1,20}$` in `news.js`
+- [x] **#4** LRU cache helper (`lib/lruCache.js`); cap `priceCache` (500) and news cache (50)
+- [x] **#7** `OTP_SECRET` env supported in `otp.js` (falls back to `JWT_SECRET`) — **ต้องตั้ง `OTP_SECRET` บน VPS**
 
 ### Phase 2 — Hardening (~2–4 days)
 - [ ] **#2** CSP via nginx (start Report-Only → enforce)

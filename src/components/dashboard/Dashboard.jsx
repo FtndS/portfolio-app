@@ -679,7 +679,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
                     <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerStory(h.ticker)} title="ดู Thesis & Timeline">{h.ticker}</td>
                     <td data-label="ชื่อ" className="dash-text-muted" style={{padding:'11px 13px'}}>{h.name||'—'}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{fmtShares(h.shares)}</td>
-                    <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'999px',background:h.currency==='USD'?'#1a2a4a':'#1a3a2a',color:h.currency==='USD'?'#74b9ff':'#55efc4'}}>{h.currency}</span></td>
+                    <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(h.currency)}</td>
                     <td data-label="Avg Cost" className="dash-text-muted" style={{padding:'11px 13px'}}>{hideValues?MASKED:`${os}${Number(h.avg_cost).toLocaleString('en-US',{minimumFractionDigits:2})}`}</td>
                     <td data-label="ราคาปัจจุบัน" style={{padding:'11px 13px'}}>{hideValues?MASKED:`${os}${Number(cur).toLocaleString('en-US',{minimumFractionDigits:2})}`}</td>
                     <td data-label={`มูลค่า (${displayCurrency})`} style={{padding:'11px 13px'}}>{fmtMoney(val)}</td>
@@ -739,7 +739,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
                   <tr key={t.id} style={{borderBottom:'1px solid var(--border-subtle)'}}>
                     <td data-label="วันที่" className="dash-text-muted" style={{padding:'11px 13px'}}>{fmtDate(t.date)}</td>
                     <td data-label="Ticker" className="dash-text-accent" style={{padding:'11px 13px',fontWeight:600,cursor:'pointer',textDecoration:'underline'}} onClick={() => handleOpenTickerStory(t.ticker)} title="ดู Thesis & Timeline">{t.ticker}</td>
-                    <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'#1a3a2a':'#3a1a1a',color:t.type==='BUY'?'#55efc4':'#ff7675'}}>{t.type}</span></td>
+                    <td data-label="ประเภท" style={{padding:'11px 13px'}}><span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'999px',background:t.type==='BUY'?'var(--gain-soft)':'var(--loss-soft)',color:t.type==='BUY'?'var(--gain)':'var(--loss)'}}>{t.type}</span></td>
                     <td data-label="สกุลเงิน" style={{padding:'11px 13px'}}>{ccyChip(t.currency)}</td>
                     <td data-label="Shares" style={{padding:'11px 13px'}}>{fmtShares(t.shares)}</td>
                     <td data-label="ราคา/หุ้น" style={{padding:'11px 13px'}}>{fmtTx(t,t.price)}</td>

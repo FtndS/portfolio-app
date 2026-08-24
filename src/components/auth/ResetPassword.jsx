@@ -26,19 +26,19 @@ export default function ResetPassword({token,onGoLogin,onGoHome}){
   if(message) return (
     <div className="auth-wrap"><div className="auth-card" style={{textAlign:'center'}}>
       <div style={{fontSize:'48px',marginBottom:'16px'}}>✅</div>
-      <p style={{color:'#55efc4',marginBottom:'20px'}}>{message}</p>
+      <p style={{color:'var(--gain)',marginBottom:'20px'}}>{message}</p>
       <button onClick={onGoLogin} style={btnPrimary}>ไปหน้า Login</button>
     </div></div>
   )
   return(
     <div className="auth-wrap"><div className="auth-card">
-      <h1 style={{color:'#fff',fontSize:'20px',marginBottom:'8px'}}>ตั้งรหัสผ่านใหม่</h1>
-      {error&&<p style={{color:'#e74c3c',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
+      <h1 style={{color:'var(--text)',fontSize:'20px',marginBottom:'8px'}}>ตั้งรหัสผ่านใหม่</h1>
+      {error&&<p style={{color:'var(--loss)',fontSize:'13px',marginBottom:'16px'}}>{error}</p>}
       <Field label="รหัสผ่านใหม่"><input type="password" style={inp()} placeholder="อย่างน้อย 8 ตัว" value={password} onChange={e=>setPassword(e.target.value)}/></Field>
       <Field label="ยืนยันรหัสผ่าน"><input type="password" style={inp({marginBottom:0})} placeholder="พิมพ์อีกครั้ง" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()}/></Field>
       <button onClick={go} style={{...btnPrimary,marginTop:'20px'}} disabled={loading}>{loading?'กำลังบันทึก...':'บันทึกรหัสผ่านใหม่'}</button>
-      <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'#555'}}><span onClick={onGoLogin} style={{color:'#a29bfe',cursor:'pointer'}}>← กลับหน้า Login</span></p>
-      {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'#444'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
+      <p style={{textAlign:'center',marginTop:'16px',fontSize:'13px',color:'var(--text-muted)'}}><span onClick={onGoLogin} style={{color:'var(--accent-text)',cursor:'pointer'}}>← กลับหน้า Login</span></p>
+      {onGoHome&&<p style={{textAlign:'center',marginTop:'12px',fontSize:'12px',color:'var(--text-faint)'}}><span onClick={onGoHome} style={{cursor:'pointer'}}>← กลับหน้าแรก</span></p>}
     </div></div>
   )
 }
