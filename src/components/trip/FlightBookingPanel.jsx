@@ -1,6 +1,7 @@
 /** Flight booking panel — Phase 1 deep links (compare prices on partner sites). */
 
 import { BookingLinks } from './BookingLinks'
+import { showPlaceBooking } from '../../lib/tripTransport'
 
 function fmtDate(iso) {
   if (!iso) return ''
@@ -70,7 +71,7 @@ export function FlightBookingPanel({ flightLeg, links, className = '', compact =
 }
 
 export function TripPlaceBooking({ place, className = '', compact = false }) {
-  if (!place) return null
+  if (!place || !showPlaceBooking(place)) return null
   if (place.type === 'transport' && place.flight_leg && place.booking_links?.length) {
     return (
       <FlightBookingPanel

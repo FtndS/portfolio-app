@@ -69,7 +69,7 @@ export default function TripMapPanel({
                 </a>
               )}
             </div>
-            {focusPlace?.type !== 'transport' && (
+            {focusPlace?.type !== 'transport' && focusPlace?.type === 'hotel' && (
               <BookingLinks links={bookingLinks} />
             )}
           </div>

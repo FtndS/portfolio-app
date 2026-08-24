@@ -48,12 +48,69 @@ export function inferTransportMode(name = '', notes = '') {
   if (/โหมด:\s*บิน|เครื่องบิน|เที่ยวบิน|flight|fly|airport|สนามบิน/.test(text)) return 'flight'
   if (/โหมด:\s*รถไฟ|รถไฟ|train|railway/.test(text)) return 'train'
   if (/โหมด:\s*เรือ|เรือ|ferry|boat|ข้ามฟาก/.test(text)) return 'ferry'
-  if (/โหมด:\s*รถ|grab|taxi|bolt|รถเช่า|รถตู้|van|bus|รถบัส/.test(text)) return 'car'
+  if (/grab|taxi|bolt|แท็กซี่/.test(text)) return 'car'
+  if (/โหมด:\s*รถ|ขับรถ|ระยะทาง|จุดพักรถ|ปั๊ม|ptt/.test(text)) return 'drive'
   if (/เครื่องบิน|เที่ยวบิน|flight/.test(text)) return 'flight'
   if (/รถไฟ|train/.test(text)) return 'train'
   if (/เรือ|ferry|boat/.test(text)) return 'ferry'
-  if (/grab|taxi|รถ/.test(text)) return 'car'
   return null
+}
+
+const CITY_EN = {
+  น่าน: 'Nan',
+  เชียงใหม่: 'Chiang Mai',
+  เชียงราย: 'Chiang Rai',
+  กรุงเทพ: 'Bangkok',
+  ภูเก็ต: 'Phuket',
+  พัทยา: 'Pattaya',
+  หัวหิน: 'Hua Hin',
+  กระบี่: 'Krabi',
+  สมุย: 'Koh Samui',
+  อยุธยา: 'Ayutthaya',
+  สุโขทัย: 'Sukhothai',
+  อุตรดิตถ์: 'Uttaradit',
+  ขอนแก่น: 'Khon Kaen',
+  อุดร: 'Udon Thani',
+  โตเกียว: 'Tokyo',
+  โอซาก้า: 'Osaka',
+  โอซากะ: 'Osaka',
+  เกียวโต: 'Kyoto',
+}
+
+function hotelStay(trip = {}) {
+  const checkIn = trip?.start_date ? String(trip.start_date).slice(0, 10) : null
+  const checkOut = trip?.end_date ? String(trip.end_date).slice(0, 10) : null
+  let los = 1
+  if (checkIn && checkOut) {
+    const a = Date.parse(`${checkIn}T00:00:00Z`)
+    const b = Date.parse(`${checkOut}T00:00:00Z`)
+    if (Number.isFinite(a) && Number.isFinite(b) && b > a) {
+      los = Math.round((b - a) / 86400000)
+    }
+  }
+  return { checkIn, checkOut, los: Math.max(1, los) }
+}
+
+/** Latin-leaning query so Trip.com/Agoda find the actual hotel, not an empty homepage. */
+export function toHotelSearchQuery(name, destination = '') {
+  let s = String(name || '').trim()
+  const dest = String(destination || '').trim()
+  if (/^โรงแรมใน/.test(s) && dest) s = `${dest} hotel`
+  else if (dest && !s.includes(dest)) s = `${s} ${dest}`
+
+  const cities = Object.entries(CITY_EN).sort((a, b) => b[0].length - a[0].length)
+  for (const [th, en] of cities) s = s.split(th).join(en)
+  s = s
+    .replace(/โรงแรม/g, 'Hotel')
+    .replace(/โฮเต็?ล|โฮเทล/g, 'Hotel')
+    .replace(/รีสอร์ท/g, 'Resort')
+    .replace(/บูทิค|บูติก|บูทีค/g, 'Boutique')
+    .replace(/ทาวน์/g, 'Town')
+    .replace(/([ก-๙])([A-Za-z])/g, '$1 $2')
+    .replace(/([A-Za-z])([ก-๙])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return s
 }
 
 function encodeQ(s) {
@@ -67,24 +124,39 @@ function searchQuery(name, destination) {
   return n || d || ''
 }
 
-function hotelLinks(q) {
+function hotelLinks(q, trip = {}) {
   if (!q) return []
+  const stay = hotelStay(trip)
+  const agoda = new URL('https://www.agoda.com/search')
+  agoda.searchParams.set('textToSearch', q)
+  agoda.searchParams.set('rooms', '1')
+  agoda.searchParams.set('adults', '2')
+  agoda.searchParams.set('children', '0')
+  if (stay.checkIn) {
+    agoda.searchParams.set('checkIn', stay.checkIn)
+    agoda.searchParams.set('los', String(stay.los))
+  }
+
+  const booking = new URL('https://www.booking.com/searchresults.html')
+  booking.searchParams.set('ss', q)
+  booking.searchParams.set('lang', 'th')
+  booking.searchParams.set('selected_currency', 'THB')
+  booking.searchParams.set('group_adults', '2')
+  booking.searchParams.set('no_rooms', '1')
+  if (stay.checkIn) booking.searchParams.set('checkin', stay.checkIn)
+  if (stay.checkOut) booking.searchParams.set('checkout', stay.checkOut)
+
+  const tripUrl = new URL('https://www.trip.com/hotels/list')
+  tripUrl.searchParams.set('locale', 'en-US')
+  tripUrl.searchParams.set('curr', 'THB')
+  tripUrl.searchParams.set('keyword', q)
+  if (stay.checkIn) tripUrl.searchParams.set('checkin', stay.checkIn)
+  if (stay.checkOut) tripUrl.searchParams.set('checkout', stay.checkOut)
+
   return [
-    {
-      label: 'Agoda',
-      kind: 'hotel',
-      url: `https://www.agoda.com/search?city=&textToSearch=${encodeQ(q)}`,
-    },
-    {
-      label: 'Booking.com',
-      kind: 'hotel',
-      url: `https://www.booking.com/searchresults.html?ss=${encodeQ(q)}`,
-    },
-    {
-      label: 'Trip.com',
-      kind: 'hotel',
-      url: `https://www.trip.com/hotels/list?keyword=${encodeQ(q)}`,
-    },
+    { label: 'Agoda', kind: 'hotel', url: agoda.toString() },
+    { label: 'Booking.com', kind: 'hotel', url: booking.toString() },
+    { label: 'Trip.com', kind: 'hotel', url: tripUrl.toString() },
   ]
 }
 
@@ -141,16 +213,16 @@ export function buildBookingLinks({ type, name, destination = '', notes = '', pl
   const mode = inferTransportMode(name, notes)
   const ctx = { place: place || { type, name, notes }, trip, dayDate, allPlaces, destination }
 
-  if (t === 'hotel') return hotelLinks(q).slice(0, MAX_LINKS)
+  if (t === 'hotel') return hotelLinks(toHotelSearchQuery(name, destination), trip || {}).slice(0, MAX_LINKS)
 
   if (t === 'airport') return flightLinks(q || destination, ctx).slice(0, MAX_LINKS)
 
   if (t === 'transport') {
     if (mode === 'flight') return flightLinks(q, ctx).slice(0, MAX_LINKS)
+    if (mode === 'drive') return []
     if (mode === 'car') return carLinks().slice(0, MAX_LINKS)
     if (mode === 'train' || mode === 'ferry') return surfaceLinks(q).slice(0, MAX_LINKS)
-    // Unknown transport mode: offer both surface + Grab
-    return [...surfaceLinks(q), ...carLinks()].slice(0, MAX_LINKS)
+    return surfaceLinks(q).slice(0, MAX_LINKS)
   }
 
   return []

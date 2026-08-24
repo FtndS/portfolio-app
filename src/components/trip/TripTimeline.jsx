@@ -1,5 +1,6 @@
 import { PlacePhoto } from './TripPlaceSearch'
 import { TripPlaceBooking } from './FlightBookingPanel'
+import { showPlacePhoto, showPlaceBooking } from '../../lib/tripTransport'
 import './TripTimeline.css'
 
 const TYPE_LABELS = {
@@ -101,8 +102,8 @@ export function TripDayTimeline({
           const period = periodLabel(place.start_time)
           const showPeriod = period && period !== lastPeriod
           if (showPeriod) lastPeriod = period
-          const hero = Boolean(place.photo_url) && (place.type === 'attraction' || place.type === 'airport')
-          const inline = Boolean(place.photo_url) && !hero
+          const hero = showPlacePhoto(place) && (place.type === 'attraction' || place.type === 'airport')
+          const inline = showPlacePhoto(place) && !hero
           const timeLabel = formatTimeTh(place.start_time)
           const isFocused = focusedPlaceId != null && String(focusedPlaceId) === String(place.id)
           const canFocus = Boolean(onSelectPlace) && place.type !== 'transport'
@@ -142,8 +143,8 @@ export function TripDayTimeline({
                       <span className="trip-tl-end"> (ถึง {formatTimeTh(place.end_time)})</span>
                     )}
                   </p>
-                  <TripPlaceBooking place={place} />
-                  {place.photo_url && (
+                  {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
+                  {showPlacePhoto(place) && (
                     <div className={hero ? 'trip-tl-photo-hero' : 'trip-tl-photo-inline'}>
                       <PlacePhoto
                         url={place.photo_url}

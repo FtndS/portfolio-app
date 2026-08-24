@@ -153,6 +153,9 @@ async function searchGooglePlaces({ query, type, near }) {
   }
   const includedType = GOOGLE_TYPE_HINTS[type]
   if (includedType) body.includedType = includedType
+  if (type === 'restaurant' || type === 'attraction' || type === 'hotel') {
+    body.rankPreference = 'RELEVANCE'
+  }
 
   let res
   try {
@@ -173,7 +176,7 @@ async function searchGooglePlaces({ query, type, near }) {
   const data = await res.json()
   const places = data?.places || []
 
-  return places.map((p) => {
+  const mapped = places.map((p) => {
     const photoName = p.photos?.[0]?.name || null
     return {
       id: `google:${p.id}`,
@@ -191,6 +194,10 @@ async function searchGooglePlaces({ query, type, near }) {
       userRatingCount: p.userRatingCount ?? null,
       googleMapsUri: p.googleMapsUri || null,
     }
+  })
+  return mapped.sort((a, b) => {
+    const score = (p) => (Number(p.rating) || 0) * Math.log10((Number(p.userRatingCount) || 0) + 10)
+    return score(b) - score(a)
   })
 }
 

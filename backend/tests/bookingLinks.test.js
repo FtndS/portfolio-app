@@ -12,12 +12,37 @@ describe('bookingLinks', () => {
       type: 'hotel',
       name: 'Hotel Gracery Shinjuku',
       destination: 'Tokyo',
+      trip: { start_date: '2026-08-01', end_date: '2026-08-05' },
     })
     const hosts = links.map((l) => new URL(l.url).hostname)
     expect(links.map((l) => l.label)).toEqual(['Agoda', 'Booking.com', 'Trip.com'])
     expect(hosts.some((h) => h.includes('agoda'))).toBe(true)
     expect(hosts.some((h) => h.includes('booking'))).toBe(true)
     expect(hosts.some((h) => h.includes('trip.com'))).toBe(true)
+    const agoda = new URL(links.find((l) => l.label === 'Agoda').url)
+    expect(agoda.searchParams.get('city')).toBeNull()
+    expect(agoda.searchParams.get('textToSearch')).toContain('Hotel Gracery Shinjuku')
+    expect(agoda.searchParams.get('checkIn')).toBe('2026-08-01')
+    const booking = new URL(links.find((l) => l.label === 'Booking.com').url)
+    expect(booking.searchParams.get('ss')).toContain('Hotel Gracery Shinjuku')
+    expect(booking.searchParams.get('checkin')).toBe('2026-08-01')
+    expect(booking.searchParams.get('checkout')).toBe('2026-08-05')
+    const trip = new URL(links.find((l) => l.label === 'Trip.com').url)
+    expect(trip.searchParams.get('keyword')).toMatch(/Hotel Gracery Shinjuku/i)
+    expect(trip.searchParams.get('checkin')).toBe('2026-08-01')
+  })
+
+  it('uses a latin hotel query so Thai names still search on Trip.com', () => {
+    const links = buildBookingLinks({
+      type: 'hotel',
+      name: 'น่านทาวน์ บูทิค โฮเทล',
+      destination: 'น่าน',
+      trip: { start_date: '2024-12-01', end_date: '2024-12-05' },
+    })
+    const trip = new URL(links.find((l) => l.label === 'Trip.com').url)
+    expect(trip.searchParams.get('keyword')).toMatch(/Nan/i)
+    expect(trip.searchParams.get('keyword')).toMatch(/Boutique/i)
+    expect(trip.searchParams.get('keyword')).not.toMatch(/[\u0E00-\u0E7F]/)
   })
 
   it('builds flight links for airport and flight transport', () => {
@@ -36,6 +61,23 @@ describe('bookingLinks', () => {
     expect(inferTransportMode('เที่ยวบิน กรุงเทพ–เชียงใหม่', 'โหมด: บิน')).toBe('flight')
     expect(flight.some((l) => l.kind === 'flight')).toBe(true)
     expect(flight.some((l) => l.label === 'Skyscanner')).toBe(true)
+  })
+
+  it('does not attach Grab for self-drive legs', () => {
+    const drive = buildBookingLinks({
+      type: 'transport',
+      name: 'ขับรถ กรุงเทพ-อุตรดิตถ์',
+      notes: 'โหมด: รถ — ระยะทางประมาณ 490 km',
+    })
+    expect(inferTransportMode('ขับรถ กรุงเทพ-อุตรดิตถ์', 'โหมด: รถ')).toBe('drive')
+    expect(drive).toEqual([])
+
+    const rest = buildBookingLinks({
+      type: 'transport',
+      name: 'จุดพักรถ ปั๊ม PTT อุตรดิตถ์',
+      notes: 'โหมด: รถ',
+    })
+    expect(rest).toEqual([])
   })
 
   it('builds 12Go links for train/ferry and Grab for car', () => {

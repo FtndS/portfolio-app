@@ -181,6 +181,9 @@ export function ensureOvernightHotel(plan) {
 }
 
 async function enrichOnePlace(place, { near, usedKeys }) {
+  if (place?.type === 'transport') {
+    return { ...place, photo_url: null }
+  }
   const searchQ = extractPlaceSearchQuery(place.name, place.type, near)
   if (!searchQ) return place
 
@@ -289,7 +292,10 @@ export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnri
   const queues = dayKeys.map((k) =>
     byDay
       .get(k)
-      .filter((p) => !p.photo_url || isGenericPlaceName(p.name) || dupIds.has(p.id))
+      .filter((p) => {
+        if (p.type === 'transport') return false
+        return !p.photo_url || isGenericPlaceName(p.name) || dupIds.has(p.id)
+      })
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
   )
   const updated = []
@@ -445,13 +451,15 @@ export function buildTripPlanSystemPrompt() {
 }}
 
 กฎแผน (เรียงความสำคัญ):
-1) ทริปค้างคืน: ทุกคืนต้องมี type "hotel" (เช่น 3 วัน 2 คืน = มี hotel ในวันที่ 1 และวันที่ 2) ชื่อโรงแรมจริง
+1) ทริปค้างคืน: ทุกคืนต้องมี type "hotel" (เช่น 3 วัน 2 คืน = มี hotel ในวันที่ 1 และวันที่ 2) ชื่อโรงแรมจริงที่ค้นบน Agoda/Booking ได้
 2) ห้ามส่งแผนที่มีแค่เที่ยวบิน/รถโดยไม่มีที่พัก เมื่อเป็นการค้างคืน
-3) ต้องมีร้านอาหาร (restaurant) อย่างน้อยวันละ 1 จุด ชื่อร้านจริง
-4) ถ้าบิน: มีสนามบิน/เที่ยวบิน — ถ้าขับรถไปเอง: ใช้ type transport โหมดรถ ห้ามบังคับใส่สนามบิน
-5) ขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมือง — พร้อม start_time/end_time
+3) ร้านอาหาร (restaurant) อย่างน้อยวันละ 1 จุด: เลือกเฉพาะร้านดัง/ร้านขึ้นชื่อของเมืองนั้นเป็นอันดับแรก — ห้ามร้านข้างทาง แผงลอย ปั๊มน้ำมัน ร้านไม่มีชื่อ
+4) สถานที่เที่ยว (attraction): เลือกแลนด์มาร์กและสถานที่โด่งดังของเมืองก่อน (วัดสำคัญ พิพิธภัณฑ์ จุดชมวิวที่เป็นที่รู้จัก) ไม่ใช้จุดพักรถ/ปั๊มเป็นสถานที่เที่ยว
+5) ถ้าบิน: มีสนามบิน/เที่ยวบิน — ถ้าขับรถไปเอง: ใช้ type transport โหมดรถ ห้ามบังคับใส่สนามบิน
+6) ขาเดินทาง (type transport) เมื่อต้องเดินทางระหว่างเมือง — พร้อม start_time/end_time
 - ชื่อขาเดินทางใช้รูปแบบชัดเจน เช่น "เที่ยวบิน กรุงเทพ–ภูเก็ต" / "ขับรถ กรุงเทพ–ภูเก็ต"
 - ใน notes ของ transport ให้ขึ้นต้นด้วย "โหมด: บิน" หรือ "โหมด: รถไฟ" หรือ "โหมด: เรือ" หรือ "โหมด: รถ"
+- ขาขับรถ (โหมด: รถ): อย่าใส่ลิงก์จอง และอย่าใส่จุดแวะที่เป็นแค่ปั๊ม/ร้านข้างทางเป็นไฮไลต์ของวัน — ถ้าจำเป็นให้เป็น type transport สั้นๆ ไม่ใช่ restaurant
 - ถ้าโหมดบิน: ใน notes เพิ่ม "จาก:XXX ถึง:YYY" (รหัส IATA หรือชื่อเมืองจาก input) และถ้าทราบ "ผู้โดยสาร:N" "ชั้น:economy|business"
 - ใส่ origin ใน trip เมื่อทริปมีเที่ยวบิน — อย่าเดาต้นทางเองถ้า user ไม่ได้บอก
 - เรียงสถานที่ตามเวลาจริงในวัน (เช้า→เย็น) hotel ค้างคืนอยู่ช่วงเย็น

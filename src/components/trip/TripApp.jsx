@@ -16,6 +16,7 @@ import TripMapPanel from './TripMapPanel'
 import SupportModal from '../modals/SupportModal'
 import TripFxBar from './TripFxBar'
 import TripBudgetCard from './TripBudgetCard'
+import { showPlacePhoto, showPlaceBooking } from '../../lib/tripTransport'
 import {
   HOME_CURRENCY,
   convertTripAmount,
@@ -916,12 +917,16 @@ export default function TripApp({
                         <span className="trip-place-card-time-sep" aria-hidden />
                         <span>{p.end_time || '—'}</span>
                       </div>
-                      <PlacePhoto
-                        url={p.photo_url}
-                        alt={p.name}
-                        className="trip-place-card-thumb"
-                        type={p.type}
-                      />
+                      {showPlacePhoto(p) ? (
+                        <PlacePhoto
+                          url={p.photo_url}
+                          alt={p.name}
+                          className="trip-place-card-thumb"
+                          type={p.type}
+                        />
+                      ) : (
+                        <div className="trip-place-card-thumb trip-place-photo-fallback" aria-hidden />
+                      )}
                       <div className="trip-place-card-body">
                         <div className="trip-place-card-top">
                           <span className="trip-place-type">{typeLabel(p.type)}</span>
@@ -966,7 +971,7 @@ export default function TripApp({
                             {p.budget != null && (
                               <p className="trip-place-card-budget">฿{Number(p.budget).toLocaleString('th-TH')}</p>
                             )}
-                            <TripPlaceBooking place={p} />
+                            {showPlaceBooking(p) && <TripPlaceBooking place={p} />}
                           </>
                         )}
                         <div className="trip-place-card-toolbar">
