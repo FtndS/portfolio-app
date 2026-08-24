@@ -62,18 +62,31 @@ body {
 .page-top a.home:hover { color: var(--accent-text); }
 
 .theme-toggle {
+  display: inline-flex;
   border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
   background: var(--surface);
-  color: var(--text-muted);
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  cursor: pointer;
 }
 
-.theme-toggle:hover {
+.theme-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.theme-toggle button:hover {
   color: var(--text);
-  border-color: var(--text-muted);
+}
+
+.theme-toggle button.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent-text);
+  font-weight: 600;
 }
 
 h1 {

@@ -5,24 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f0f12" />
   <title>ข้อกำหนดการใช้งาน — PortDiary</title>
-  <script>
-    (function () {
-      var t = localStorage.getItem('portdiary-theme');
-      if (t !== 'light' && t !== 'dark') {
-        t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      }
-      document.documentElement.setAttribute('data-theme', t);
-      var meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.content = t === 'light' ? '#f4efe7' : '#0f0f12';
-    })();
-  </script>
   <link rel="stylesheet" href="/policy-pages.css" />
+  <script src="/policy-theme.js"></script>
 </head>
 <body>
   <div class="page">
     <div class="page-top">
       <a class="home" href="/">← PortDiary</a>
-      <button type="button" class="theme-toggle" id="themeToggle">สลับธีม</button>
+      <div class="theme-toggle" role="group" aria-label="เลือกธีม">
+        <button type="button" data-set-theme="light" title="โหมดสว่าง">สว่าง</button>
+        <button type="button" data-set-theme="dark" title="โหมดมืด">มืด</button>
+      </div>
     </div>
     <h1>ข้อกำหนดการใช้งาน (Terms of Service)</h1>
     <p class="muted">อัปเดตล่าสุด: สิงหาคม 2026</p>
@@ -87,19 +80,5 @@
       <a href="/contact.html">ติดต่อเรา</a>
     </p>
   </div>
-  <script>
-    (function () {
-      var btn = document.getElementById('themeToggle');
-      if (!btn) return;
-      btn.addEventListener('click', function () {
-        var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-        var next = cur === 'light' ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', next);
-        localStorage.setItem('portdiary-theme', next);
-        var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.content = next === 'light' ? '#f4efe7' : '#0f0f12';
-      });
-    })();
-  </script>
 </body>
 </html>
