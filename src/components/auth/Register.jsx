@@ -23,6 +23,7 @@ export default function Register({ onGoLogin, onGoHome, onLogin }) {
     if (!form.name || !form.email || !form.password) return 'กรุณากรอกข้อมูลให้ครบ'
     if (form.password !== form.confirm) return 'Password ไม่ตรงกัน'
     if (form.password.length < 8) return 'Password ต้องมีอย่างน้อย 8 ตัว'
+    if (form.password.length > 128) return 'Password ต้องไม่เกิน 128 ตัว'
     return null
   }
 

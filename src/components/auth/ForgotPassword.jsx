@@ -55,6 +55,7 @@ export default function ForgotPassword({onGoLogin,onGoHome}){
     setError('');setMessage('')
     if(otp.length!==6) return setError('กรุณาใส่รหัส OTP 6 หลัก')
     if(password.length<8) return setError('รหัสผ่านต้องมีอย่างน้อย 8 ตัว')
+    if(password.length>128) return setError('รหัสผ่านต้องไม่เกิน 128 ตัว')
     if(password!==confirm) return setError('รหัสผ่านไม่ตรงกัน')
     setLoading(true)
     try{

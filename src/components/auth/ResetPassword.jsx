@@ -13,6 +13,7 @@ export default function ResetPassword({token,onGoLogin,onGoHome}){
     setError('');setMessage('')
     if(!token) return setError('ลิงก์รีเซ็ตไม่ถูกต้อง กรุณาขอใหม่')
     if(password.length<8) return setError('รหัสผ่านต้องมีอย่างน้อย 8 ตัว')
+    if(password.length>128) return setError('รหัสผ่านต้องไม่เกิน 128 ตัว')
     if(password!==confirm) return setError('รหัสผ่านไม่ตรงกัน')
     setLoading(true)
     try{

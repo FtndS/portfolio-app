@@ -6,8 +6,10 @@ export const OTP_TTL_MS = 10 * 60 * 1000
 export const OTP_MAX_ATTEMPTS = 5
 export const OTP_RESEND_COOLDOWN_MS = 60 * 1000
 
+// Prefer dedicated OTP_SECRET so rotating JWT_SECRET doesn't invalidate pending OTPs.
+// Falls back to JWT_SECRET until OTP_SECRET is set on the server.
 function pepper() {
-  return process.env.JWT_SECRET || 'dev-otp-pepper'
+  return process.env.OTP_SECRET || process.env.JWT_SECRET || 'dev-otp-pepper'
 }
 
 export function generateOtpCode() {

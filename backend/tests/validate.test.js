@@ -4,9 +4,11 @@ import {
   validatePassword,
   validateName,
   validateOtpCode,
+  validateTickerSymbol,
   parseFee,
   normalizeEmail,
 } from '../src/lib/validate.js'
+import { createLruCache } from '../src/lib/lruCache.js'
 
 describe('validateEmail', () => {
   it('accepts valid email', () => {
@@ -29,6 +31,49 @@ describe('validatePassword', () => {
 
   it('accepts valid password', () => {
     expect(validatePassword('longenough')).toBeNull()
+  })
+
+  it('caps maximum length at 128', () => {
+    expect(validatePassword('a'.repeat(128))).toBeNull()
+    expect(validatePassword('a'.repeat(129))).toMatch(/128/)
+  })
+})
+
+describe('validateTickerSymbol', () => {
+  it('accepts normal tickers', () => {
+    expect(validateTickerSymbol('AAPL')).toBeNull()
+    expect(validateTickerSymbol('PTT-BK')).toBeNull()
+    expect(validateTickerSymbol('BRK.B')).toBeNull()
+  })
+
+  it('rejects invalid or oversized symbols', () => {
+    expect(validateTickerSymbol('')).toBeTruthy()
+    expect(validateTickerSymbol('AAPL;DROP TABLE')).toBeTruthy()
+    expect(validateTickerSymbol('a'.repeat(21))).toBeTruthy()
+    expect(validateTickerSymbol('../etc/passwd')).toBeTruthy()
+  })
+})
+
+describe('createLruCache', () => {
+  it('evicts oldest entry past maxSize', () => {
+    const cache = createLruCache(2)
+    cache.set('a', 1)
+    cache.set('b', 2)
+    cache.set('c', 3)
+    expect(cache.size).toBe(2)
+    expect(cache.get('a')).toBeUndefined()
+    expect(cache.get('b')).toBe(2)
+    expect(cache.get('c')).toBe(3)
+  })
+
+  it('refreshes recency on get', () => {
+    const cache = createLruCache(2)
+    cache.set('a', 1)
+    cache.set('b', 2)
+    cache.get('a')
+    cache.set('c', 3)
+    expect(cache.get('a')).toBe(1)
+    expect(cache.get('b')).toBeUndefined()
   })
 })
 

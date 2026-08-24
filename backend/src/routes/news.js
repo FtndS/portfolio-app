@@ -1,5 +1,7 @@
 import express from 'express'
 import { serverError } from '../lib/httpErrors.js'
+import { createLruCache } from '../lib/lruCache.js'
+import { validateTickerSymbol } from '../lib/validate.js'
 import { authMiddleware } from '../middleware/auth.js'
 import {
   SECTOR_KEYWORDS,
@@ -10,8 +12,8 @@ import {
 const router = express.Router()
 router.use(authMiddleware)
 
-// Cache 15 นาที
-const cache = new Map()
+// Cache 15 นาที — bounded LRU (one entry per feed URL)
+const cache = createLruCache(50)
 const CACHE_TTL = 15 * 60 * 1000
 
 function normalizeArticle(article, fallbackSource = 'Unknown') {
@@ -118,7 +120,9 @@ router.get('/dashboard', async (req, res) => {
 
 router.get('/ticker/:symbol', async (req, res) => {
   try {
-    const symbol = req.params.symbol.replace('.', '-').replace('/', '-')
+    const symbolErr = validateTickerSymbol(req.params.symbol)
+    if (symbolErr) return res.status(400).json({ error: symbolErr })
+    const symbol = req.params.symbol.trim().replace('.', '-').replace('/', '-')
     const plainSymbol = symbol.replace(/-BK$/i, '')
     const hintQuery = encodeURIComponent(`${plainSymbol} OR ${plainSymbol}-BK OR หุ้น ${plainSymbol}`)
     const [yahoo, google] = await Promise.all([

@@ -47,6 +47,7 @@ export default function SettingsModal({ user, onClose, onUserUpdate, onLogout, o
     setPwMsg('')
     if (!currentPassword) return setPwErr('กรุณาระบุรหัสผ่านปัจจุบัน')
     if (newPassword.length < 8) return setPwErr('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัว')
+    if (newPassword.length > 128) return setPwErr('รหัสผ่านใหม่ต้องไม่เกิน 128 ตัว')
     if (newPassword !== confirmPassword) return setPwErr('รหัสผ่านใหม่ไม่ตรงกัน')
     setLoadingPw(true)
     const r = await api.put('/auth/change-password', { currentPassword, newPassword })

@@ -24,9 +24,18 @@ export function validateOtpCode(code) {
   return null
 }
 
-export function validatePassword(password, { minLength = 8 } = {}) {
+export function validatePassword(password, { minLength = 8, maxLength = 128 } = {}) {
   if (!password || typeof password !== 'string') return 'กรุณาระบุรหัสผ่าน'
   if (password.length < minLength) return `รหัสผ่านต้องมีอย่างน้อย ${minLength} ตัว`
+  if (password.length > maxLength) return `รหัสผ่านต้องไม่เกิน ${maxLength} ตัว`
+  return null
+}
+
+const TICKER_SYMBOL_RE = /^[A-Za-z0-9.\-]{1,20}$/
+
+export function validateTickerSymbol(symbol) {
+  if (!symbol || typeof symbol !== 'string') return 'กรุณาระบุ ticker'
+  if (!TICKER_SYMBOL_RE.test(symbol.trim())) return 'รูปแบบ ticker ไม่ถูกต้อง'
   return null
 }
 
