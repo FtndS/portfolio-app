@@ -18,6 +18,7 @@ import SupportModal from '../modals/SupportModal'
 import TripFxBar from './TripFxBar'
 import TripBudgetCard from './TripBudgetCard'
 import { showPlacePhoto, showPlaceBooking } from '../../lib/tripTransport'
+import { showPlaceOnMap } from '../../lib/tripMap'
 import {
   HOME_CURRENCY,
   convertTripAmount,
@@ -280,7 +281,7 @@ export default function TripApp({
   )
 
   const focusPlaceOnMap = async (place) => {
-    if (!place || place.type === 'transport') return
+    if (!place || !showPlaceOnMap(place)) return
     setErr('')
     setMapFocusId(place.id)
     setMapLoading(true)
@@ -832,44 +833,57 @@ export default function TripApp({
                 )}
               </div>
               <div className="trip-list-head-actions">
-                <button
-                  type="button"
-                  style={{ ...btnGhost, width: 'auto' }}
-                  disabled={enriching}
-                  onClick={() => enrichPhotos(undefined, { force: true })}
-                >
-                  {enriching ? 'กำลังเติมรูป...' : 'เติมรูป'}
-                </button>
+                <div className="trip-view-switch trip-view-switch--lg" role="tablist" aria-label="โหมดทริป">
+                  <button
+                    type="button"
+                    className={`trip-view-btn${detailView === 'plan' ? ' is-active' : ''}`}
+                    onClick={() => setDetailView('plan')}
+                  >
+                    ดูแผน
+                  </button>
+                  <button
+                    type="button"
+                    className={`trip-view-btn${detailView === 'edit' ? ' is-active' : ''}`}
+                    onClick={() => setDetailView('edit')}
+                  >
+                    จัดแผน
+                  </button>
+                </div>
+                {detailView === 'edit' && (
+                  <button
+                    type="button"
+                    style={{ ...btnGhost, width: 'auto' }}
+                    disabled={enriching}
+                    onClick={() => enrichPhotos(undefined, { force: true })}
+                  >
+                    {enriching ? 'กำลังเติมรูป...' : 'เติมรูป'}
+                  </button>
+                )}
                 <button type="button" style={{ ...btnPrimary, width: 'auto' }} onClick={exportPlan}>
                   Export plan
                 </button>
-                <button type="button" style={{ ...btnGhost, width: 'auto' }} onClick={() => setConfirmDelete({ type: 'trip' })}>
-                  ลบทริป
-                </button>
+                {detailView === 'edit' && (
+                  <button type="button" style={{ ...btnGhost, width: 'auto' }} onClick={() => setConfirmDelete({ type: 'trip' })}>
+                    ลบทริป
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="trip-detail-grid">
               <section className="trip-card trip-itinerary-card">
                 <div className="trip-section-head trip-no-print">
-                  <h3>แผนรายวัน</h3>
-                  <div className="trip-view-switch">
-                    <button
-                      type="button"
-                      className={`trip-view-btn${detailView === 'plan' ? ' is-active' : ''}`}
-                      onClick={() => setDetailView('plan')}
-                    >
-                      Timeline
-                    </button>
-                    <button
-                      type="button"
-                      className={`trip-view-btn${detailView === 'edit' ? ' is-active' : ''}`}
-                      onClick={() => setDetailView('edit')}
-                    >
-                      แก้ไข
-                    </button>
-                    <button type="button" className="trip-add-day-btn" onClick={addDay}>+ เพิ่มวัน</button>
+                  <div>
+                    <h3>{detailView === 'plan' ? 'แผนวันนี้' : 'จัดลำดับจุดแวะ'}</h3>
+                    <p className="trip-section-sub">
+                      {detailView === 'plan'
+                        ? 'อ่านไทม์ไลน์ — คลิกชื่อสถานที่เพื่อซูมแผนที่'
+                        : 'ลากจัดลำดับ ค้นหาสถานที่ และเพิ่มวัน'}
+                    </p>
                   </div>
+                  {detailView === 'edit' && (
+                    <button type="button" className="trip-add-day-btn" onClick={addDay}>+ เพิ่มวัน</button>
+                  )}
                 </div>
                 <div className="trip-day-tabs trip-no-print" role="tablist" aria-label="วันในทริป">
                   {(detail.days || []).map((d) => (
@@ -939,7 +953,7 @@ export default function TripApp({
                       <div className="trip-place-card-body">
                         <div className="trip-place-card-top">
                           <span className="trip-place-type">{typeLabel(p.type)}</span>
-                          {p.type === 'transport' ? (
+                          {p.type === 'transport' && !showPlaceOnMap(p) ? (
                             <h4 className="trip-place-card-title">{p.name}</h4>
                           ) : (
                             <button
@@ -1154,6 +1168,9 @@ export default function TripApp({
                   loading={mapLoading}
                   focusPlace={mapFocusPlace}
                   bookingLinks={mapFocusPlace?.booking_links || []}
+                  dayPlaces={placesForActiveDay}
+                  destination={detail.destination || ''}
+                  onSelectPlace={focusPlaceOnMap}
                 />
               </div>
             </div>

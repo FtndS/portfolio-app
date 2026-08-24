@@ -1,6 +1,7 @@
 import { PlacePhoto } from './TripPlaceSearch'
 import { TripPlaceBooking } from './FlightBookingPanel'
 import { showPlacePhoto, showPlaceBooking } from '../../lib/tripTransport'
+import { showPlaceOnMap } from '../../lib/tripMap'
 import './TripTimeline.css'
 
 const TYPE_LABELS = {
@@ -106,7 +107,7 @@ export function TripDayTimeline({
           const inline = showPlacePhoto(place) && !hero
           const timeLabel = formatTimeTh(place.start_time)
           const isFocused = focusedPlaceId != null && String(focusedPlaceId) === String(place.id)
-          const canFocus = Boolean(onSelectPlace) && place.type !== 'transport'
+          const canFocus = Boolean(onSelectPlace) && showPlaceOnMap(place)
 
           return (
             <div

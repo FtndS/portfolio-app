@@ -1,5 +1,10 @@
 import { PlacePhoto } from './TripPlaceSearch'
 import { BookingLinks } from './BookingLinks'
+import {
+  buildDayOverviewEmbedUrl,
+  mappableDayPlaces,
+  unmappedDayPlaces,
+} from '../../lib/tripMap'
 
 const TYPE_LABELS = {
   hotel: 'ที่พัก',
@@ -15,10 +20,19 @@ export default function TripMapPanel({
   loading,
   focusPlace = null,
   bookingLinks = [],
-  emptyHint = 'คลิกชื่อสถานที่ (ที่พัก, ร้านอาหาร, สถานที่เที่ยว) เพื่อดูบน Google Maps',
+  dayPlaces = [],
+  destination = '',
+  onSelectPlace = null,
 }) {
   const resolved = mapState?.place
-  const embedUrl = mapState?.embedUrl
+  const pins = mappableDayPlaces(dayPlaces)
+  const missing = unmappedDayPlaces(dayPlaces)
+  const overviewUrl = buildDayOverviewEmbedUrl({
+    places: dayPlaces,
+    destination,
+    focus: focusPlace,
+  })
+  const embedUrl = mapState?.embedUrl || overviewUrl
   const openUrl = mapState?.openUrl
   const displayName = focusPlace?.name || resolved?.name
   const displayType = focusPlace?.type || resolved?.category
@@ -29,7 +43,12 @@ export default function TripMapPanel({
 
   return (
     <section className="trip-card trip-map-card trip-no-print">
-      <h3>แผนที่</h3>
+      <div className="trip-map-card-head">
+        <h3>แผนที่วันนี้</h3>
+        {pins.length > 0 && (
+          <span className="trip-map-pin-count">{pins.length} หมุด</span>
+        )}
+      </div>
 
       {loading && (
         <p className="trip-map-hint" style={{ marginTop: 0 }}>กำลังโหลดรายละเอียดสถานที่...</p>
@@ -69,7 +88,7 @@ export default function TripMapPanel({
                 </a>
               )}
             </div>
-            {focusPlace?.type !== 'transport' && focusPlace?.type === 'hotel' && (
+            {focusPlace?.type === 'hotel' && (
               <BookingLinks links={bookingLinks} />
             )}
           </div>
@@ -88,11 +107,38 @@ export default function TripMapPanel({
         />
       ) : (
         <div className="trip-empty trip-empty-compact">
-          {emptyHint}
+          ยังไม่มีพิกัดในวันนี้ — สลับไปโหมดจัดแผนแล้วค้นหาสถานที่จากช่องค้นหา
         </div>
       )}
+
+      {pins.length > 0 && (
+        <div className="trip-map-pins" role="list" aria-label="หมุดสถานที่วันนี้">
+          {pins.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              role="listitem"
+              className={`trip-map-pin-btn${String(focusPlace?.id) === String(p.id) ? ' is-active' : ''}`}
+              onClick={() => onSelectPlace?.(p)}
+              title={p.name}
+            >
+              <span className={`trip-map-pin-n trip-map-pin-n--${p.type || 'other'}`}>{i + 1}</span>
+              <span className="trip-map-pin-label">{p.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {missing.length > 0 && (
+        <p className="trip-map-missing">
+          ยังไม่มีบนแผนที่: {missing.map((p) => p.name).join(' · ')}
+        </p>
+      )}
+
       <p className="trip-map-hint">
-        คลิกชื่อสถานที่ (ที่พัก, ร้านอาหาร, สถานที่เที่ยว) เพื่อดูรายละเอียดและซูมแผนที่
+        {pins.length
+          ? 'หมุดมาจากพิกัดในแผนวันนี้ — คลิกหมุดหรือชื่อในไทม์ไลน์เพื่อซูม'
+          : 'เมื่อจุดมีพิกัด แผนที่จะโชว์หมุดทั้งวันอัตโนมัติ'}
       </p>
     </section>
   )
