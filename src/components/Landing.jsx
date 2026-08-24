@@ -65,6 +65,38 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
         </button>
       </section>
 
+      <section className="landing-pricing" id="pricing" aria-labelledby="landing-pricing-title">
+        <h2 id="landing-pricing-title">แพ็กเกจและราคา</h2>
+        <p className="landing-pricing-lead">
+          เริ่มฟรีได้ทันที — อัปเกรด Pro ได้จากหน้าชำระเงินในแอป (Omise)
+        </p>
+        <div className="landing-pricing-grid">
+          <div className="landing-price-card">
+            <h3>Free</h3>
+            <p className="landing-price-amount">฿0</p>
+            <ul>
+              <li>พอร์ตและทริปพื้นฐาน</li>
+              <li>โควตา AI จำกัดต่อสัปดาห์</li>
+            </ul>
+          </div>
+          <div className="landing-price-card landing-price-card--pro">
+            <h3>Pro</h3>
+            <p className="landing-price-amount">฿99<span>/เดือน</span></p>
+            <ul>
+              <li>โควตา AI สูงขึ้น + Copilot ถามเองได้</li>
+              <li>ชำระบัตรหรือ PromptPay</li>
+            </ul>
+          </div>
+        </div>
+        <p className="landing-pricing-more">
+          <a href="/pricing.html">ดูรายละเอียดแพ็กเกจ</a>
+          {' · '}
+          <a href="/terms.html">ยกเลิก / คืนเงิน</a>
+          {' · '}
+          <a href="/contact.html">ติดต่อเรา</a>
+        </p>
+      </section>
+
       <section className="landing-cta-section">
         <div className="landing-cta-box landing-cta-box--suite">
           <h2>เริ่มด้วยบัญชีเดียว</h2>
@@ -76,10 +108,15 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
       </section>
 
       <footer className="landing-footer">
-        <div style={{ marginBottom: '8px' }}>
-          <a href="/terms.html" style={{ color: 'var(--text-faint)', marginRight: '16px', fontSize: '13px', textDecoration: 'none' }}>ข้อกำหนดการใช้งาน</a>
-          <a href="/privacy.html" style={{ color: 'var(--text-faint)', fontSize: '13px', textDecoration: 'none' }}>นโยบายความเป็นส่วนตัว</a>
+        <div className="landing-footer-links">
+          <a href="/pricing.html">แพ็กเกจและราคา</a>
+          <a href="/contact.html">ติดต่อเรา</a>
+          <a href="/terms.html">ข้อกำหนดการใช้งาน</a>
+          <a href="/privacy.html">นโยบายความเป็นส่วนตัว</a>
         </div>
+        <p className="landing-footer-contact">
+          ติดต่อ: <a href="mailto:support@portdiary.com">support@portdiary.com</a>
+        </p>
         © {new Date().getFullYear()} PortDiary — Stock & Trip
       </footer>
     </div>

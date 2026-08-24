@@ -448,6 +448,114 @@
   background: var(--surface);
 }
 
+.landing-pricing {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+  text-align: center;
+}
+
+.landing-pricing h2 {
+  margin: 0 0 8px;
+  font-size: clamp(22px, 3vw, 28px);
+  letter-spacing: -0.02em;
+}
+
+.landing-pricing-lead {
+  margin: 0 auto 20px;
+  max-width: 520px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.landing-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+.landing-price-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  background: var(--surface);
+}
+
+.landing-price-card--pro {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.landing-price-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.landing-price-amount {
+  margin: 8px 0 12px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.landing-price-amount span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.landing-price-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.landing-pricing-more {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.landing-pricing-more a {
+  color: var(--accent-text, var(--accent));
+  text-decoration: none;
+}
+
+.landing-pricing-more a:hover {
+  text-decoration: underline;
+}
+
+.landing-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.landing-footer-links a,
+.landing-footer-contact a {
+  color: var(--text-faint);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.landing-footer-links a:hover,
+.landing-footer-contact a:hover {
+  color: var(--text-muted);
+}
+
+.landing-footer-contact {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
 .landing--hub .landing-hero--suite {
   padding-top: 32px;
 }
@@ -468,6 +576,10 @@
   }
 
   .landing-apps {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-pricing-grid {
     grid-template-columns: 1fr;
   }
 
