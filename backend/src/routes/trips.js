@@ -10,7 +10,7 @@ import {
 } from '../lib/placeSearch.js'
 import { resolveTripPlaceMap } from '../lib/googleMaps.js'
 import { enrichTripPlacesMissingPhotos } from '../lib/aiTripPlan.js'
-import { isGenericPlaceName } from '../lib/placeMatch.js'
+import { isGenericPlaceName, shouldEnrichPlacePhoto } from '../lib/placeMatch.js'
 import {
   enumerateDateRange,
   normalizePlacePayload,
@@ -373,7 +373,11 @@ router.post('/:id/enrich-photos', async (req, res) => {
       else seenUrls.add(p.photo_url)
     }
     const needsWork = places.rows.filter(
-      (p) => !p.photo_url || isGenericPlaceName(p.name) || (p.photo_url && dupUrls.has(p.photo_url))
+      (p) => {
+        if (!shouldEnrichPlacePhoto(p)) return false
+        if (Boolean(req.body?.force)) return true
+        return !p.photo_url || isGenericPlaceName(p.name) || (p.photo_url && dupUrls.has(p.photo_url))
+      }
     )
     if (!needsWork.length) {
       const detail = await loadTripDetail(req.userId, tripId)
@@ -383,13 +387,14 @@ router.post('/:id/enrich-photos', async (req, res) => {
     const updates = await enrichTripPlacesMissingPhotos(places.rows, {
       near: trip.destination || '',
       maxEnrich: Math.min(36, Number(req.body?.limit) || 36),
+      force: Boolean(req.body?.force),
     })
 
     for (const u of updates) {
       await pool.query(
         `UPDATE trip_places
          SET name = COALESCE($1, name),
-             photo_url = COALESCE($2, photo_url),
+             photo_url = CASE WHEN $2::text IS NOT NULL THEN $2 ELSE photo_url END,
              address = COALESCE($3, address),
              lat = COALESCE($4, lat),
              lng = COALESCE($5, lng),

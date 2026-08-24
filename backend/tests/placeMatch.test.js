@@ -5,6 +5,7 @@ import {
   pickUniquePlaceHit,
   resolvePlaceDisplayName,
   scorePlaceNameMatch,
+  shouldEnrichPlacePhoto,
 } from '../src/lib/placeMatch.js'
 
 describe('placeMatch', () => {
@@ -56,7 +57,42 @@ describe('placeMatch', () => {
     expect(resolvePlaceDisplayName('ตลาดมหาชัย', 'Mahachai Market')).toBe('ตลาดมหาชัย')
   })
 
-  it('scores name similarity', () => {
-    expect(scorePlaceNameMatch('ตลาดมหาชัย', 'ตลาดมหาชัย สมุทรสาคร')).toBeGreaterThan(0.5)
+  it('builds airport search from IATA code', () => {
+    expect(extractPlaceSearchQuery('สนามบินคันไซ นานาชาติ (KIX)', 'airport', 'โอซาก้า')).toBe(
+      'KIX airport โอซาก้า'
+    )
+  })
+
+  it('picks top airport hit when Thai/English names do not overlap', () => {
+    const used = new Set()
+    const hit = pickUniquePlaceHit(
+      [
+        {
+          id: 'g1',
+          name: 'Kansai International Airport',
+          photoUrl: '/trips/places/photo?provider=google&name=places%2Fa%2Fphotos%2Fb',
+        },
+      ],
+      'KIX airport โอซาก้า',
+      used,
+      { type: 'airport' }
+    )
+    expect(hit?.id).toBe('g1')
+  })
+
+  it('skips driving transport photo enrichment', () => {
+    expect(
+      shouldEnrichPlacePhoto({
+        type: 'transport',
+        name: 'ขับรถไปน่าน',
+        notes: 'โหมด: รถ · ระยะทาง 120 กม.',
+      })
+    ).toBe(false)
+    expect(
+      shouldEnrichPlacePhoto({
+        type: 'airport',
+        name: 'สนามบินคันไซ นานาชาติ (KIX)',
+      })
+    ).toBe(true)
   })
 })

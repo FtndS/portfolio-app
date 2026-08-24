@@ -7,6 +7,7 @@ import {
   isGenericPlaceName,
   pickUniquePlaceHit,
   resolvePlaceDisplayName,
+  shouldEnrichPlacePhoto,
 } from './placeMatch.js'
 import { attachBookingLinks, attachBookingLinksToPlan } from './bookingLinks.js'
 
@@ -181,8 +182,8 @@ export function ensureOvernightHotel(plan) {
 }
 
 async function enrichOnePlace(place, { near, usedKeys }) {
-  if (place?.type === 'transport') {
-    return { ...place, photo_url: null }
+  if (!shouldEnrichPlacePhoto(place)) {
+    return place
   }
   const searchQ = extractPlaceSearchQuery(place.name, place.type, near)
   if (!searchQ) return place
@@ -193,7 +194,7 @@ async function enrichOnePlace(place, { near, usedKeys }) {
       type: place.type || 'other',
       near,
     })
-    const hit = pickUniquePlaceHit(results, searchQ, usedKeys)
+    const hit = pickUniquePlaceHit(results, searchQ, usedKeys, { type: place.type })
     if (!hit) return place
 
     const lat = hit.lat ?? null
@@ -278,8 +279,8 @@ function findDuplicatePhotoPlaceIds(places) {
 }
 
 /** Enrich DB places — unique photos + resolve generic names to real POIs. */
-export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnrich = 24 } = {}) {
-  const usedKeys = collectUsedMediaKeys(places)
+export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnrich = 24, force = false } = {}) {
+  const usedKeys = force ? new Set() : collectUsedMediaKeys(places)
   const dupIds = findDuplicatePhotoPlaceIds(places)
 
   const byDay = new Map()
@@ -293,7 +294,8 @@ export async function enrichTripPlacesMissingPhotos(places, { near = '', maxEnri
     byDay
       .get(k)
       .filter((p) => {
-        if (p.type === 'transport') return false
+        if (!shouldEnrichPlacePhoto(p)) return false
+        if (force) return true
         return !p.photo_url || isGenericPlaceName(p.name) || dupIds.has(p.id)
       })
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))

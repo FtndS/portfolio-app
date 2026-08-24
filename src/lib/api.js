@@ -60,6 +60,11 @@ export const api = {
   put: (path, body) => request('PUT', path, body),
   patch: (path, body) => request('PATCH', path, body),
   delete: (path, body) => request('DELETE', path, body),
-  fetch: (path, params) =>
-    fetch(withQuery(`${BASE}${path}`, params), { headers: headers() }),
+  fetch: (path, params) => {
+    let p = String(path || '')
+    if (p.startsWith('/api/')) p = p.slice(4)
+    const token = localStorage.getItem('token')
+    const h = token ? { Authorization: `Bearer ${token}` } : {}
+    return fetch(withQuery(`${BASE}${p}`, params), { headers: h })
+  },
 }

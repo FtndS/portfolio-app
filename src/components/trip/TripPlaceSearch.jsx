@@ -18,6 +18,7 @@ function needsAuthFetch(url) {
 
 export function PlacePhoto({ url, alt, className, type = 'other', eager = false }) {
   const [src, setSrc] = useState(() => (url && !needsAuthFetch(url) ? url : null))
+  const [failed, setFailed] = useState(false)
   const blobRef = useRef(null)
 
   useEffect(() => {
@@ -25,6 +26,8 @@ export function PlacePhoto({ url, alt, className, type = 'other', eager = false 
       URL.revokeObjectURL(blobRef.current)
       blobRef.current = null
     }
+
+    setFailed(false)
 
     if (!url) {
       setSrc(null)
@@ -40,13 +43,22 @@ export function PlacePhoto({ url, alt, className, type = 'other', eager = false 
     setSrc(null)
 
     api.fetch(url).then(async (res) => {
-      if (cancelled || !res.ok) return
+      if (cancelled || !res.ok) {
+        if (!cancelled) setFailed(true)
+        return
+      }
       const blob = await res.blob()
       if (cancelled) return
+      if (!blob || blob.size < 32) {
+        setFailed(true)
+        return
+      }
       const objectUrl = URL.createObjectURL(blob)
       blobRef.current = objectUrl
       setSrc(objectUrl)
-    }).catch(() => {})
+    }).catch(() => {
+      if (!cancelled) setFailed(true)
+    })
 
     return () => {
       cancelled = true
@@ -57,7 +69,7 @@ export function PlacePhoto({ url, alt, className, type = 'other', eager = false 
     }
   }, [url])
 
-  if (src) {
+  if (src && !failed) {
     return (
       <img
         src={src}
@@ -65,6 +77,7 @@ export function PlacePhoto({ url, alt, className, type = 'other', eager = false 
         className={className}
         loading={eager ? 'eager' : 'lazy'}
         decoding={eager ? 'sync' : 'async'}
+        onError={() => setFailed(true)}
       />
     )
   }

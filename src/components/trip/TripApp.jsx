@@ -192,18 +192,22 @@ export default function TripApp({
     )
   }
 
-  const enrichPhotos = async (tripDetail) => {
+  const enrichPhotos = async (tripDetail, { force = false } = {}) => {
     const t = tripDetail || detail
     if (!t?.id || enriching) return
-    if (!placeNeedsEnrich(t.places)) return
+    if (!force && !placeNeedsEnrich(t.places)) return
     setEnriching(true)
-    const r = await api.post(`/trips/${t.id}/enrich-photos`, { limit: 36 })
+    setErr('')
+    const r = await api.post(`/trips/${t.id}/enrich-photos`, { limit: 36, force: Boolean(force) })
     setEnriching(false)
     if (r?.error) {
       setErr(r.error)
       return
     }
     if (r?.trip) setDetail(r.trip)
+    if (force && !(Number(r?.updated) > 0)) {
+      setErr('ยังหารูปใหม่ไม่ได้ — ลองค้นหาสถานที่แล้วเลือกจากผลค้นหา หรือตรวจว่าเซิร์ฟเวอร์มี Google Places API key')
+    }
   }
 
   useEffect(() => {
@@ -832,7 +836,7 @@ export default function TripApp({
                   type="button"
                   style={{ ...btnGhost, width: 'auto' }}
                   disabled={enriching}
-                  onClick={() => enrichPhotos()}
+                  onClick={() => enrichPhotos(undefined, { force: true })}
                 >
                   {enriching ? 'กำลังเติมรูป...' : 'เติมรูป'}
                 </button>

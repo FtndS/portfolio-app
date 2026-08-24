@@ -11,10 +11,12 @@ export function isDrivingPlace(place) {
 }
 
 export function showPlacePhoto(place) {
-  if (!place?.photo_url) return false
-  if (place.type === 'transport') return false
+  if (!place) return false
   if (isDrivingPlace(place)) return false
-  return true
+  if (place.type === 'transport') return false
+  if (place.photo_url) return true
+  // Keep a photo slot for key POIs so "เติมรูป" has a visible target
+  return place.type === 'airport' || place.type === 'hotel' || place.type === 'attraction'
 }
 
 export function showPlaceBooking(place) {

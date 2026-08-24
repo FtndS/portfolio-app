@@ -12,10 +12,33 @@ export function isGenericPlaceName(name) {
   return false
 }
 
+function iataFromName(name) {
+  const m = /\(([A-Z]{3})\)/.exec(String(name || ''))
+  return m?.[1] || null
+}
+
+function latinHintFromName(name) {
+  const m = /\(([A-Za-z][^)]{2,80})\)/.exec(String(name || ''))
+  const inner = m?.[1]?.trim() || ''
+  if (!inner || /^\d/.test(inner)) return ''
+  if (/^[A-Z]{3}$/.test(inner)) return `${inner} airport`
+  return inner
+}
+
 export function extractPlaceSearchQuery(name, type, near) {
   const original = String(name || '').trim()
+  const nearText = near ? String(near).trim() : ''
+  const iata = iataFromName(original)
+  if ((type === 'airport' || /สนามบิน|airport/i.test(original)) && iata) {
+    return [iata, 'airport', nearText].filter(Boolean).join(' ').slice(0, 160)
+  }
+  const latin = latinHintFromName(original)
+  if (latin && (type === 'airport' || type === 'attraction' || type === 'hotel')) {
+    return [latin, nearText].filter(Boolean).join(' ').slice(0, 160)
+  }
+
   let q = original
-  if (!q) return near ? String(near).trim() : ''
+  if (!q) return nearText
 
   let extracted = false
 
@@ -44,7 +67,6 @@ export function extractPlaceSearchQuery(name, type, near) {
       airport: 'สนามบิน',
       transport: 'สถานี',
     }[type]
-    const nearText = near ? String(near).trim() : ''
     if (typeHint && nearText) q = `${typeHint} ${nearText}`
     else if (nearText) q = nearText
   }
@@ -82,21 +104,48 @@ export function placeMediaKey(hit) {
   return null
 }
 
+function takeUnusedHit(hit, usedKeys) {
+  if (!hit) return null
+  const key = placeMediaKey(hit)
+  if (key && usedKeys.has(key)) return null
+  if (key) usedKeys.add(key)
+  return hit
+}
+
 /** Pick best unused search hit; skip weak matches and duplicate media. */
-export function pickUniquePlaceHit(results, query, usedKeys = new Set()) {
+export function pickUniquePlaceHit(results, query, usedKeys = new Set(), opts = {}) {
   const scored = (results || [])
     .map((hit) => ({ hit, score: scorePlaceNameMatch(query, hit.name) }))
     .filter((x) => x.score >= 0.2)
     .sort((a, b) => b.score - a.score)
 
   for (const { hit, score } of scored) {
-    const key = placeMediaKey(hit)
-    if (key && usedKeys.has(key)) continue
-    if (score < 0.35 && isGenericPlaceName(query)) continue
-    if (key) usedKeys.add(key)
-    return hit
+    if (score < 0.35 && isGenericPlaceName(query) && opts.type !== 'airport') continue
+    const taken = takeUnusedHit(hit, usedKeys)
+    if (taken) return taken
+  }
+
+  const typed = opts.type === 'airport' || opts.type === 'hotel' || opts.type === 'attraction'
+  if (typed) {
+    const withPhoto = (results || []).find((hit) => hit?.photoUrl || hit?.photoRef)
+    const taken = takeUnusedHit(withPhoto || results?.[0], usedKeys)
+    if (taken) return taken
   }
   return null
+}
+
+/** Driving / Grab legs should not steal photo quota. Airports and stations should. */
+export function shouldEnrichPlacePhoto(place) {
+  if (!place) return false
+  if (place.type === 'airport' || place.type === 'hotel' || place.type === 'restaurant' || place.type === 'attraction') {
+    return true
+  }
+  if (place.type !== 'transport') return true
+  const text = `${place.name || ''} ${place.notes || ''}`
+  if (/grab|taxi|bolt|แท็กซี่/i.test(text)) return false
+  if (/โหมด:\s*รถ|ขับรถ|จุดพักรถ|ปั๊ม|ptt/i.test(text) && !/โหมด:\s*บิน|รถไฟ|เรือ/.test(text)) return false
+  if (/สนามบิน|airport|สถานี|station|terminal|ท่าอากาศ/i.test(place.name || '')) return true
+  return false
 }
 
 export function resolvePlaceDisplayName(originalName, hitName) {

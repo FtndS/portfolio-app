@@ -68,6 +68,26 @@ async function wikipediaThumbFromTag(tag) {
   return data?.thumbnail?.source || data?.originalimage?.source || null
 }
 
+async function wikipediaThumbBySearch(query) {
+  const q = String(query || '').trim()
+  if (q.length < 2) return null
+  const search = await fetchJson(
+    `https://en.wikipedia.org/w/api.php?${new URLSearchParams({
+      action: 'opensearch',
+      search: q,
+      limit: '1',
+      namespace: '0',
+      format: 'json',
+      origin: '*',
+    })}`,
+    { headers: { Accept: 'application/json' } },
+    8000
+  )
+  const title = Array.isArray(search?.[1]) ? search[1][0] : null
+  if (!title) return null
+  return wikipediaThumbFromTag(title)
+}
+
 async function enrichNominatimPhoto(item) {
   const extratags = item.extratags || {}
   if (extratags.image) return String(extratags.image)
@@ -204,23 +224,71 @@ async function searchGooglePlaces({ query, type, near }) {
 export async function searchTripPlaces({ query, type = 'other', near = '' }) {
   const safeType = TYPE_HINTS[type] ? type : 'other'
   const googleResults = await searchGooglePlaces({ query, type: safeType, near })
-  if (googleResults.length) return googleResults
+  if (googleResults.length) {
+    const missing = googleResults.filter((p) => !p.photoUrl)
+    if (missing.length) {
+      await Promise.all(
+        missing.slice(0, 4).map(async (place) => {
+          const wiki = await wikipediaThumbBySearch(place.name || query)
+          if (wiki) place.photoUrl = wiki
+        })
+      )
+    }
+    return googleResults
+  }
 
-  return searchNominatim({ query, type: safeType, near })
+  const osm = await searchNominatim({ query, type: safeType, near })
+  if (osm.length && !osm.some((p) => p.photoUrl)) {
+    const wiki = await wikipediaThumbBySearch(buildQuery(query, safeType, near) || query)
+    if (wiki) osm[0] = { ...osm[0], photoUrl: wiki }
+  }
+  return osm
 }
 
 export async function fetchGooglePlacePhoto(photoName) {
   const key = getGoogleKey()
   if (!key || !photoName) return null
 
-  const url = `${GOOGLE_PHOTO_MEDIA}/${photoName}/media?maxHeightPx=480&maxWidthPx=720&key=${encodeURIComponent(key)}`
+  let name = String(photoName).trim()
   try {
+    name = decodeURIComponent(name)
+  } catch {
+    /* keep raw */
+  }
+  name = name.replace(/^\/+/, '')
+  if (!name.startsWith('places/')) return null
+
+  const tryFetchImage = async (url) => {
     const res = await fetch(url, { redirect: 'follow' })
     if (!res.ok) return null
+    const contentType = res.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const data = await res.json().catch(() => null)
+      const photoUri = data?.photoUri
+      if (!photoUri) return null
+      const img = await fetch(photoUri, { redirect: 'follow' })
+      if (!img.ok) return null
+      return {
+        contentType: img.headers.get('content-type') || 'image/jpeg',
+        buffer: Buffer.from(await img.arrayBuffer()),
+      }
+    }
+    if (!contentType.startsWith('image/') && !contentType.includes('octet-stream')) return null
     return {
-      contentType: res.headers.get('content-type') || 'image/jpeg',
+      contentType: contentType.startsWith('image/') ? contentType : 'image/jpeg',
       buffer: Buffer.from(await res.arrayBuffer()),
     }
+  }
+
+  try {
+    const mediaBase = `${GOOGLE_PHOTO_MEDIA}/${name}/media`
+    const withSkip = await tryFetchImage(
+      `${mediaBase}?maxHeightPx=720&maxWidthPx=1280&skipHttpRedirect=true&key=${encodeURIComponent(key)}`
+    )
+    if (withSkip) return withSkip
+    return tryFetchImage(
+      `${mediaBase}?maxHeightPx=720&maxWidthPx=1280&key=${encodeURIComponent(key)}`
+    )
   } catch {
     return null
   }
