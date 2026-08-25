@@ -665,6 +665,13 @@
   color: var(--trip-accent, #0f766e);
 }
 
+.trip-icard-quote-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--trip-muted);
+}
+
 .trip-icard-map-btn {
   margin-top: 0.55rem;
   border: none;

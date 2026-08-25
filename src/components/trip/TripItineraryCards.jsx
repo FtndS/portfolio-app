@@ -49,6 +49,22 @@ function PlacePrice({ place, estimateCtx, formatBudget, formatBudgetRange }) {
   )
 }
 
+function FlightQuoteHint({ place, estimateCtx }) {
+  const estimate = estimatePlaceCost(place, estimateCtx)
+  if (estimate.source === 'live' || estimate.source === 'budget') return null
+  const status = estimateCtx?.flightQuoteStatus
+  if (!status) return null
+  if (status.loading) {
+    return <p className="trip-icard-quote-hint">กำลังดึงราคาจาก Google Flights…</p>
+  }
+  if (status.configured === false) {
+    return <p className="trip-icard-quote-hint">ยังไม่ตั้งค่า SERPAPI_API_KEY บนเซิร์ฟเวอร์ — ใช้ประมาณการ</p>
+  }
+  const err = status.byPlace?.[place.id] || status.byPlace?.[String(place.id)]
+  if (err) return <p className="trip-icard-quote-hint">{err}</p>
+  return null
+}
+
 function FlightCard({ place, onSelect, focused, formatBudget, formatBudgetRange, estimateCtx }) {
   const leg = place.flight_leg
   return (
@@ -82,6 +98,7 @@ function FlightCard({ place, onSelect, focused, formatBudget, formatBudgetRange,
           formatBudget={formatBudget}
           formatBudgetRange={formatBudgetRange}
         />
+        <FlightQuoteHint place={place} estimateCtx={estimateCtx} />
         {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
         {onSelect && showPlaceOnMap(place) && (
           <button type="button" className="trip-icard-map-btn" onClick={() => onSelect(place)}>

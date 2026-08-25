@@ -121,6 +121,11 @@ export default function TripApp({
   const [editingTripRoute, setEditingTripRoute] = useState(false)
   const [tripRouteForm, setTripRouteForm] = useState({ origin: '', destination: '' })
   const [flightQuotesByPlace, setFlightQuotesByPlace] = useState({})
+  const [flightQuoteStatus, setFlightQuoteStatus] = useState({
+    loading: false,
+    configured: null,
+    byPlace: {},
+  })
   const enrichedTripRef = useRef(null)
   const activeDayRef = useRef(null)
   const placeDayRef = useRef('')
@@ -153,25 +158,39 @@ export default function TripApp({
   useEffect(() => {
     if (!detail?.id) {
       setFlightQuotesByPlace({})
+      setFlightQuoteStatus({ loading: false, configured: null, byPlace: {} })
       return undefined
     }
     if (!flightLegKey) {
       setFlightQuotesByPlace({})
+      setFlightQuoteStatus({ loading: false, configured: null, byPlace: {} })
       return undefined
     }
 
     let cancelled = false
     const tripIdForQuotes = detail.id
+    setFlightQuoteStatus({ loading: true, configured: null, byPlace: {} })
     ;(async () => {
       const r = await api.get(`/trips/${tripIdForQuotes}/flight-quotes`)
       if (cancelled) return
       if (r?.error && !Array.isArray(r?.quotes)) {
         setFlightQuotesByPlace({})
+        setFlightQuoteStatus({
+          loading: false,
+          configured: null,
+          byPlace: {},
+          error: r.error,
+        })
         return
       }
       const map = {}
+      const byPlace = {}
       for (const q of r.quotes || []) {
-        if (!q?.placeId || q.error || !q.lowest?.price) continue
+        if (!q?.placeId) continue
+        if (q.error || !q.lowest?.price) {
+          byPlace[q.placeId] = q.error || 'ไม่พบราคาเที่ยวบิน'
+          continue
+        }
         map[q.placeId] = {
           price: Number(q.lowest.price),
           currency: q.currency || q.lowest.currency || 'THB',
@@ -181,6 +200,11 @@ export default function TripApp({
         }
       }
       setFlightQuotesByPlace(map)
+      setFlightQuoteStatus({
+        loading: false,
+        configured: r.configured !== false,
+        byPlace,
+      })
     })()
 
     return () => {
@@ -312,8 +336,9 @@ export default function TripApp({
       destination: detail?.destination || '',
       origin: detail?.origin || '',
       flightQuotes: flightQuotesByPlace,
+      flightQuoteStatus,
     }),
-    [detail?.destination, detail?.origin, flightQuotesByPlace]
+    [detail?.destination, detail?.origin, flightQuotesByPlace, flightQuoteStatus]
   )
   const costSummary = useMemo(
     () => sumTripCostEstimates(detail?.places, estimateCtx),

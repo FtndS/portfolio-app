@@ -64,7 +64,7 @@ export function FlightBookingPanel({ flightLeg, links, className = '', compact =
       </div>
 
       <p className="trip-flight-disclaimer">
-        ราคาจริงแสดงบนเว็บพาร์ทเนอร์เมื่อกดดูราคา (ยังไม่ดึงราคาเข้าแอป)
+        ปุ่ม “ดูราคา” เปิดเว็บพาร์ทเนอร์เพื่อจอง — ราคาใกล้เคียงในแอปอยู่ที่บรรทัดด้านบน (Google Flights / ประมาณการ)
       </p>
     </div>
   )

@@ -44,6 +44,15 @@ describe('serpFlights', () => {
     expect(q.error).toBeTruthy()
   })
 
+  it('accepts Date objects for trip start_date', () => {
+    const q = buildQuoteFromFlightLeg(
+      { origin: 'BKK', destination: 'NRT', tripType: 'oneway' },
+      { start_date: new Date('2025-11-01T00:00:00.000Z') }
+    )
+    expect(q.error).toBeUndefined()
+    expect(q.outboundDate).toBe('2025-11-01')
+  })
+
   it('picks cheapest offer from SerpAPI-shaped payload', () => {
     const picked = pickBestFlightOffers(
       {

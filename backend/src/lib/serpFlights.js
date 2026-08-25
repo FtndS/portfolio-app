@@ -39,10 +39,23 @@ function cacheKey(params) {
 function travelClassParam(cabin) {
   const c = String(cabin || 'economy').toLowerCase()
   // SerpAPI: 1 Economy, 2 Premium economy, 3 Business, 4 First
-  if (c === 'premium' || c === 'premium_economy') return '2'
-  if (c === 'business') return '3'
-  if (c === 'first') return '4'
+  if (c.includes('premium')) return '2'
+  if (c.includes('business') || c.includes('ธุรกิจ')) return '3'
+  if (c.includes('first') || c.includes('เฟิร์ส')) return '4'
   return '1'
+}
+
+function isoDateOnly(value) {
+  if (!value) return ''
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10)
+  }
+  const s = String(value).trim()
+  const iso = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (iso) return iso[1]
+  const d = new Date(s)
+  if (!Number.isNaN(d.getTime()) && /^\d{4}/.test(s)) return d.toISOString().slice(0, 10)
+  return ''
 }
 
 function normalizeOffer(row, currency) {
@@ -95,11 +108,9 @@ export function pickBestFlightOffers(payload, currency = 'THB', { limit = 5 } = 
 export function buildQuoteFromFlightLeg(leg, trip = {}) {
   const origin = iataFromEndpoint(leg?.origin) || iataFromEndpoint(leg?.originLabel)
   const destination = iataFromEndpoint(leg?.destination) || iataFromEndpoint(leg?.destinationLabel)
-  const outboundDate = String(leg?.departDate || trip.start_date || '').slice(0, 10)
+  const outboundDate = isoDateOnly(leg?.departDate || trip.start_date)
   const returnDate =
-    leg?.tripType === 'roundtrip'
-      ? String(leg?.returnDate || trip.end_date || '').slice(0, 10) || null
-      : null
+    leg?.tripType === 'roundtrip' ? isoDateOnly(leg?.returnDate || trip.end_date) || null : null
   const adults = Number(leg?.passengers) > 0 ? Number(leg.passengers) : 1
   const cabin = leg?.cabin || 'economy'
   if (!origin || !destination || !/^\d{4}-\d{2}-\d{2}$/.test(outboundDate)) {

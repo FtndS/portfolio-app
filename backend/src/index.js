@@ -88,7 +88,11 @@ const PRICE_TTL = 5 * 60 * 1000
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT NOW()')
-    res.json({ status: 'ok', db: 'connected' })
+    res.json({
+      status: 'ok',
+      db: 'connected',
+      serpFlights: Boolean(String(process.env.SERPAPI_API_KEY || '').trim()),
+    })
   } catch (err) {
     res.status(500).json({ status: 'error', db: process.env.NODE_ENV === 'production' ? 'unavailable' : err.message })
   }
