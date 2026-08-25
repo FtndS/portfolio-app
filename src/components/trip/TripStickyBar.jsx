@@ -13,6 +13,8 @@ export default function TripStickyBar({
   onBufferChange,
   pricedCount,
   placeCount,
+  budgetedCount = 0,
+  estimatedCount = 0,
   onExport,
   onEditMode,
   viewMode,
@@ -25,12 +27,19 @@ export default function TripStickyBar({
   const totalPrimary = inverted ? totalForeign : totalHome
   const preparePrimary = inverted ? prepareForeign : prepareHome
 
+  const mixLabel = (() => {
+    if (pricedCount <= 0) return 'ยังไม่มีตัวเลข'
+    const parts = []
+    if (budgetedCount > 0) parts.push(`งบ ${budgetedCount}`)
+    if (estimatedCount > 0) parts.push(`ประมาณ ${estimatedCount}`)
+    return `${parts.join(' · ') || `${pricedCount} จุด`} / ${placeCount} จุด`
+  })()
+
   return (
     <footer className="trip-sticky-bar trip-no-print">
       <div className="trip-sticky-bar-price">
         <span className="trip-sticky-bar-label">
-          จากงบในแผน
-          {pricedCount > 0 ? ` · ${pricedCount}/${placeCount} จุด` : ' · ยังไม่มีงบ'}
+          รวมทริป · {mixLabel}
         </span>
         <strong className="trip-sticky-bar-total">
           {formatTripMoney(preparePrimary, primary)}
@@ -39,6 +48,7 @@ export default function TripStickyBar({
         <span className="trip-sticky-bar-sub">
           รวมดิบ {formatTripMoney(totalPrimary, primary)}
           {bufferPct > 0 ? ` · เผื่อ +${bufferPct}%` : ''}
+          {' · ยังไม่ใช่ราคาจองจริง'}
         </span>
       </div>
       <label className="trip-sticky-buffer">

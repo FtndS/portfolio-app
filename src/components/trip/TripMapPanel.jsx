@@ -42,7 +42,7 @@ export default function TripMapPanel({
     || (resolved?.matchedName && displayName && resolved.matchedName !== displayName)
 
   return (
-    <section className="trip-card trip-map-card trip-no-print">
+    <section className="trip-card trip-map-card trip-map-panel trip-no-print">
       <div className="trip-map-card-head">
         <h3>แผนที่วันนี้</h3>
         {pins.length > 0 && (

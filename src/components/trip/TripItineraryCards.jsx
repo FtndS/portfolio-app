@@ -3,6 +3,7 @@ import { TripPlaceBooking } from './FlightBookingPanel'
 import { showPlaceOnMap } from '../../lib/tripMap'
 import { showPlacePhoto, showPlaceBooking } from '../../lib/tripTransport'
 import { formatTripMoney, HOME_CURRENCY } from '../../lib/tripFx'
+import { estimatePlaceCost, formatEstimateRange } from '../../lib/tripPriceEstimate'
 import './TripStudio.css'
 
 const TYPE_META = {
@@ -29,7 +30,22 @@ function timeRange(place) {
   return a || b || null
 }
 
-function FlightCard({ place, onSelect, focused, formatBudget }) {
+function PlacePrice({ place, estimateCtx, formatBudget }) {
+  const estimate = estimatePlaceCost(place, estimateCtx)
+  const range = formatEstimateRange(estimate, formatBudget)
+  if (!range) return null
+  return (
+    <p className={`trip-icard-price${estimate.source === 'estimate' ? ' trip-icard-price--estimate' : ''}`}>
+      {estimate.label}{' '}
+      <strong>{range}</strong>
+      <span className="trip-icard-price-tag">
+        {estimate.source === 'budget' ? 'งบในแผน' : 'ประมาณการ'}
+      </span>
+    </p>
+  )
+}
+
+function FlightCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
   const leg = place.flight_leg
   return (
     <article className={`trip-icard trip-icard--flight${focused ? ' is-focused' : ''}`}>
@@ -56,12 +72,7 @@ function FlightCard({ place, onSelect, focused, formatBudget }) {
           </div>
         )}
         {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-        {place.budget != null && (
-          <p className="trip-icard-price">
-            จากงบในแผน <strong>{formatBudget(place.budget)}</strong>
-            <span className="trip-icard-price-tag">ประมาณการ</span>
-          </p>
-        )}
+        <PlacePrice place={place} estimateCtx={estimateCtx} formatBudget={formatBudget} />
         {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
         {onSelect && showPlaceOnMap(place) && (
           <button type="button" className="trip-icard-map-btn" onClick={() => onSelect(place)}>
@@ -73,7 +84,7 @@ function FlightCard({ place, onSelect, focused, formatBudget }) {
   )
 }
 
-function StayCard({ place, onSelect, focused, formatBudget }) {
+function StayCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
   const canMap = onSelect && showPlaceOnMap(place)
   return (
     <article className={`trip-icard trip-icard--stay${focused ? ' is-focused' : ''}`}>
@@ -103,12 +114,7 @@ function StayCard({ place, onSelect, focused, formatBudget }) {
           )}
           {place.address && <p className="trip-icard-notes">{place.address}</p>}
           {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-          {place.budget != null && (
-            <p className="trip-icard-price">
-              จากงบในแผน <strong>{formatBudget(place.budget)}</strong>
-              <span className="trip-icard-price-tag">ประมาณการ</span>
-            </p>
-          )}
+          <PlacePrice place={place} estimateCtx={estimateCtx} formatBudget={formatBudget} />
           {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
         </div>
       </div>
@@ -116,7 +122,7 @@ function StayCard({ place, onSelect, focused, formatBudget }) {
   )
 }
 
-function PlaceCard({ place, onSelect, focused, formatBudget }) {
+function PlaceCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
   const meta = TYPE_META[place.type] || TYPE_META.other
   const canMap = onSelect && showPlaceOnMap(place)
   const withPhoto = showPlacePhoto(place)
@@ -150,12 +156,7 @@ function PlaceCard({ place, onSelect, focused, formatBudget }) {
           )}
           {place.address && <p className="trip-icard-notes">{place.address}</p>}
           {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-          {place.budget != null && (
-            <p className="trip-icard-price">
-              จากงบในแผน <strong>{formatBudget(place.budget)}</strong>
-              <span className="trip-icard-price-tag">ประมาณการ</span>
-            </p>
-          )}
+          <PlacePrice place={place} estimateCtx={estimateCtx} formatBudget={formatBudget} />
           {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
         </div>
       </div>
@@ -163,9 +164,17 @@ function PlaceCard({ place, onSelect, focused, formatBudget }) {
   )
 }
 
-function TransportCard({ place, onSelect, focused, formatBudget }) {
+function TransportCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
   if (place.flight_leg) {
-    return <FlightCard place={place} onSelect={onSelect} focused={focused} formatBudget={formatBudget} />
+    return (
+      <FlightCard
+        place={place}
+        onSelect={onSelect}
+        focused={focused}
+        formatBudget={formatBudget}
+        estimateCtx={estimateCtx}
+      />
+    )
   }
   return (
     <article className={`trip-icard trip-icard--transport${focused ? ' is-focused' : ''}`}>
@@ -179,12 +188,7 @@ function TransportCard({ place, onSelect, focused, formatBudget }) {
         </div>
         <h4 className="trip-icard-title">{place.name}</h4>
         {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-        {place.budget != null && (
-          <p className="trip-icard-price">
-            จากงบในแผน <strong>{formatBudget(place.budget)}</strong>
-            <span className="trip-icard-price-tag">ประมาณการ</span>
-          </p>
-        )}
+        <PlacePrice place={place} estimateCtx={estimateCtx} formatBudget={formatBudget} />
         {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
       </div>
     </article>
@@ -198,6 +202,7 @@ export default function TripItineraryCards({
   focusedPlaceId = null,
   onSelectPlace = null,
   formatBudget = (n) => formatTripMoney(n, HOME_CURRENCY),
+  estimateCtx = {},
 }) {
   const sorted = [...(places || [])].sort((a, b) => {
     const at = String(a.start_time || '')
@@ -233,6 +238,7 @@ export default function TripItineraryCards({
             focused,
             onSelect: onSelectPlace,
             formatBudget,
+            estimateCtx,
           }
           if (place.type === 'hotel') return <StayCard key={place.id} {...props} />
           if (place.type === 'transport') return <TransportCard key={place.id} {...props} />

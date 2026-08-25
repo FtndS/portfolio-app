@@ -28,10 +28,10 @@ import {
   inferForeignCurrency,
   loadTripFxPrefs,
   saveTripFxPrefs,
-  sumPlaceBudgets,
   unitsPerUsdFromQuotes,
   yahooFxTickers,
 } from '../../lib/tripFx'
+import { sumTripCostEstimates } from '../../lib/tripPriceEstimate'
 import './TripApp.css'
 import './TripPlaceSearch.css'
 import './TripTimeline.css'
@@ -256,11 +256,19 @@ export default function TripApp({
 
   const unitsPerUsd = useMemo(() => unitsPerUsdFromQuotes(fxQuotes), [fxQuotes])
   const nativeCurrency = (detail?.currency || HOME_CURRENCY).toUpperCase()
-  const budgetTotal = useMemo(() => sumPlaceBudgets(detail?.places), [detail?.places])
-  const budgetPricedCount = useMemo(
-    () => (detail?.places || []).filter((p) => p.budget != null && Number(p.budget) > 0).length,
-    [detail?.places]
+  const estimateCtx = useMemo(
+    () => ({
+      destination: detail?.destination || '',
+      origin: detail?.origin || '',
+    }),
+    [detail?.destination, detail?.origin]
   )
+  const costSummary = useMemo(
+    () => sumTripCostEstimates(detail?.places, estimateCtx),
+    [detail?.places, estimateCtx]
+  )
+  const budgetTotal = costSummary.total
+  const budgetPricedCount = costSummary.pricedCount
 
   const formatPlaceBudget = (amount, fromCcy = nativeCurrency) => {
     const home = convertTripAmount(amount, fromCcy, HOME_CURRENCY, unitsPerUsd)
@@ -916,6 +924,7 @@ export default function TripApp({
                     focusedPlaceId={mapFocusId}
                     onSelectPlace={focusPlaceOnMap}
                     formatBudget={formatPlaceBudget}
+                    estimateCtx={estimateCtx}
                   />
                 ) : (
                   <>
@@ -1183,6 +1192,8 @@ export default function TripApp({
                   onBufferChange={setFxBufferPct}
                   pricedCount={budgetPricedCount}
                   placeCount={(detail.places || []).length}
+                  budgetedCount={costSummary.budgeted}
+                  estimatedCount={costSummary.estimated}
                   onExport={exportPlan}
                   onEditMode={() => setDetailView('edit')}
                   viewMode={detailView}
