@@ -25,8 +25,8 @@ function formatQuota(quota) {
   return `เหลือ ${slot.remaining ?? 0}/${limit} ครั้ง/สัปดาห์`
 }
 
-export default function TripAIPlanner({ onClose, onCreated }) {
-  const [input, setInput] = useState('')
+export default function TripAIPlanner({ onClose, onCreated, initialPrompt = '' }) {
+  const [input, setInput] = useState(() => String(initialPrompt || '').trim())
   const [messages, setMessages] = useState([])
   const [questions, setQuestions] = useState([])
   const [draftPlan, setDraftPlan] = useState(null)
@@ -41,6 +41,11 @@ export default function TripAIPlanner({ onClose, onCreated }) {
       if (q && !q.error) setQuotaHint(formatQuota(q) || '')
     })
   }, [])
+
+  useEffect(() => {
+    const seed = String(initialPrompt || '').trim()
+    if (seed) setInput(seed)
+  }, [initialPrompt])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

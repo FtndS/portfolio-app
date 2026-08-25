@@ -77,7 +77,7 @@ describe('googleMaps urls', () => {
     const search = async (opts) => {
       calls.push(opts)
       return [{
-        name: 'Don Mueang International Airport',
+        name: 'Don Mueang International Airport (DMK)',
         address: 'Don Mueang, Bangkok',
         lat: 13.9126,
         lng: 100.6067,
@@ -100,9 +100,54 @@ describe('googleMaps urls', () => {
       lng: 100.68,
     })
     expect(calls[0].near).toBe('')
+    expect(calls.some((c) => /DMK/i.test(c.query))).toBe(true)
     expect(r.place.lat).toBeCloseTo(13.9126)
     expect(r.place.placeId).toBe('ChIJdmk')
     expect(decodeURIComponent(r.embedUrl)).not.toMatch(/เชียงใหม่/)
+  })
+
+  it('corrects BKK pin that was wrongly stored at Haneda / Tokyo', async () => {
+    const search = async () => [{
+      name: 'Suvarnabhumi Airport (BKK)',
+      address: 'Samut Prakan, Thailand',
+      lat: 13.6900,
+      lng: 100.7501,
+      externalId: 'ChIJbkk',
+      source: 'google',
+    }, {
+      name: 'Haneda Airport',
+      address: 'Tokyo',
+      lat: 35.5494,
+      lng: 139.7798,
+      externalId: 'ChIJhnd',
+      source: 'google',
+    }]
+    const r = await resolveTripPlaceMap(search, {
+      name: 'สนามบินสุวรรณภูมิ (BKK)',
+      type: 'airport',
+      near: 'โตเกียว',
+      // Wrong stored coords (Haneda)
+      lat: 35.5494,
+      lng: 139.7798,
+      placeId: 'ChIJhnd',
+    })
+    expect(r.place.lat).toBeCloseTo(13.69, 1)
+    expect(r.place.lng).toBeCloseTo(100.75, 1)
+    expect(r.place.coordsCorrected).toBe(true)
+    expect(decodeURIComponent(r.embedUrl)).toMatch(/BKK/i)
+    expect(decodeURIComponent(r.embedUrl)).not.toMatch(/Haneda|35\.549/i)
+  })
+
+  it('airport search queries never append trip destination', () => {
+    const qs = buildMapSearchQueries(
+      'สนามบินสุวรรณภูมิ (BKK)',
+      'สมุทรปราการ',
+      'โตเกียว',
+      'airport',
+    )
+    expect(qs.some((q) => /BKK/i.test(q))).toBe(true)
+    expect(qs.every((q) => !/โตเกียว|Tokyo/i.test(q))).toBe(true)
+    expect(cleanMapSearchQuery('สนามบินสุวรรณภูมิ (BKK)')).toBe('BKK Airport')
   })
 
   it('builds restaurant search queries with English name and destination', () => {

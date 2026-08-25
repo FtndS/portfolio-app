@@ -17,16 +17,54 @@ export function isValidMapCoords(lat, lng) {
   return true
 }
 
+/** Common IATA airport approx centers — used to reject wrong stored pins. */
+export const AIRPORT_IATA_COORDS = {
+  BKK: [13.6900, 100.7501],
+  DMK: [13.9126, 100.6067],
+  HKT: [8.1132, 98.3169],
+  CNX: [18.7669, 98.9626],
+  NRT: [35.7720, 140.3929],
+  HND: [35.5494, 139.7798],
+  KIX: [34.4347, 135.2441],
+  ITM: [34.7855, 135.4382],
+  SIN: [1.3644, 103.9915],
+  ICN: [37.4602, 126.4407],
+}
+
+export function extractIataCode(name = '') {
+  const m = /\(([A-Z]{3})\)/.exec(String(name || ''))
+  return m?.[1] || null
+}
+
+/** Haversine distance in km. */
+export function coordsDistanceKm(lat1, lng1, lat2, lng2) {
+  if (!isValidMapCoords(lat1, lng1) || !isValidMapCoords(lat2, lng2)) return Infinity
+  const toRad = (d) => (Number(d) * Math.PI) / 180
+  const R = 6371
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+/** True when stored lat/lng is far from the airport IATA should map to. */
+export function storedCoordsConflictWithIata(name, lat, lng, maxKm = 80) {
+  const code = extractIataCode(name)
+  const known = code && AIRPORT_IATA_COORDS[code]
+  if (!known || !isValidMapCoords(lat, lng)) return false
+  return coordsDistanceKm(lat, lng, known[0], known[1]) > maxKm
+}
+
 /** Clean place name for map search — strip generic prefixes, keep airport codes. */
 export function cleanMapSearchQuery(name = '') {
   let q = String(name || '').trim()
   if (!q) return ''
-  // Prefer IATA codes in parentheses: "สนามบินดอนเมือง (DMK)" → keep full + code
-  const code = /\(([A-Z]{3})\)/.exec(q)
+  const code = extractIataCode(q)
   if (code) {
-    const base = q.replace(/\s*\([^)]*\)\s*/g, ' ').trim()
-    q = `${base} ${code[1]} Airport`
-    return q.slice(0, 160)
+    // Prefer unambiguous IATA query — avoid mixing Thai name + wrong trip city
+    return `${code} Airport`
   }
   q = q
     .replace(/^ร้านอาหาร\s+/i, '')
@@ -41,8 +79,20 @@ export function buildMapSearchQueries(name = '', address = '', near = '', type =
   const raw = String(name || '').trim()
   const addr = String(address || '').trim()
   const dest = String(near || '').trim()
+  const iata = extractIataCode(raw)
   const cleaned = cleanMapSearchQuery(raw)
   const queries = []
+
+  // Airports / IATA: never append trip destination (BKK + โตเกียว → Haneda mess)
+  if (type === 'airport' || iata) {
+    if (iata) {
+      queries.push(`${iata} Airport`)
+      queries.push(iata)
+    }
+    if (cleaned && cleaned !== `${iata} Airport`) queries.push(cleaned)
+    if (raw && raw !== cleaned) queries.push(raw.replace(/\s*\([^)]*\)\s*/g, ' ').trim())
+    return [...new Set(queries.filter(Boolean))].slice(0, 4)
+  }
 
   if (cleaned) queries.push(cleaned)
   if (raw && raw !== cleaned) queries.push(raw)
@@ -194,15 +244,23 @@ export async function resolveTripPlaceMap(searchTripPlaces, {
 } = {}) {
   let hit = null
   let hitScore = 0
-  const requestCoordsOk = isValidMapCoords(lat, lng)
-  const hasStoredPlaceId = Boolean(placeId)
+  const iata = extractIataCode(name)
+  const isAirport = type === 'airport' || Boolean(iata)
+  const coordsConflict = storedCoordsConflictWithIata(name, lat, lng)
+  const requestCoordsOk = isValidMapCoords(lat, lng) && !coordsConflict
+  const hasStoredPlaceId = Boolean(placeId) && !coordsConflict
   const searchQ = cleanMapSearchQuery(name) || String(name || '').trim() || String(near || '').trim()
   const nearForSearch = shouldBiasSearchWithDestination(name, type) ? near : ''
   const searchQueries = buildMapSearchQueries(name, address, nearForSearch, type)
   const altQueries = searchQueries.filter((q) => q !== searchQ)
 
-  // Search when missing reliable placeId/coords, or to improve weak stored data
-  const needsSearch = !hasStoredPlaceId || !requestCoordsOk || type === 'restaurant'
+  // Always re-search airports / IATA / conflicted coords — stored pins are often wrong
+  const needsSearch =
+    isAirport
+    || coordsConflict
+    || !hasStoredPlaceId
+    || !requestCoordsOk
+    || type === 'restaurant'
   if (needsSearch && searchQueries.length) {
     try {
       let bestHit = null
@@ -211,11 +269,15 @@ export async function resolveTripPlaceMap(searchTripPlaces, {
       for (const q of searchQueries) {
         const results = await searchTripPlaces({
           query: q,
-          type: type || 'other',
+          type: isAirport ? 'airport' : (type || 'other'),
           near: nearForSearch,
         })
         for (const candidate of results) {
-          const score = scoreMapHit(q, candidate?.name || '', altQueries)
+          let score = scoreMapHit(q, candidate?.name || '', altQueries)
+          // Boost hits that contain the IATA code
+          if (iata && new RegExp(`\\b${iata}\\b`, 'i').test(String(candidate?.name || ''))) {
+            score = Math.max(score, 0.95)
+          }
           if (score > bestScore) {
             bestScore = score
             bestHit = candidate
@@ -231,7 +293,7 @@ export async function resolveTripPlaceMap(searchTripPlaces, {
   }
 
   const hitCoordsOk = isValidMapCoords(hit?.lat, hit?.lng)
-  const minStrong = type === 'airport' ? 0.2 : (['hotel', 'restaurant', 'attraction'].includes(type) ? 0.35 : 0.25)
+  const minStrong = isAirport ? 0.2 : (['hotel', 'restaurant', 'attraction'].includes(type) ? 0.35 : 0.25)
   const strongHit = hit && hitScore >= minStrong
   const weakHit = hit && !strongHit && hitScore >= 0.15
 
@@ -242,10 +304,17 @@ export async function resolveTripPlaceMap(searchTripPlaces, {
   let resolvedLng = null
   let resolvedPlaceId = placeId || null
 
+  // Prefer known IATA center if search failed but we know the airport
+  const known = iata && AIRPORT_IATA_COORDS[iata]
+
   if (strongHit && hitCoordsOk) {
     resolvedLat = Number(hit.lat)
     resolvedLng = Number(hit.lng)
     resolvedPlaceId = hit.externalId || placeId || null
+  } else if (known) {
+    resolvedLat = known[0]
+    resolvedLng = known[1]
+    resolvedPlaceId = null
   } else if (requestCoordsOk) {
     resolvedLat = Number(lat)
     resolvedLng = Number(lng)
@@ -257,8 +326,10 @@ export async function resolveTripPlaceMap(searchTripPlaces, {
 
   const matchQuality = strongHit
     ? 'strong'
-    : (requestCoordsOk ? 'stored' : (weakHit ? 'weak' : 'none'))
-  const embedCoordsOk = (strongHit || (requestCoordsOk && matchQuality === 'stored')) && isValidMapCoords(resolvedLat, resolvedLng)
+    : (known && !requestCoordsOk ? 'iata'
+      : (requestCoordsOk ? 'stored' : (weakHit ? 'weak' : 'none')))
+  const embedCoordsOk = isValidMapCoords(resolvedLat, resolvedLng)
+    && (strongHit || known || (requestCoordsOk && matchQuality === 'stored'))
 
   const resolved = {
     name: displayName,
@@ -267,28 +338,31 @@ export async function resolveTripPlaceMap(searchTripPlaces, {
     address: displayAddress || (strongHit && hit?.address) || (weakHit && hit?.address) || null,
     lat: resolvedLat,
     lng: resolvedLng,
-    placeId: strongHit ? resolvedPlaceId : (requestCoordsOk ? placeId : null),
+    placeId: strongHit ? resolvedPlaceId : (requestCoordsOk && !coordsConflict ? placeId : null),
     photoUrl: strongHit ? (hit?.photoUrl || null) : null,
     rating: strongHit ? (hit?.rating ?? null) : null,
     userRatingCount: strongHit ? (hit?.userRatingCount ?? null) : null,
     category: type || (strongHit && hit?.category) || null,
     source: strongHit ? (hit?.source || null) : null,
+    coordsCorrected: Boolean(coordsConflict && embedCoordsOk),
   }
 
-  const openUrl = (strongHit && hit?.googleMapsUri) || buildGoogleMapsOpenUrl({
-    name: resolved.name,
+  // For airports prefer IATA/name query over place_id when we corrected coords
+  const embedByName = isAirport && (coordsConflict || matchQuality === 'iata' || !strongHit)
+  const openUrl = (!embedByName && strongHit && hit?.googleMapsUri) || buildGoogleMapsOpenUrl({
+    name: embedByName && iata ? `${iata} Airport` : resolved.name,
     address: resolved.address,
-    lat: embedCoordsOk ? resolved.lat : null,
-    lng: embedCoordsOk ? resolved.lng : null,
-    placeId: strongHit ? resolved.placeId : null,
+    lat: embedCoordsOk && !embedByName ? resolved.lat : null,
+    lng: embedCoordsOk && !embedByName ? resolved.lng : null,
+    placeId: embedByName ? null : (strongHit ? resolved.placeId : null),
   })
 
   const embedUrl = buildGoogleMapsEmbedUrl({
-    name: resolved.name,
-    address: resolved.address,
-    lat: embedCoordsOk ? resolved.lat : null,
-    lng: embedCoordsOk ? resolved.lng : null,
-    placeId: strongHit ? resolved.placeId : null,
+    name: embedByName && iata ? `${iata} Airport` : resolved.name,
+    address: embedByName ? null : resolved.address,
+    lat: embedCoordsOk && !embedByName ? resolved.lat : null,
+    lng: embedCoordsOk && !embedByName ? resolved.lng : null,
+    placeId: embedByName ? null : (strongHit ? resolved.placeId : null),
   })
 
   return {

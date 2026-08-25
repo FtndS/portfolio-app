@@ -74,6 +74,11 @@ export default function TripMapPanel({
                 แผนที่อาจไม่ตรง 100% — ลองเปิด Google Maps หรือแก้ชื่อ/ที่อยู่ในแผน
               </p>
             )}
+            {resolved?.coordsCorrected && (
+              <p className="trip-map-match-warn">
+                แก้พิกัดที่เก็บผิดแล้ว — ใช้ตำแหน่งสนามบินตามรหัส IATA
+              </p>
+            )}
             {resolved?.matchQuality === 'strong' && resolved?.rating != null && (
               <p className="trip-map-place-rating">
                 ★ {Number(resolved.rating).toFixed(1)}
