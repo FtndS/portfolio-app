@@ -13,7 +13,7 @@
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: color 0.18s, background 0.18s;
@@ -166,7 +166,7 @@
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
