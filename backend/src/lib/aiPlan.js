@@ -20,6 +20,7 @@ export const AI_PLANS = {
       copilot: 2,
       'ticker-journal': 2,
       'trip-plan': 1,
+      'trip-chat': 4,
     },
     analyze: {
       maxTransactions: 30,
@@ -42,6 +43,9 @@ export const AI_PLANS = {
       maxTokens: 8192,
       maxEnrich: 36,
     },
+    tripChat: {
+      maxTokens: 2500,
+    },
   },
   pro: {
     id: 'pro',
@@ -52,6 +56,7 @@ export const AI_PLANS = {
       copilot: 6,
       'ticker-journal': 6,
       'trip-plan': 4,
+      'trip-chat': 20,
     },
     analyze: {
       maxTransactions: 120,
@@ -73,6 +78,9 @@ export const AI_PLANS = {
     tripPlan: {
       maxTokens: 8192,
       maxEnrich: 36,
+    },
+    tripChat: {
+      maxTokens: 2500,
     },
   },
 }
@@ -122,5 +130,5 @@ export function nextAvailableFromOldest(oldestUsedAt) {
 export function estimateWeeklyAiCalls(plan, planExpiresAt) {
   const cfg = getPlanConfig(plan, planExpiresAt)
   const w = cfg.weeklyLimit
-  return (w.analyze || 0) + (w['news-summary'] || 0) + (w.copilot || 0) + (w['ticker-journal'] || 0) + (w['trip-plan'] || 0)
+  return (w.analyze || 0) + (w['news-summary'] || 0) + (w.copilot || 0) + (w['ticker-journal'] || 0) + (w['trip-plan'] || 0) + (w['trip-chat'] || 0)
 }

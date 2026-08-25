@@ -15,5 +15,8 @@ describe('subscriptionCatalog', () => {
     const tripPlan = pro.features.find((f) => f.id === 'tripPlan')
     expect(tripPlan.pro).toContain('4')
     expect(tripPlan.free).toContain('1')
+    const tripChat = pro.features.find((f) => f.id === 'tripChat')
+    expect(tripChat.pro).toContain('20')
+    expect(tripChat.free).toContain('4')
   })
 })

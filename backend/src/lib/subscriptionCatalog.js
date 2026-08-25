@@ -10,6 +10,7 @@ const FEATURE_ROWS = [
   { key: 'newsSummary', label: 'AI สรุปข่าว', weekly: true },
   { key: 'tickerJournal', label: 'AI สรุป journal หุ้น', weekly: true },
   { key: 'tripPlan', label: 'AI จัดทริป', weekly: true },
+  { key: 'tripChat', label: 'Trip Copilot (ในทริป)', weekly: true },
 ]
 
 const WEEKLY_KEYS = {
@@ -18,6 +19,7 @@ const WEEKLY_KEYS = {
   newsSummary: 'news-summary',
   tickerJournal: 'ticker-journal',
   tripPlan: 'trip-plan',
+  tripChat: 'trip-chat',
 }
 
 export function buildSubscriptionCatalog() {

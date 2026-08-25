@@ -20,6 +20,13 @@ import {
   normalizeAiPlanResponse,
   normalizeAiTripPlanMessages,
 } from '../lib/aiTripPlan.js'
+import {
+  applyTripChatActions,
+  buildTripChatContext,
+  buildTripChatSystemPrompt,
+  normalizeTripChatMessages,
+  normalizeTripChatResponse,
+} from '../lib/aiTripChat.js'
 import pool from '../db/index.js'
 
 const router = express.Router()
@@ -603,6 +610,170 @@ router.post('/trip-plan', async (req, res) => {
     if (/JSON|Empty response|AI request failed|No JSON/i.test(msg)) {
       return res.status(502).json({
         error: 'AI ตอบแผนไม่สำเร็จ กรุณาลองส่งใหม่ หรือย่อรายละเอียดทริป',
+        detail: msg.slice(0, 200),
+      })
+    }
+    serverError(res, err)
+  }
+})
+
+async function loadOwnedTripBundle(userId, tripId) {
+  const tripR = await pool.query(
+    'SELECT * FROM trips WHERE id = $1 AND user_id = $2',
+    [tripId, userId]
+  )
+  const trip = tripR.rows[0]
+  if (!trip) return null
+  const daysR = await pool.query(
+    `SELECT * FROM trip_days WHERE trip_id = $1 ORDER BY day_index ASC, id ASC`,
+    [tripId]
+  )
+  const placesR = await pool.query(
+    `SELECT * FROM trip_places WHERE trip_id = $1 ORDER BY sort_order ASC, id ASC`,
+    [tripId]
+  )
+  return { trip, days: daysR.rows, places: placesR.rows }
+}
+
+// In-trip Trip Copilot — chat + optional plan edit actions
+router.post('/trip-chat', async (req, res) => {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(503).json({ error: 'ยังไม่ได้ตั้งค่า AI' })
+    }
+
+    const tripId = Number(req.body?.trip_id)
+    if (!Number.isFinite(tripId)) {
+      return res.status(400).json({ error: 'ไม่พบทริป' })
+    }
+
+    const apply = !!req.body?.apply
+    const bundle = await loadOwnedTripBundle(req.userId, tripId)
+    if (!bundle) return res.status(404).json({ error: 'ไม่พบทริป' })
+
+    const planConfig = getPlanConfigForUser(
+      req.userRole,
+      req.userEmail,
+      req.userPlan,
+      req.userPlanExpiresAt
+    )
+
+    if (apply) {
+      const actionsRaw = Array.isArray(req.body?.actions) ? req.body.actions : []
+      const normalizedActions = normalizeTripChatResponse({
+        status: 'reply',
+        reply: 'apply',
+        actions: actionsRaw,
+      })
+      if (normalizedActions.error) {
+        return res.status(400).json({ error: normalizedActions.error })
+      }
+      if (!normalizedActions.actions.length) {
+        return res.status(400).json({ error: 'ไม่มีการปรับแผนให้บันทึก' })
+      }
+
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        const applied = await applyTripChatActions(
+          client,
+          bundle.trip,
+          bundle.days,
+          [...bundle.places],
+          normalizedActions.actions
+        )
+        await client.query('COMMIT')
+        const next = await loadOwnedTripBundle(req.userId, tripId)
+        return res.json({
+          status: 'applied',
+          applied,
+          trip: next
+            ? { ...next.trip, days: next.days, places: next.places }
+            : null,
+        })
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {})
+        throw err
+      } finally {
+        client.release()
+      }
+    }
+
+    const messages = normalizeTripChatMessages(req.body?.messages)
+    if (!messages.length) {
+      return res.status(400).json({ error: 'กรุณาพิมพ์ข้อความอย่างน้อยหนึ่งข้อความ' })
+    }
+
+    const reserved = await reserveAiQuota(
+      req.userId,
+      req.userEmail,
+      AI_FEATURES.TRIP_CHAT,
+      req.userRole,
+      req.userPlan,
+      req.userPlanExpiresAt
+    )
+    if (!reserved.allowed) {
+      return res.status(429).json({
+        error: quotaExceededMessage(AI_FEATURES.TRIP_CHAT, reserved.nextAvailableAt, { limit: reserved.limit }),
+        code: 'AI_QUOTA_EXCEEDED',
+        feature: AI_FEATURES.TRIP_CHAT,
+        nextAvailableAt: reserved.nextAvailableAt,
+      })
+    }
+
+    const context = buildTripChatContext({
+      ...bundle.trip,
+      days: bundle.days,
+      places: bundle.places,
+    })
+
+    const claudeMessages = []
+    for (const m of messages) {
+      const last = claudeMessages[claudeMessages.length - 1]
+      if (last && last.role === m.role) {
+        last.content = `${last.content}\n${m.content}`
+      } else {
+        claudeMessages.push({ ...m })
+      }
+    }
+    if (claudeMessages[0]?.role === 'assistant') {
+      claudeMessages.unshift({ role: 'user', content: 'ช่วยดูแผนทริปนี้ให้หน่อย' })
+    }
+    if (claudeMessages[claudeMessages.length - 1]?.role === 'assistant') {
+      claudeMessages.push({
+        role: 'user',
+        content: 'ตอบเป็น JSON ตามรูปแบบที่กำหนดต่อได้เลย',
+      })
+    }
+
+    const text = await callClaudeMessages(
+      buildTripChatSystemPrompt(context),
+      claudeMessages,
+      planConfig.tripChat?.maxTokens || 2500
+    )
+    const normalized = normalizeTripChatResponse(parseClaudeJson(text))
+    if (normalized.error) {
+      return res.status(502).json({ error: normalized.error })
+    }
+
+    return res.json({
+      status: 'reply',
+      reply: normalized.reply,
+      actions: normalized.actions,
+      quota: {
+        remaining: reserved.remaining,
+        limit: reserved.limit,
+      },
+    })
+  } catch (err) {
+    console.error('AI trip-chat error:', err)
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      return res.status(504).json({ error: 'AI ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง', code: 'AI_TIMEOUT' })
+    }
+    const msg = String(err?.message || '')
+    if (/JSON|Empty response|AI request failed|No JSON/i.test(msg)) {
+      return res.status(502).json({
+        error: 'AI ตอบไม่สำเร็จ กรุณาลองส่งใหม่',
         detail: msg.slice(0, 200),
       })
     }

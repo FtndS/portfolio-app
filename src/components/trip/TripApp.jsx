@@ -902,6 +902,13 @@ export default function TripApp({
                 onOpenAi={openAiPlanner}
                 onEditMode={() => setDetailView('edit')}
                 onExport={exportPlan}
+                onTripUpdated={(next) => {
+                  if (!next) return
+                  setDetail(next)
+                  const days = next.days || []
+                  const keep = activeDayId && days.some((d) => d.id === activeDayId)
+                  if (!keep) setActiveDayId(days[0]?.id || null)
+                }}
               />
 
               <div className="trip-studio-main">

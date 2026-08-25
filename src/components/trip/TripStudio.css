@@ -286,6 +286,43 @@
   color: var(--trip-ink);
 }
 
+.trip-chat-bubble--user {
+  border-radius: 0.85rem 0.85rem 0.25rem 0.85rem;
+  background: color-mix(in srgb, var(--trip-accent) 16%, var(--trip-card-bg));
+  border-color: color-mix(in srgb, var(--trip-accent) 35%, var(--trip-border));
+  align-self: flex-end;
+}
+
+.trip-chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.trip-chat-apply {
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--trip-border);
+  background: var(--trip-card-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.trip-chat-apply-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.trip-chat-err {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #c45c4a;
+}
+
 .trip-chat-bubble p {
   margin: 0 0 0.4rem;
 }
