@@ -15,6 +15,7 @@ export default function TripStickyBar({
   placeCount,
   budgetedCount = 0,
   estimatedCount = 0,
+  liveCount = 0,
   onExport,
   onEditMode,
   viewMode,
@@ -31,6 +32,7 @@ export default function TripStickyBar({
     if (pricedCount <= 0) return 'ยังไม่มีตัวเลข'
     const parts = []
     if (budgetedCount > 0) parts.push(`งบ ${budgetedCount}`)
+    if (liveCount > 0) parts.push(`ตั๋วจริง ${liveCount}`)
     if (estimatedCount > 0) parts.push(`ประมาณ ${estimatedCount}`)
     return `${parts.join(' · ') || `${pricedCount} จุด`} / ${placeCount} จุด`
   })()
@@ -43,12 +45,16 @@ export default function TripStickyBar({
         </span>
         <strong className="trip-sticky-bar-total">
           {formatTripMoney(preparePrimary, primary)}
-          <span className="trip-sticky-bar-tag">ประมาณการ</span>
+          <span className="trip-sticky-bar-tag">
+            {liveCount > 0 ? 'ผสมราคาจริงใกล้เคียง' : 'ประมาณการ'}
+          </span>
         </strong>
         <span className="trip-sticky-bar-sub">
           รวมดิบ {formatTripMoney(totalPrimary, primary)}
           {bufferPct > 0 ? ` · เผื่อ +${bufferPct}%` : ''}
-          {' · ยังไม่ใช่ราคาจองจริง'}
+          {liveCount > 0
+            ? ' · ตั๋วจาก Google Flights (SerpAPI) · จองนอกแอป'
+            : ' · ยังไม่ใช่ราคาจองจริง'}
         </span>
       </div>
       <label className="trip-sticky-buffer">

@@ -656,6 +656,15 @@
   color: var(--trip-ink);
 }
 
+.trip-icard-price--live strong {
+  font-weight: 750;
+  color: var(--trip-accent, #0f766e);
+}
+
+.trip-icard-price--live .trip-icard-price-tag {
+  color: var(--trip-accent, #0f766e);
+}
+
 .trip-icard-map-btn {
   margin-top: 0.55rem;
   border: none;

@@ -148,11 +148,11 @@ function flightRange(place, rates, destCode) {
  *   amount: number,
  *   low: number,
  *   high: number,
- *   source: 'budget' | 'estimate' | 'none',
+ *   source: 'budget' | 'live' | 'estimate' | 'none',
  *   label: string,
  * }}
  */
-export function estimatePlaceCost(place, { destination = '', origin = '' } = {}) {
+export function estimatePlaceCost(place, { destination = '', origin = '', flightQuotes = null } = {}) {
   const budget = Number(place?.budget)
   if (Number.isFinite(budget) && budget > 0) {
     return {
@@ -161,6 +161,18 @@ export function estimatePlaceCost(place, { destination = '', origin = '' } = {})
       high: budget,
       source: 'budget',
       label: 'จากงบในแผน',
+    }
+  }
+
+  const live = flightQuotes?.[place?.id] || place?.live_flight_quote
+  const livePrice = Number(live?.price ?? live?.lowest?.price)
+  if (isFlightPlace(place) && Number.isFinite(livePrice) && livePrice > 0) {
+    return {
+      amount: Math.round(livePrice),
+      low: Math.round(livePrice),
+      high: Math.round(livePrice),
+      source: 'live',
+      label: 'จาก Google Flights',
     }
   }
 
@@ -199,6 +211,7 @@ export function sumTripCostEstimates(places, ctx = {}) {
   let total = 0
   let budgeted = 0
   let estimated = 0
+  let live = 0
   let skipped = 0
 
   for (const place of places || []) {
@@ -209,6 +222,7 @@ export function sumTripCostEstimates(places, ctx = {}) {
     }
     total += e.amount
     if (e.source === 'budget') budgeted += 1
+    else if (e.source === 'live') live += 1
     else estimated += 1
   }
 
@@ -216,8 +230,9 @@ export function sumTripCostEstimates(places, ctx = {}) {
     total,
     budgeted,
     estimated,
+    live,
     skipped,
-    pricedCount: budgeted + estimated,
+    pricedCount: budgeted + estimated + live,
     placeCount: (places || []).length,
   }
 }

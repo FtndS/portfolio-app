@@ -38,6 +38,22 @@ describe('tripPriceEstimate', () => {
     expect(e.amount).toBeGreaterThan(5000)
   })
 
+  it('prefers live Google Flights quote over rule estimate', () => {
+    const place = {
+      id: 42,
+      type: 'transport',
+      name: 'BKK → NRT',
+      flight_leg: { origin: 'BKK', destination: 'NRT' },
+    }
+    const e = estimatePlaceCost(place, {
+      destination: 'Japan',
+      flightQuotes: { 42: { price: 12345, currency: 'THB' } },
+    })
+    expect(e.source).toBe('live')
+    expect(e.amount).toBe(12345)
+    expect(e.label).toMatch(/Google Flights/)
+  })
+
   it('sums trip with mix of budget and estimate', () => {
     const sum = sumTripCostEstimates(
       [

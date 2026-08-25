@@ -34,13 +34,17 @@ function PlacePrice({ place, estimateCtx, formatBudget, formatBudgetRange }) {
   const estimate = estimatePlaceCost(place, estimateCtx)
   const range = formatEstimateRange(estimate, formatBudget, formatBudgetRange)
   if (!range) return null
+  const tag =
+    estimate.source === 'budget'
+      ? 'งบในแผน'
+      : estimate.source === 'live'
+        ? 'Google Flights'
+        : 'ประมาณการ'
   return (
-    <p className={`trip-icard-price${estimate.source === 'estimate' ? ' trip-icard-price--estimate' : ''}`}>
+    <p className={`trip-icard-price${estimate.source === 'estimate' ? ' trip-icard-price--estimate' : ''}${estimate.source === 'live' ? ' trip-icard-price--live' : ''}`}>
       {estimate.label}{' '}
       <strong>{range}</strong>
-      <span className="trip-icard-price-tag">
-        {estimate.source === 'budget' ? 'งบในแผน' : 'ประมาณการ'}
-      </span>
+      <span className="trip-icard-price-tag">{tag}</span>
     </p>
   )
 }

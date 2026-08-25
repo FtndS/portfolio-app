@@ -87,3 +87,11 @@ export const placeSearchLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'ค้นหาสถานที่บ่อยเกินไป กรุณารอสักครู่' },
 })
+
+export const flightQuoteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'ดึงราคาเที่ยวบินบ่อยเกินไป กรุณารอสักครู่' },
+})

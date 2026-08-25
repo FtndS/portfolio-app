@@ -1,7 +1,7 @@
 import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { placeSearchLimiter } from '../middleware/rateLimit.js'
+import { placeSearchLimiter, flightQuoteLimiter } from '../middleware/rateLimit.js'
 import { serverError } from '../lib/httpErrors.js'
 import {
   fetchGooglePlacePhoto,
@@ -18,6 +18,11 @@ import {
   normalizeTripPayload,
 } from '../lib/tripHelpers.js'
 import { attachBookingLinks, sanitizeBookingLinks } from '../lib/bookingLinks.js'
+import {
+  buildQuoteFromFlightLeg,
+  fetchSerpFlightQuotes,
+  isSerpFlightsConfigured,
+} from '../lib/serpFlights.js'
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -221,6 +226,76 @@ router.get('/:id', async (req, res) => {
     res.json(trip)
   } catch (err) {
     serverError(res, err, 'GET trip detail error:')
+  }
+})
+
+/** Near-live Google Flights quotes via SerpAPI for flight_leg places on this trip */
+router.get('/:id/flight-quotes', flightQuoteLimiter, async (req, res) => {
+  const tripId = Number(req.params.id)
+  try {
+    const trip = await loadTripDetail(req.userId, tripId)
+    if (!trip) return res.status(404).json({ error: 'ไม่พบทริป' })
+
+    const configured = isSerpFlightsConfigured()
+    const flightPlaces = (trip.places || []).filter((p) => p?.flight_leg)
+    if (!configured) {
+      return res.json({
+        configured: false,
+        quotes: [],
+        error: 'ยังไม่ได้ตั้งค่า SERPAPI_API_KEY',
+        code: 'SERPAPI_NOT_CONFIGURED',
+      })
+    }
+    if (flightPlaces.length === 0) {
+      return res.json({ configured: true, quotes: [] })
+    }
+
+    const quotes = []
+    for (const place of flightPlaces) {
+      const params = buildQuoteFromFlightLeg(place.flight_leg, trip)
+      if (params.error) {
+        quotes.push({ placeId: place.id, error: params.error, code: 'INCOMPLETE_LEG' })
+        continue
+      }
+      try {
+        const result = await fetchSerpFlightQuotes(params)
+        if (result.error) {
+          quotes.push({
+            placeId: place.id,
+            origin: params.origin,
+            destination: params.destination,
+            outboundDate: params.outboundDate,
+            error: result.error,
+            code: result.code || 'QUOTE_ERROR',
+          })
+        } else {
+          quotes.push({
+            placeId: place.id,
+            origin: result.origin,
+            destination: result.destination,
+            outboundDate: result.outboundDate,
+            returnDate: result.returnDate,
+            adults: result.adults,
+            currency: result.currency,
+            lowest: result.lowest,
+            offers: result.offers,
+            fetchedAt: result.fetchedAt,
+            cached: Boolean(result.cached),
+            disclaimer: result.disclaimer,
+          })
+        }
+      } catch (err) {
+        quotes.push({
+          placeId: place.id,
+          error: err?.message || 'ดึงราคาเที่ยวบินไม่สำเร็จ',
+          code: 'QUOTE_EXCEPTION',
+        })
+      }
+    }
+
+    res.json({ configured: true, quotes })
+  } catch (err) {
+    serverError(res, err, 'GET trip flight-quotes error:')
   }
 })
 
