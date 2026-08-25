@@ -156,6 +156,14 @@
   margin-bottom: 10px;
 }
 
+.trip-date-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .trip-route-edit-actions {
   display: flex;
   flex-wrap: wrap;

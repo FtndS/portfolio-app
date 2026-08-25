@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import {
   buildQuoteFromFlightLeg,
   fetchSerpFlightQuotes,
+  humanizeSerpFlightError,
   iataFromEndpoint,
   pickBestFlightOffers,
   _clearSerpFlightCache,
@@ -68,6 +69,10 @@ describe('serpFlights', () => {
     )
     expect(picked.lowest.price).toBe(18000)
     expect(picked.offers[0].price).toBe(18500)
+  })
+
+  it('humanizes past-date SerpAPI errors', () => {
+    expect(humanizeSerpFlightError('"outbound_date" cannot be in the past.')).toMatch(/อดีต/)
   })
 
   it('returns not-configured without API key', async () => {

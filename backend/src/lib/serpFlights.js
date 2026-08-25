@@ -197,3 +197,12 @@ export async function fetchSerpFlightQuotes(params, { fetchImpl = fetch } = {}) 
 export function _clearSerpFlightCache() {
   cache.clear()
 }
+
+export function humanizeSerpFlightError(message = '') {
+  const s = String(message || '').trim()
+  if (!s) return 'ไม่พบราคาเที่ยวบิน'
+  if (/outbound_date.*past/i.test(s)) {
+    return 'วันเดินทางอยู่ในอดีต — แก้วันที่ทริป (จัดแผน → แก้ไขวันที่) แล้วลองใหม่'
+  }
+  return s
+}

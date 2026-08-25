@@ -120,6 +120,8 @@ export default function TripApp({
   const [exportReady, setExportReady] = useState(false)
   const [editingTripRoute, setEditingTripRoute] = useState(false)
   const [tripRouteForm, setTripRouteForm] = useState({ origin: '', destination: '' })
+  const [editingTripDates, setEditingTripDates] = useState(false)
+  const [tripDatesForm, setTripDatesForm] = useState({ start_date: '', end_date: '' })
   const [flightQuotesByPlace, setFlightQuotesByPlace] = useState({})
   const [flightQuoteStatus, setFlightQuoteStatus] = useState({
     loading: false,
@@ -141,6 +143,7 @@ export default function TripApp({
 
   useEffect(() => {
     setEditingTripRoute(false)
+    setEditingTripDates(false)
   }, [tripId])
 
   const flightLegKey = useMemo(
@@ -466,7 +469,45 @@ export default function TripApp({
       origin: detail.origin || '',
       destination: detail.destination || '',
     })
+    setEditingTripDates(false)
     setEditingTripRoute(true)
+  }
+
+  const openTripDatesEdit = () => {
+    if (!detail) return
+    setTripDatesForm({
+      start_date: detail.start_date ? String(detail.start_date).slice(0, 10) : '',
+      end_date: detail.end_date ? String(detail.end_date).slice(0, 10) : '',
+    })
+    setEditingTripRoute(false)
+    setEditingTripDates(true)
+  }
+
+  const saveTripDates = async () => {
+    if (!detail) return
+    if (!tripDatesForm.start_date || !tripDatesForm.end_date) {
+      setErr('กรุณาระบุวันเริ่มและวันจบทริป')
+      return
+    }
+    setSaving(true)
+    setErr('')
+    const r = await api.put(`/trips/${detail.id}`, {
+      title: detail.title,
+      origin: detail.origin,
+      destination: detail.destination,
+      start_date: tripDatesForm.start_date,
+      end_date: tripDatesForm.end_date,
+      notes: detail.notes,
+      currency: detail.currency,
+      status: detail.status,
+    })
+    setSaving(false)
+    if (r?.error) {
+      setErr(r.error)
+      return
+    }
+    setEditingTripDates(false)
+    await loadDetail(detail.id, { preserveSelection: true, showLoading: false })
   }
 
   const saveTripRoute = async () => {
@@ -923,12 +964,60 @@ export default function TripApp({
                     >
                       ลบทริป
                     </button>
-                    {!editingTripRoute ? (
-                      <button type="button" className="dash-link-btn" onClick={openTripRouteEdit}>
-                        แก้ไขเส้นทาง
-                      </button>
+                    {!editingTripRoute && !editingTripDates ? (
+                      <>
+                        <button type="button" className="dash-link-btn" onClick={openTripDatesEdit}>
+                          แก้ไขวันที่
+                        </button>
+                        <button type="button" className="dash-link-btn" onClick={openTripRouteEdit}>
+                          แก้ไขเส้นทาง
+                        </button>
+                      </>
                     ) : null}
                   </>
+                )}
+                {editingTripDates && detailView === 'edit' && (
+                  <div className="trip-route-edit trip-route-edit--studio trip-no-print">
+                    <p className="trip-route-edit-hint">
+                      เปลี่ยนช่วงวันทริป — วันในแต่ละ Day จะเลื่อนตาม (ใช้กับราคาเที่ยวบิน Google Flights ด้วย)
+                    </p>
+                    <div className="trip-route-edit-fields">
+                      <label className="trip-date-edit-field">
+                        <span>วันเริ่ม</span>
+                        <DateInput
+                          style={{ marginBottom: 0 }}
+                          value={tripDatesForm.start_date}
+                          onChange={(start_date) => setTripDatesForm({ ...tripDatesForm, start_date })}
+                        />
+                      </label>
+                      <label className="trip-date-edit-field">
+                        <span>วันจบ</span>
+                        <DateInput
+                          style={{ marginBottom: 0 }}
+                          value={tripDatesForm.end_date}
+                          onChange={(end_date) => setTripDatesForm({ ...tripDatesForm, end_date })}
+                        />
+                      </label>
+                    </div>
+                    <div className="trip-route-edit-actions">
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, width: 'auto' }}
+                        disabled={saving}
+                        onClick={saveTripDates}
+                      >
+                        {saving ? 'กำลังบันทึก...' : 'บันทึกวันที่'}
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...btnGhost, width: 'auto' }}
+                        disabled={saving}
+                        onClick={() => setEditingTripDates(false)}
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                  </div>
                 )}
                 {editingTripRoute && detailView === 'edit' && (
                   <div className="trip-route-edit trip-route-edit--studio trip-no-print">

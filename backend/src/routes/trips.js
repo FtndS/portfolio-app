@@ -21,6 +21,7 @@ import { attachBookingLinks, sanitizeBookingLinks } from '../lib/bookingLinks.js
 import {
   buildQuoteFromFlightLeg,
   fetchSerpFlightQuotes,
+  humanizeSerpFlightError,
   isSerpFlightsConfigured,
 } from '../lib/serpFlights.js'
 
@@ -254,7 +255,7 @@ router.get('/:id/flight-quotes', flightQuoteLimiter, async (req, res) => {
     for (const place of flightPlaces) {
       const params = buildQuoteFromFlightLeg(place.flight_leg, trip)
       if (params.error) {
-        quotes.push({ placeId: place.id, error: params.error, code: 'INCOMPLETE_LEG' })
+        quotes.push({ placeId: place.id, error: humanizeSerpFlightError(params.error), code: 'INCOMPLETE_LEG' })
         continue
       }
       try {
@@ -265,7 +266,7 @@ router.get('/:id/flight-quotes', flightQuoteLimiter, async (req, res) => {
             origin: params.origin,
             destination: params.destination,
             outboundDate: params.outboundDate,
-            error: result.error,
+            error: humanizeSerpFlightError(result.error),
             code: result.code || 'QUOTE_ERROR',
           })
         } else {
@@ -307,6 +308,11 @@ router.put('/:id', async (req, res) => {
   const parsed = normalizeTripPayload({ ...existing, ...req.body, title: req.body.title ?? existing.title })
   if (parsed.error) return res.status(400).json({ error: parsed.error })
 
+  const prevStart = existing.start_date ? String(existing.start_date).slice(0, 10) : null
+  const prevEnd = existing.end_date ? String(existing.end_date).slice(0, 10) : null
+  const datesChanged =
+    parsed.start_date !== prevStart || parsed.end_date !== prevEnd
+
   try {
     const r = await pool.query(
       `UPDATE trips
@@ -327,6 +333,22 @@ router.put('/:id', async (req, res) => {
         req.userId,
       ]
     )
+
+    if (datesChanged && parsed.start_date && parsed.end_date) {
+      const dateList = enumerateDateRange(parsed.start_date, parsed.end_date)
+      if (dateList.length) {
+        const days = await pool.query(
+          `SELECT id, day_index FROM trip_days WHERE trip_id = $1 ORDER BY day_index ASC, id ASC`,
+          [tripId]
+        )
+        for (const day of days.rows) {
+          const idx = Math.max(0, (day.day_index || 1) - 1)
+          const nextDate = dateList[idx] || dateList[dateList.length - 1]
+          await pool.query(`UPDATE trip_days SET date = $1 WHERE id = $2`, [nextDate, day.id])
+        }
+      }
+    }
+
     const detail = await loadTripDetail(req.userId, tripId)
     res.json(detail || r.rows[0])
   } catch (err) {
