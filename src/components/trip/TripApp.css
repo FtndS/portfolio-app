@@ -6,10 +6,14 @@
   --trip-ink: #1f3531;
   --trip-muted: #5d736e;
   --trip-surface: rgba(255, 252, 247, 0.92);
+  --trip-card-bg: #ffffff;
+  --trip-card-border: color-mix(in srgb, var(--trip-border) 80%, transparent);
   --trip-accent: #3f7a70;
   --trip-accent-strong: #2f6b62;
   --trip-border: #c9dbd5;
   --trip-feature-bg: color-mix(in srgb, #dcece7 55%, #fff);
+  --trip-input-bg: #fff;
+  --trip-chip-bg: #fff;
   background:
     radial-gradient(900px 420px at 12% -10%, #d9ebe6 0%, transparent 55%),
     radial-gradient(700px 380px at 92% 8%, #f0e8d8 0%, transparent 50%),
@@ -20,13 +24,17 @@
 [data-theme='dark'] .trip-shell {
   --trip-bg0: #121a19;
   --trip-bg1: #171f1d;
-  --trip-ink: #e6efec;
-  --trip-muted: #9bb0aa;
-  --trip-surface: rgba(28, 38, 35, 0.94);
+  --trip-ink: #e8f2ef;
+  --trip-muted: #a7bbb5;
+  --trip-surface: rgba(28, 38, 35, 0.96);
+  --trip-card-bg: #24302c;
+  --trip-card-border: #3a4a45;
   --trip-accent: #6fb5a8;
   --trip-accent-strong: #8fd0c4;
   --trip-border: #334843;
   --trip-feature-bg: color-mix(in srgb, #243530 80%, #1a2421);
+  --trip-input-bg: #1a2421;
+  --trip-chip-bg: #1e2a27;
   background:
     radial-gradient(900px 420px at 12% -10%, rgba(63, 122, 112, 0.28) 0%, transparent 55%),
     radial-gradient(700px 380px at 92% 8%, rgba(90, 80, 55, 0.18) 0%, transparent 50%),

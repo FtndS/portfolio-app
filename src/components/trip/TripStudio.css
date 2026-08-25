@@ -3,17 +3,17 @@
   min-width: 8rem;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.15rem;
 }
 
 .trip-studio-toolbar-title strong {
-  font-size: 0.95rem;
-  color: var(--trip-ink, #1c1917);
+  font-size: 1.05rem;
+  color: var(--trip-ink);
 }
 
 .trip-studio-toolbar-meta {
-  font-size: 0.75rem;
-  color: var(--trip-muted, #78716c);
+  font-size: 0.85rem;
+  color: var(--trip-muted);
 }
 
 .trip-route-edit--studio {
@@ -25,11 +25,78 @@
 }
 
 .trip-studio .trip-day-tabs {
-  margin-bottom: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.trip-studio .trip-day-tab {
+  min-width: 96px;
+  padding: 0.7rem 0.85rem;
+  background: var(--trip-card-bg);
+  border-color: var(--trip-border);
+  color: var(--trip-ink);
+}
+
+.trip-studio .trip-day-tab-index {
+  font-size: 0.92rem;
+}
+
+.trip-studio .trip-day-tab-date {
+  font-size: 0.8rem;
+  color: var(--trip-muted);
+}
+
+.trip-studio .trip-day-tab.is-active {
+  border-color: var(--trip-accent);
+  background: color-mix(in srgb, var(--trip-accent) 18%, var(--trip-card-bg));
+  color: var(--trip-ink);
+}
+
+.trip-studio .trip-day-tab.is-active .trip-day-tab-date {
+  color: var(--trip-muted);
 }
 
 .trip-studio .trip-add-day-btn {
   margin-left: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--trip-ink);
+  border-color: var(--trip-border);
+}
+
+/* Booking chips inside studio cards */
+.trip-studio .trip-booking-links-label {
+  font-size: 0.85rem;
+  color: var(--trip-muted);
+}
+
+.trip-studio .trip-booking-chip {
+  font-size: 0.82rem;
+  padding: 0.3rem 0.65rem;
+  border-color: color-mix(in srgb, var(--trip-accent) 40%, var(--trip-border));
+  background: color-mix(in srgb, var(--trip-accent) 14%, var(--trip-card-bg));
+  color: var(--trip-accent-strong);
+}
+
+.trip-studio .trip-map-card-head h3,
+.trip-studio .trip-map-place-name,
+.trip-studio .trip-map-pin-label {
+  color: var(--trip-ink);
+}
+
+.trip-studio .trip-map-pin-count,
+.trip-studio .trip-map-hint,
+.trip-studio .trip-map-missing,
+.trip-studio .trip-map-place-address,
+.trip-studio .trip-map-place-type {
+  color: var(--trip-muted);
+  font-size: 0.88rem;
+}
+
+.trip-studio .trip-map-place-name {
+  font-size: 1.05rem;
+}
+
+.trip-studio .trip-map-card-head h3 {
+  font-size: 1.05rem;
 }
 
 .trip-main:has(.trip-studio) {
@@ -77,11 +144,19 @@
   width: 100%;
   height: 100%;
   max-height: none;
-  background: var(--trip-surface, var(--surface, #f6f4f1));
+  background: var(--trip-surface);
+  color: var(--trip-ink);
   border: none;
-  border-top: 1px solid var(--trip-border, var(--border, rgba(28, 25, 23, 0.08)));
+  border-top: 1px solid var(--trip-border);
   border-radius: 0;
   overflow: hidden;
+  /* Bridge timeline booking chip tokens */
+  --tl-ink: var(--trip-ink);
+  --tl-muted: var(--trip-muted);
+  --tl-surface: var(--trip-card-bg);
+  --tl-link: var(--trip-accent-strong);
+  --tl-border: var(--trip-border);
+  --tl-head: var(--trip-accent);
 }
 
 .trip-studio-toolbar {
@@ -194,21 +269,21 @@
 
 .trip-chat-kicker {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #78716c;
+  color: var(--trip-muted);
 }
 
 .trip-chat-bubble {
-  padding: 0.85rem 0.95rem;
+  padding: 0.9rem 1rem;
   border-radius: 0.85rem 0.85rem 0.85rem 0.25rem;
-  background: #fff;
-  border: 1px solid rgba(28, 25, 23, 0.06);
-  font-size: 0.88rem;
-  line-height: 1.45;
-  color: #292524;
+  background: var(--trip-card-bg, #fff);
+  border: 1px solid var(--trip-card-border, var(--trip-border));
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--trip-ink);
 }
 
 .trip-chat-bubble p {
@@ -220,9 +295,10 @@
 }
 
 .trip-chat-muted {
-  color: #78716c;
-  font-size: 0.8rem;
+  color: var(--trip-muted);
+  font-size: 0.88rem;
   margin: 0;
+  line-height: 1.45;
 }
 
 .trip-chat-card {
@@ -230,26 +306,28 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.8rem 0.9rem;
   border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(28, 25, 23, 0.06);
-  font-size: 0.85rem;
+  background: var(--trip-card-bg, #fff);
+  border: 1px solid var(--trip-card-border, var(--trip-border));
+  font-size: 0.92rem;
+  color: var(--trip-ink);
 }
 
 .trip-chat-card strong {
   display: block;
   margin-bottom: 0.15rem;
+  color: var(--trip-ink);
 }
 
 .trip-chat-open-btn {
   flex-shrink: 0;
   border: none;
   border-radius: 999px;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  background: #1c1917;
+  background: var(--trip-accent);
   color: #fff;
   cursor: pointer;
 }
@@ -257,33 +335,33 @@
 .trip-chat-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .trip-chat-chip {
-  border: 1px solid rgba(28, 25, 23, 0.12);
-  background: #fff;
+  border: 1px solid var(--trip-border);
+  background: var(--trip-chip-bg, #fff);
   border-radius: 999px;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.75rem;
-  color: #44403c;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  color: var(--trip-ink);
   cursor: pointer;
 }
 
 .trip-chat-chip:hover {
-  border-color: rgba(28, 25, 23, 0.28);
+  border-color: var(--trip-accent);
 }
 
 .trip-chat-compose {
-  padding: 0.65rem 0.85rem 0.85rem;
-  border-top: 1px solid rgba(28, 25, 23, 0.08);
-  background: rgba(255, 255, 255, 0.55);
+  padding: 0.75rem 1rem 0.95rem;
+  border-top: 1px solid var(--trip-border);
+  background: color-mix(in srgb, var(--trip-surface) 70%, transparent);
 }
 
 .trip-chat-compose-label {
-  margin: 0 0 0.4rem;
-  font-size: 0.7rem;
-  color: #78716c;
+  margin: 0 0 0.45rem;
+  font-size: 0.8rem;
+  color: var(--trip-muted);
 }
 
 .trip-chat-compose-row {
@@ -294,21 +372,27 @@
 .trip-chat-compose-row input {
   flex: 1;
   min-width: 0;
-  border: 1px solid rgba(28, 25, 23, 0.12);
+  border: 1px solid var(--trip-border);
   border-radius: 999px;
-  padding: 0.5rem 0.85rem;
-  font-size: 0.8rem;
-  background: #fff;
+  padding: 0.55rem 0.95rem;
+  font-size: 0.9rem;
+  background: var(--trip-input-bg, #fff);
+  color: var(--trip-ink);
+}
+
+.trip-chat-compose-row input::placeholder {
+  color: var(--trip-muted);
+  opacity: 0.85;
 }
 
 .trip-chat-send {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.4rem;
+  height: 2.4rem;
   border: none;
   border-radius: 999px;
-  background: #1c1917;
+  background: var(--trip-accent);
   color: #fff;
-  font-size: 1rem;
+  font-size: 1.05rem;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -325,58 +409,59 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
 
 .trip-icards-kicker {
-  margin: 0 0 0.15rem;
-  font-size: 0.7rem;
+  margin: 0 0 0.2rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #a8a29e;
+  color: var(--trip-muted);
 }
 
 .trip-icards-daytitle {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  color: #1c1917;
+  color: var(--trip-ink);
   letter-spacing: -0.02em;
 }
 
 .trip-icards-daytitle span {
   font-weight: 500;
-  color: #78716c;
-  font-size: 0.95rem;
+  color: var(--trip-muted);
+  font-size: 1.05rem;
 }
 
 .trip-icards-count {
-  font-size: 0.75rem;
-  color: #78716c;
+  font-size: 0.85rem;
+  color: var(--trip-muted);
   white-space: nowrap;
 }
 
 .trip-icards-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.85rem;
 }
 
 .trip-icard {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr);
-  gap: 0.35rem 0.65rem;
-  background: #fff;
-  border: 1px solid rgba(28, 25, 23, 0.07);
+  grid-template-columns: 2.1rem minmax(0, 1fr);
+  gap: 0.4rem 0.7rem;
+  background: var(--trip-card-bg, #fff);
+  color: var(--trip-ink);
+  border: 1px solid var(--trip-card-border, var(--trip-border));
   border-radius: 1rem;
-  padding: 0.85rem 0.95rem 0.95rem 0.55rem;
+  padding: 0.95rem 1.05rem 1.05rem 0.6rem;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .trip-icard.is-focused {
-  border-color: rgba(28, 25, 23, 0.35);
-  box-shadow: 0 0 0 2px rgba(28, 25, 23, 0.08);
+  border-color: var(--trip-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--trip-accent) 28%, transparent);
 }
 
 .trip-icard-rail {
@@ -387,37 +472,38 @@
 }
 
 .trip-icard-dot {
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: 0.85rem;
-  background: #f5f5f4;
+  font-size: 0.9rem;
+  background: color-mix(in srgb, var(--trip-feature-bg) 80%, var(--trip-card-bg));
 }
 
 .trip-icard-dot--flight,
 .trip-icard-dot--airport {
-  background: #e0f2fe;
+  background: color-mix(in srgb, #38bdf8 28%, var(--trip-card-bg));
 }
 
 .trip-icard-dot--stay,
 .trip-icard-dot--hotel {
-  background: #fce7f3;
+  background: color-mix(in srgb, #f472b6 24%, var(--trip-card-bg));
 }
 
 .trip-icard-dot--transport {
-  background: #e7e5e4;
+  background: color-mix(in srgb, var(--trip-muted) 20%, var(--trip-card-bg));
 }
 
 .trip-icard-body {
   min-width: 0;
+  color: var(--trip-ink);
 }
 
 .trip-icard-body--media {
   display: grid;
   grid-template-columns: 5.5rem minmax(0, 1fr);
-  gap: 0.75rem;
+  gap: 0.85rem;
   align-items: start;
 }
 
@@ -426,42 +512,42 @@
   height: 5.5rem;
   border-radius: 0.65rem;
   object-fit: cover;
-  background: #f5f5f4;
+  background: var(--trip-feature-bg);
 }
 
 .trip-icard-photo--sm {
-  width: 4.5rem;
-  height: 4.5rem;
+  width: 4.75rem;
+  height: 4.75rem;
 }
 
 .trip-icard-top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem 0.65rem;
-  margin-bottom: 0.25rem;
+  gap: 0.45rem 0.7rem;
+  margin-bottom: 0.3rem;
 }
 
 .trip-icard-badge {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #78716c;
+  color: var(--trip-muted);
 }
 
 .trip-icard-time {
-  font-size: 0.75rem;
+  font-size: 0.88rem;
   font-variant-numeric: tabular-nums;
-  color: #57534e;
+  color: var(--trip-muted);
 }
 
 .trip-icard-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.12rem;
   font-weight: 700;
-  color: #1c1917;
-  line-height: 1.3;
+  color: var(--trip-ink);
+  line-height: 1.35;
 }
 
 .trip-icard-title-btn {
@@ -472,6 +558,7 @@
   background: none;
   text-align: left;
   cursor: pointer;
+  color: inherit;
 }
 
 .trip-icard-title-btn:hover .trip-icard-title {
@@ -487,51 +574,59 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem;
-  margin: 0.35rem 0 0.25rem;
-  font-size: 0.9rem;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0.3rem;
+  font-size: 1rem;
+  color: var(--trip-ink);
+}
+
+.trip-icard-flight-route .trip-icard-muted,
+.trip-icard-muted {
+  color: var(--trip-muted);
+  font-weight: 500;
 }
 
 .trip-icard-notes {
-  margin: 0.3rem 0 0;
-  font-size: 0.8rem;
-  color: #78716c;
-  line-height: 1.4;
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--trip-muted);
+  line-height: 1.45;
 }
 
 .trip-icard-price {
-  margin: 0.45rem 0 0;
-  font-size: 0.85rem;
-  color: #44403c;
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  color: var(--trip-ink);
 }
 
 .trip-icard-price strong {
-  font-weight: 700;
-  color: #1c1917;
+  font-weight: 750;
+  color: var(--trip-ink);
+  font-size: 1.02rem;
 }
 
 .trip-icard-price-tag {
-  margin-left: 0.4rem;
-  font-size: 0.65rem;
-  font-weight: 600;
+  margin-left: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 650;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: #a8a29e;
+  color: var(--trip-muted);
 }
 
 .trip-icard-price--estimate strong {
-  font-weight: 700;
-  color: #44403c;
+  font-weight: 750;
+  color: var(--trip-ink);
 }
 
 .trip-icard-map-btn {
-  margin-top: 0.5rem;
+  margin-top: 0.55rem;
   border: none;
   background: none;
   padding: 0;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #57534e;
+  color: var(--trip-accent-strong);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -539,20 +634,26 @@
 
 .trip-icard .trip-place-booking,
 .trip-icard .booking-links {
-  margin-top: 0.5rem;
+  margin-top: 0.55rem;
 }
 
-/* —— Sticky bar (follows trip + site theme) —— */
+.trip-icard .trip-booking-links-label,
+.trip-icard .booking-links-label {
+  color: var(--trip-muted);
+  font-size: 0.82rem;
+}
+
+/* —— Sticky bar (trip tokens — readable in light + dark) —— */
 .trip-sticky-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1.35rem;
-  padding: 0.85rem clamp(1rem, 2.5vw, 1.75rem);
-  background: var(--surface, var(--trip-surface, #fcf8f1));
-  color: var(--text, var(--trip-ink, #1f3531));
-  border-top: 1px solid var(--border, var(--trip-border, #c9dbd5));
-  box-shadow: 0 -6px 20px color-mix(in srgb, var(--trip-ink, #1f3531) 6%, transparent);
+  gap: 0.85rem 1.35rem;
+  padding: 0.95rem clamp(1rem, 2.5vw, 1.75rem);
+  background: var(--trip-surface);
+  color: var(--trip-ink);
+  border-top: 1px solid var(--trip-border);
+  box-shadow: 0 -6px 20px color-mix(in srgb, var(--trip-ink) 8%, transparent);
 }
 
 .trip-sticky-bar-price {
@@ -560,65 +661,65 @@
   min-width: 12rem;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .trip-sticky-bar-label {
-  font-size: 0.72rem;
-  color: var(--text-muted, var(--trip-muted, #5d736e));
+  font-size: 0.82rem;
+  color: var(--trip-muted);
 }
 
 .trip-sticky-bar-total {
-  font-size: 1.35rem;
+  font-size: 1.45rem;
   font-weight: 750;
   letter-spacing: -0.02em;
   display: inline-flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  color: var(--text, var(--trip-ink, #1f3531));
+  gap: 0.5rem;
+  color: var(--trip-ink);
 }
 
 .trip-sticky-bar-tag {
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-faint, var(--trip-muted, #5d736e));
+  color: var(--trip-muted);
 }
 
 .trip-sticky-bar-sub {
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: var(--text-secondary, var(--trip-muted, #5d736e));
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--trip-muted);
 }
 
 .trip-sticky-buffer {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.8rem;
-  color: var(--text-secondary, var(--trip-muted, #5d736e));
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--trip-ink);
 }
 
 .trip-sticky-buffer select {
-  border: 1px solid var(--border-strong, var(--trip-border, #c9dbd5));
+  border: 1px solid var(--trip-border);
   border-radius: 0.45rem;
-  background: var(--surface-input, var(--trip-surface, #fff));
-  color: var(--text, var(--trip-ink, #1f3531));
-  padding: 0.35rem 0.55rem;
-  font-size: 0.8rem;
+  background: var(--trip-input-bg, var(--trip-card-bg));
+  color: var(--trip-ink);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.88rem;
 }
 
 .trip-sticky-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
 .trip-sticky-btn {
   border-radius: 999px;
-  padding: 0.5rem 1.1rem;
-  font-size: 0.82rem;
+  padding: 0.55rem 1.15rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
@@ -626,21 +727,21 @@
 
 .trip-sticky-btn--ghost {
   background: transparent;
-  border-color: var(--border-strong, var(--trip-border, #c9dbd5));
-  color: var(--text-secondary, var(--trip-ink, #1f3531));
+  border-color: var(--trip-border);
+  color: var(--trip-ink);
 }
 
 .trip-sticky-btn--ghost:hover {
-  background: var(--surface-hover, color-mix(in srgb, var(--trip-accent, #3f7a70) 10%, transparent));
+  background: color-mix(in srgb, var(--trip-accent) 14%, transparent);
 }
 
 .trip-sticky-btn--primary {
-  background: var(--trip-accent, var(--accent, #3f7a70));
+  background: var(--trip-accent);
   color: #fff;
 }
 
 .trip-sticky-btn--primary:hover {
-  background: var(--trip-accent-strong, var(--accent-hover, #2f6b62));
+  background: var(--trip-accent-strong);
 }
 
 /* —— Responsive —— */
