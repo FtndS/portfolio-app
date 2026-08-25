@@ -662,11 +662,16 @@
 .trip-place-card-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
-.trip-place-card-links .dash-link-btn {
+.trip-place-card-links .trip-action-btn {
   font-size: 12px;
+  padding: 0.35rem 0.7rem;
+}
+
+.trip-studio-toolbar .trip-action-btn {
+  flex-shrink: 0;
 }
 
 .trip-place-edit-time {

@@ -30,6 +30,13 @@ function timeRange(place) {
   return a || b || null
 }
 
+function fmtCardDate(iso) {
+  if (!iso) return null
+  const [y, m, d] = String(iso).slice(0, 10).split('-')
+  if (!y || !m || !d) return String(iso).slice(0, 10)
+  return `${d}/${m}/${y}`
+}
+
 function PlacePrice({ place, estimateCtx, formatBudget, formatBudgetRange }) {
   const estimate = estimatePlaceCost(place, estimateCtx)
   const range = formatEstimateRange(estimate, formatBudget, formatBudgetRange)
@@ -41,7 +48,7 @@ function PlacePrice({ place, estimateCtx, formatBudget, formatBudgetRange }) {
         ? 'Google Flights'
         : 'ประมาณการ'
   return (
-    <p className={`trip-icard-price${estimate.source === 'estimate' ? ' trip-icard-price--estimate' : ''}${estimate.source === 'live' ? ' trip-icard-price--live' : ''}`}>
+    <p className={`trip-icard-price${estimate.source === 'estimate' ? ' trip-icard-price--estimate' : ''}${estimate.source === 'live' ? ' trip-icard-price--live trip-icard-price--pop' : ''}`}>
       {estimate.label}{' '}
       <strong>{range}</strong>
       <span className="trip-icard-price-tag">{tag}</span>
@@ -65,8 +72,41 @@ function FlightQuoteHint({ place, estimateCtx }) {
   return null
 }
 
+function FlightFareRow({ place, estimateCtx, formatBudget, formatBudgetRange }) {
+  const leg = place.flight_leg
+  const estimate = estimatePlaceCost(place, estimateCtx)
+  const range = formatEstimateRange(estimate, formatBudget, formatBudgetRange)
+  const depart = fmtCardDate(leg?.departDate)
+  const ret = fmtCardDate(leg?.returnDate)
+  if (!range && !depart) return null
+
+  return (
+    <div className={`trip-fare-row${estimate.source === 'live' ? ' trip-fare-row--live' : ''}`}>
+      {depart && (
+        <span className="trip-fare-chip trip-fare-chip--date" title="วันเดินทางจากแผนทริป">
+          <span className="trip-fare-chip-label">วันบิน</span>
+          <strong>
+            {depart}
+            {ret ? ` – ${ret}` : ''}
+          </strong>
+        </span>
+      )}
+      {range && (
+        <span className={`trip-fare-chip trip-fare-chip--price${estimate.source === 'live' ? ' is-live' : ''}`}>
+          <span className="trip-fare-chip-label">
+            {estimate.source === 'live' ? 'ราคาใกล้เคียง' : estimate.source === 'budget' ? 'งบในแผน' : 'ประมาณ'}
+          </span>
+          <strong>{range}</strong>
+        </span>
+      )}
+    </div>
+  )
+}
+
 function FlightCard({ place, onSelect, focused, formatBudget, formatBudgetRange, estimateCtx }) {
   const leg = place.flight_leg
+  const estimate = estimatePlaceCost(place, estimateCtx)
+  const hasLiveQuote = estimate.source === 'live'
   return (
     <article className={`trip-icard trip-icard--flight${focused ? ' is-focused' : ''}`}>
       <div className="trip-icard-rail">
@@ -83,25 +123,26 @@ function FlightCard({ place, onSelect, focused, formatBudget, formatBudgetRange,
             <strong>{leg.originLabel || leg.origin}</strong>
             <span aria-hidden>→</span>
             <strong>{leg.destinationLabel || leg.destination}</strong>
-            {leg.departDate && (
-              <span className="trip-icard-muted">
-                · {String(leg.departDate).slice(0, 10)}
-                {leg.returnDate ? ` – ${String(leg.returnDate).slice(0, 10)}` : ''}
-              </span>
-            )}
           </div>
         )}
         {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-        <PlacePrice
+        <FlightFareRow
           place={place}
           estimateCtx={estimateCtx}
           formatBudget={formatBudget}
           formatBudgetRange={formatBudgetRange}
         />
         <FlightQuoteHint place={place} estimateCtx={estimateCtx} />
-        {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
+        {showPlaceBooking(place) && (
+          <TripPlaceBooking
+            place={place}
+            hideSummary
+            hasLiveQuote={hasLiveQuote}
+            compact
+          />
+        )}
         {onSelect && showPlaceOnMap(place) && (
-          <button type="button" className="trip-icard-map-btn" onClick={() => onSelect(place)}>
+          <button type="button" className="trip-action-btn trip-action-btn--ghost trip-icard-map-btn" onClick={() => onSelect(place)}>
             แสดงบนแผนที่
           </button>
         )}

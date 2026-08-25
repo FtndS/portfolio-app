@@ -966,10 +966,10 @@ export default function TripApp({
                     </button>
                     {!editingTripRoute && !editingTripDates ? (
                       <>
-                        <button type="button" className="dash-link-btn" onClick={openTripDatesEdit}>
+                        <button type="button" className="trip-action-btn trip-action-btn--accent" onClick={openTripDatesEdit}>
                           แก้ไขวันที่
                         </button>
-                        <button type="button" className="dash-link-btn" onClick={openTripRouteEdit}>
+                        <button type="button" className="trip-action-btn trip-action-btn--ghost" onClick={openTripRouteEdit}>
                           แก้ไขเส้นทาง
                         </button>
                       </>
@@ -1174,10 +1174,10 @@ export default function TripApp({
                                   value={editTime.end_time}
                                   onChange={(e) => setEditTime({ ...editTime, end_time: e.target.value })}
                                 />
-                                <button type="button" className="dash-link-btn" disabled={saving} onClick={() => savePlaceTimes(p)}>
+                                <button type="button" className="trip-action-btn trip-action-btn--accent" disabled={saving} onClick={() => savePlaceTimes(p)}>
                                   บันทึก
                                 </button>
-                                <button type="button" className="dash-link-btn" onClick={() => setEditingPlaceId(null)}>
+                                <button type="button" className="trip-action-btn trip-action-btn--ghost" onClick={() => setEditingPlaceId(null)}>
                                   ยกเลิก
                                 </button>
                               </div>
@@ -1188,14 +1188,21 @@ export default function TripApp({
                                 {p.budget != null && (
                                   <p className="trip-place-card-budget">฿{Number(p.budget).toLocaleString('th-TH')}</p>
                                 )}
-                                {showPlaceBooking(p) && <TripPlaceBooking place={p} />}
+                                {showPlaceBooking(p) && (
+                                  <TripPlaceBooking
+                                    place={p}
+                                    hideSummary={Boolean(p.flight_leg)}
+                                    hasLiveQuote={false}
+                                    compact
+                                  />
+                                )}
                               </>
                             )}
                             <div className="trip-place-card-toolbar">
                               <div className="trip-place-card-links">
                                 {p.lat != null && p.lng != null && (
                                   <a
-                                    className="dash-link-btn"
+                                    className="trip-action-btn trip-action-btn--ghost"
                                     href={`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=15/${p.lat}/${p.lng}`}
                                     target="_blank"
                                     rel="noreferrer"
@@ -1206,7 +1213,7 @@ export default function TripApp({
                                 {editingPlaceId !== p.id && (
                                   <button
                                     type="button"
-                                    className="dash-link-btn"
+                                    className="trip-action-btn trip-action-btn--ghost"
                                     onClick={() => {
                                       setEditingPlaceId(p.id)
                                       setEditTime({
@@ -1240,7 +1247,7 @@ export default function TripApp({
                                 </button>
                                 <button
                                   type="button"
-                                  className="trip-place-delete-btn"
+                                  className="trip-action-btn trip-action-btn--danger"
                                   onClick={() => setConfirmDelete({ type: 'place', id: p.id, name: p.name })}
                                 >
                                   ลบ

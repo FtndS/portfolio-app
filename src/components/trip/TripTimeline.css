@@ -347,6 +347,10 @@
   margin-top: 10px;
 }
 
+.trip-flight-panel--live {
+  background: color-mix(in srgb, var(--tl-surface) 96%, var(--tl-link) 4%);
+}
+
 .trip-flight-summary {
   padding: 10px 12px;
   border-bottom: 1px solid var(--tl-border);
@@ -394,8 +398,19 @@
   color: var(--tl-muted);
 }
 
+.trip-flight-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px 8px;
+}
+
 .trip-flight-options {
-  padding: 8px 10px 4px;
+  padding: 0 10px 4px;
+}
+
+.trip-flight-options--anim {
+  animation: trip-options-in 0.28s ease both;
 }
 
 .trip-flight-options-head {
@@ -425,11 +440,13 @@
   text-decoration: none;
   color: inherit;
   background: var(--tl-surface);
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
 
 .trip-flight-option:hover {
   border-color: color-mix(in srgb, var(--tl-link) 40%, var(--tl-border));
   background: color-mix(in srgb, var(--tl-link) 8%, var(--tl-surface));
+  transform: translateY(-1px);
 }
 
 .trip-flight-option-name {
@@ -446,10 +463,21 @@
 
 .trip-flight-disclaimer {
   margin: 0;
-  padding: 6px 12px 10px;
+  padding: 4px 12px 10px;
   font-size: 10px;
   line-height: 1.4;
   color: var(--tl-muted);
+}
+
+@keyframes trip-options-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .trip-tl-trip-title {
