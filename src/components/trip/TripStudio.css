@@ -34,11 +34,12 @@
 
 .trip-main:has(.trip-studio) {
   max-width: none;
+  width: 100%;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0.65rem 0.75rem 0;
+  padding: 0;
   overflow: hidden;
   position: relative;
 }
@@ -65,19 +66,21 @@
   flex-shrink: 0;
 }
 
-/* Phase A — Layla-style trip studio shell */
+/* Full-bleed studio — edge to edge under topbar */
 .trip-studio {
   display: grid;
-  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(280px, 380px);
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(300px, 420px);
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0;
   flex: 1;
   min-height: 0;
+  width: 100%;
   height: 100%;
   max-height: none;
-  background: var(--trip-surface, #f6f4f1);
-  border: 1px solid var(--trip-border, rgba(28, 25, 23, 0.08));
-  border-radius: 1rem 1rem 0 0;
+  background: var(--trip-surface, var(--surface, #f6f4f1));
+  border: none;
+  border-top: 1px solid var(--trip-border, var(--border, rgba(28, 25, 23, 0.08)));
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -87,10 +90,18 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem 1rem;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.72);
-  border-bottom: 1px solid var(--trip-border, rgba(28, 25, 23, 0.08));
+  padding: 0.85rem 1.35rem;
+  background: color-mix(in srgb, var(--trip-surface, var(--surface, #fff)) 88%, transparent);
+  border-bottom: 1px solid var(--trip-border, var(--border, rgba(28, 25, 23, 0.08)));
   backdrop-filter: blur(10px);
+}
+
+.trip-studio-main {
+  grid-column: 2;
+  grid-row: 2;
+  overflow: auto;
+  padding: 1.15rem clamp(1.1rem, 2.5vw, 2.25rem) 1.5rem;
+  min-width: 0;
 }
 
 .trip-route-edit--studio {
@@ -101,21 +112,13 @@
   background: transparent;
 }
 
-.trip-studio-main {
-  grid-column: 2;
-  grid-row: 2;
-  overflow: auto;
-  padding: 1rem 1.1rem 1.25rem;
-  min-width: 0;
-}
-
 .trip-studio-map {
   grid-column: 3;
   grid-row: 2;
   min-height: 0;
   min-width: 0;
-  border-left: 1px solid var(--trip-border, rgba(28, 25, 23, 0.08));
-  background: #ebe7e2;
+  border-left: 1px solid var(--trip-border, var(--border, rgba(28, 25, 23, 0.08)));
+  background: color-mix(in srgb, var(--trip-feature-bg, #ebe7e2) 70%, transparent);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -172,17 +175,21 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid var(--trip-border, rgba(28, 25, 23, 0.08));
-  background: linear-gradient(180deg, #faf8f5 0%, #f3efe9 100%);
+  border-right: 1px solid var(--trip-border, var(--border, rgba(28, 25, 23, 0.08)));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--trip-surface, #faf8f5) 92%, #fff) 0%,
+    color-mix(in srgb, var(--trip-feature-bg, #f3efe9) 85%, transparent) 100%
+  );
 }
 
 .trip-chat-rail-scroll {
   flex: 1;
   overflow: auto;
-  padding: 1rem 0.9rem 0.75rem;
+  padding: 1.1rem 1.05rem 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.85rem;
 }
 
 .trip-chat-kicker {
@@ -308,8 +315,9 @@
 
 /* —— Itinerary cards —— */
 .trip-icards {
-  max-width: 40rem;
+  max-width: min(52rem, 100%);
   margin: 0 auto;
+  width: 100%;
 }
 
 .trip-icards-dayhead {
@@ -534,67 +542,72 @@
   margin-top: 0.5rem;
 }
 
-/* —— Sticky bar —— */
+/* —— Sticky bar (follows trip + site theme) —— */
 .trip-sticky-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1.25rem;
-  padding: 0.75rem 1.1rem;
-  background: rgba(28, 25, 23, 0.94);
-  color: #fafaf9;
+  gap: 0.75rem 1.35rem;
+  padding: 0.85rem clamp(1rem, 2.5vw, 1.75rem);
+  background: var(--surface, var(--trip-surface, #fcf8f1));
+  color: var(--text, var(--trip-ink, #1f3531));
+  border-top: 1px solid var(--border, var(--trip-border, #c9dbd5));
+  box-shadow: 0 -6px 20px color-mix(in srgb, var(--trip-ink, #1f3531) 6%, transparent);
 }
 
 .trip-sticky-bar-price {
   flex: 1;
-  min-width: 10rem;
+  min-width: 12rem;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.15rem;
 }
 
 .trip-sticky-bar-label {
-  font-size: 0.7rem;
-  color: #a8a29e;
+  font-size: 0.72rem;
+  color: var(--text-muted, var(--trip-muted, #5d736e));
 }
 
 .trip-sticky-bar-total {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.35rem;
+  font-weight: 750;
   letter-spacing: -0.02em;
   display: inline-flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 0.45rem;
+  color: var(--text, var(--trip-ink, #1f3531));
 }
 
 .trip-sticky-bar-tag {
-  font-size: 0.6rem;
-  font-weight: 600;
+  font-size: 0.62rem;
+  font-weight: 650;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #a8a29e;
+  color: var(--text-faint, var(--trip-muted, #5d736e));
 }
 
 .trip-sticky-bar-sub {
-  font-size: 0.72rem;
-  color: #a8a29e;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-secondary, var(--trip-muted, #5d736e));
 }
 
 .trip-sticky-buffer {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.75rem;
-  color: #d6d3d1;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary, var(--trip-muted, #5d736e));
 }
 
 .trip-sticky-buffer select {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.4rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  padding: 0.3rem 0.45rem;
-  font-size: 0.75rem;
+  border: 1px solid var(--border-strong, var(--trip-border, #c9dbd5));
+  border-radius: 0.45rem;
+  background: var(--surface-input, var(--trip-surface, #fff));
+  color: var(--text, var(--trip-ink, #1f3531));
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
 }
 
 .trip-sticky-actions {
@@ -604,8 +617,8 @@
 
 .trip-sticky-btn {
   border-radius: 999px;
-  padding: 0.45rem 1rem;
-  font-size: 0.8rem;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
@@ -613,13 +626,21 @@
 
 .trip-sticky-btn--ghost {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #fafaf9;
+  border-color: var(--border-strong, var(--trip-border, #c9dbd5));
+  color: var(--text-secondary, var(--trip-ink, #1f3531));
+}
+
+.trip-sticky-btn--ghost:hover {
+  background: var(--surface-hover, color-mix(in srgb, var(--trip-accent, #3f7a70) 10%, transparent));
 }
 
 .trip-sticky-btn--primary {
-  background: #fff;
-  color: #1c1917;
+  background: var(--trip-accent, var(--accent, #3f7a70));
+  color: #fff;
+}
+
+.trip-sticky-btn--primary:hover {
+  background: var(--trip-accent-strong, var(--accent-hover, #2f6b62));
 }
 
 /* —— Responsive —— */
@@ -632,15 +653,15 @@
 
   .trip-main:has(.trip-studio) {
     overflow: visible;
-    padding: 0.75rem;
+    padding: 0;
   }
 
   .trip-studio {
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
     grid-template-rows: auto auto minmax(22rem, 70vh) auto;
     max-height: none;
     height: auto;
-    border-radius: 1rem;
+    border-radius: 0;
   }
 
   .trip-chat-rail {
@@ -672,7 +693,7 @@
   .trip-studio {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto minmax(18rem, none) minmax(16rem, 40vh) auto;
-    border-radius: 0.75rem;
+    border-radius: 0;
   }
 
   .trip-chat-rail {
