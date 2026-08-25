@@ -3,6 +3,7 @@ import Logo from './Logo'
 import ThemeToggle from './ThemeToggle'
 import SupportModal from './modals/SupportModal'
 import NavMegaMenu, { suiteAppSections } from './nav/NavMegaMenu'
+import { TRIP_PLANNER_ENABLED } from '../lib/appRoutes'
 import './Landing.css'
 
 export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscription, onLogout, onOpenAdmin }) {
@@ -24,7 +25,7 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
             label="แอป"
             sections={suiteAppSections({
               onStock: onOpenStock,
-              onTrip: onOpenTrip,
+              ...(TRIP_PLANNER_ENABLED ? { onTrip: onOpenTrip } : {}),
             })}
           />
           <button type="button" className="site-nav-link site-nav-link--secondary" onClick={onOpenSubscription}>
@@ -62,8 +63,9 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
             สวัสดี, <span>{user?.name || 'นักลงทุน'}</span>
           </h1>
           <p>
-            PortDiary รวมสองเครื่องมือในบัญชีเดียว — ติดตามพอร์ตหุ้น และวางแผนท่องเที่ยว
-            เลือกแอปด้านล่างเพื่อเริ่มใช้งานได้ทันที
+            {TRIP_PLANNER_ENABLED
+              ? 'PortDiary รวมสองเครื่องมือในบัญชีเดียว — ติดตามพอร์ตหุ้น และวางแผนท่องเที่ยว เลือกแอปด้านล่างเพื่อเริ่มใช้งานได้ทันที'
+              : 'ติดตามพอร์ตหุ้นไทย–ต่างประเทศ ดูรายงาน และใช้ AI ช่วยวิเคราะห์ — เริ่มจาก PortDiary ด้านล่าง'}
           </p>
         </div>
       </section>
@@ -83,6 +85,7 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
           <span className="landing-app-card-cta">เปิดพอร์ตไดอารี่ →</span>
         </button>
 
+        {TRIP_PLANNER_ENABLED && (
         <button type="button" className="landing-app-card landing-app-card--trip landing-reveal landing-reveal--3" onClick={onOpenTrip}>
           <div className="landing-app-card-visual landing-app-card-visual--trip" aria-hidden="true">
             <span className="landing-app-card-icon">✈️</span>
@@ -96,6 +99,7 @@ export default function AppHub({ user, onOpenStock, onOpenTrip, onOpenSubscripti
           </p>
           <span className="landing-app-card-cta">เปิดแอปทริป →</span>
         </button>
+        )}
       </section>
 
       {supportOpen && (

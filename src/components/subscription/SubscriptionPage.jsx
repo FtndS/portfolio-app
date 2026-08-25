@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
+import { TRIP_PLANNER_ENABLED } from '../../lib/appRoutes'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
 
 function fmtExpires(iso) {
@@ -34,7 +35,7 @@ const QUOTA_KEYS = [
   ['copilot', 'Copilot'],
   ['newsSummary', 'สรุปข่าว'],
   ['tickerJournal', 'สรุป journal หุ้น'],
-  ['tripPlan', 'AI จัดทริป'],
+  ...(TRIP_PLANNER_ENABLED ? [['tripPlan', 'AI จัดทริป']] : []),
 ]
 const PAYMENT_MAINTENANCE_POPUP_SEEN_KEY = 'portdiary_payment_maintenance_popup_seen'
 

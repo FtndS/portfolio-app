@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Logo from './Logo'
 import ThemeToggle from './ThemeToggle'
 import NavMegaMenu, { suiteAppSections } from './nav/NavMegaMenu'
+import { TRIP_PLANNER_ENABLED } from '../lib/appRoutes'
 import './Landing.css'
 
 export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTrip }) {
@@ -28,7 +29,7 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
             label="แอป"
             sections={suiteAppSections({
               onStock: onChooseStock,
-              onTrip: onChooseTrip,
+              ...(TRIP_PLANNER_ENABLED ? { onTrip: onChooseTrip } : {}),
             })}
           />
           <a className="site-nav-link site-nav-link--secondary" href="#pricing">แพ็กเกจ</a>
@@ -49,17 +50,17 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
         <div className="landing-hero-text landing-hero-text--center landing-reveal">
           <p className="landing-kicker">PortDiary</p>
           <h1>
-            หนึ่งบัญชี<br />
-            <span>สองแอปสำหรับชีวิตคุณ</span>
+            บันทึกพอร์ต<br />
+            <span>อย่างเป็นระบบ</span>
           </h1>
           <p>
-            จัดการพอร์ตลงทุน และวางแผนท่องเที่ยวได้ในที่เดียว —
-            สมัครครั้งเดียว ใช้ได้ทั้ง PortDiary Stock และ Trip Planner
+            ติดตามหุ้นไทย–ต่างประเทศ ดูผลตอบแทนจริง (TWR) และใช้ AI ช่วยวิเคราะห์ —
+            สมัครครั้งเดียว เริ่มใช้ PortDiary ได้ทันที
           </p>
           <div className="landing-hero-pills" aria-hidden="true">
-            <span>พอร์ตหุ้นไทย–เทศ</span>
-            <span>แผนทริป AI</span>
-            <span>บัญชีเดียว</span>
+            <span>SET + US</span>
+            <span>FX อัตโนมัติ</span>
+            <span>Journal & AI</span>
           </div>
         </div>
       </section>
@@ -71,14 +72,15 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
           </div>
           <div className="landing-app-card-top">
             <span className="landing-app-card-tag">พร้อมใช้</span>
-            <h2>PortDiary Stock</h2>
+            <h2>PortDiary</h2>
           </div>
           <p>
             บันทึกพอร์ตหลายกอง รายงาน journal AI และติดตามหุ้นไทย–ต่างประเทศอย่างเป็นระบบ
           </p>
-          <span className="landing-app-card-cta">เลือกแอปนี้ →</span>
+          <span className="landing-app-card-cta">เริ่มใช้งาน →</span>
         </button>
 
+        {TRIP_PLANNER_ENABLED && (
         <button type="button" className="landing-app-card landing-app-card--trip landing-reveal landing-reveal--3" onClick={onChooseTrip}>
           <div className="landing-app-card-visual landing-app-card-visual--trip" aria-hidden="true">
             <span className="landing-app-card-icon">✈️</span>
@@ -92,6 +94,7 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
           </p>
           <span className="landing-app-card-cta">เลือกแอปนี้ →</span>
         </button>
+        )}
       </section>
 
       <section className="landing-pricing" id="pricing" aria-labelledby="landing-pricing-title">
@@ -104,7 +107,7 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
             <h3>Free</h3>
             <p className="landing-price-amount">฿0</p>
             <ul>
-              <li>พอร์ตและทริปพื้นฐาน</li>
+              <li>พอร์ตและรายงานพื้นฐาน</li>
               <li>โควตา AI จำกัดต่อสัปดาห์</li>
             </ul>
             <button type="button" className="landing-btn-ghost landing-price-cta" onClick={() => onRegister()}>
@@ -135,8 +138,8 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
 
       <section className="landing-cta-section">
         <div className="landing-cta-box landing-cta-box--suite">
-          <h2>เริ่มด้วยบัญชีเดียว</h2>
-          <p>สมัครฟรี แล้วเลือกแอปที่ต้องการได้ทันทีหลังเข้าสู่ระบบ</p>
+          <h2>เริ่มใช้ PortDiary</h2>
+          <p>สมัครฟรี แล้วบันทึกพอร์ตแรกได้ทันทีหลังเข้าสู่ระบบ</p>
           <button type="button" className="landing-btn-primary lg" onClick={() => onRegister()}>
             สมัครสมาชิกฟรี
           </button>
@@ -153,7 +156,7 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
         <p className="landing-footer-contact">
           ติดต่อ: <a href="mailto:support@portdiary.com">support@portdiary.com</a>
         </p>
-        © {new Date().getFullYear()} PortDiary — Stock & Trip
+        © {new Date().getFullYear()} PortDiary
       </footer>
     </div>
   )

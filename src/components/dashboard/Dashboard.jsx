@@ -33,6 +33,7 @@ import WorkflowGuide from './WorkflowGuide'
 import DashboardSidebar, { tabLabel } from './DashboardSidebar'
 import ThemeToggle from '../ThemeToggle'
 import NavMegaMenu, { suiteAppSections } from '../nav/NavMegaMenu'
+import { TRIP_PLANNER_ENABLED } from '../../lib/appRoutes'
 
 export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHub,onOpenTrip}){
   const [portfolios,setPortfolios]=useState([])
@@ -524,9 +525,9 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
               label="แอป"
               align="left"
               sections={suiteAppSections({
-                onHub: onGoHub,
+                ...(TRIP_PLANNER_ENABLED ? { onHub: onGoHub } : {}),
                 onStock: () => selectTab('overview'),
-                onTrip: onOpenTrip,
+                ...(TRIP_PLANNER_ENABLED ? { onTrip: onOpenTrip } : {}),
               })}
             />
           </div>

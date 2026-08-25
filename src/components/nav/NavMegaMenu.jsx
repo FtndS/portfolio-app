@@ -1,12 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { TRIP_PLANNER_ENABLED } from '../../lib/appRoutes'
 import './NavMegaMenu.css'
 
 export function suiteAppSections({ onHub, onStock, onTrip } = {}) {
-  return [
+  const sections = [
     {
       heading: 'ลงทุน',
       items: [
-        onHub && {
+        TRIP_PLANNER_ENABLED && onHub && {
           id: 'hub',
           icon: '🏠',
           title: 'Hub',
@@ -22,7 +23,10 @@ export function suiteAppSections({ onHub, onStock, onTrip } = {}) {
         },
       ].filter(Boolean),
     },
-    {
+  ]
+
+  if (TRIP_PLANNER_ENABLED && onTrip) {
+    sections.push({
       heading: 'ท่องเที่ยว',
       items: [
         {
@@ -33,8 +37,10 @@ export function suiteAppSections({ onHub, onStock, onTrip } = {}) {
           onSelect: onTrip,
         },
       ],
-    },
-  ]
+    })
+  }
+
+  return sections
 }
 
 export default function NavMegaMenu({

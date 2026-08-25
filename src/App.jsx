@@ -4,11 +4,14 @@ import { ThemeProvider } from './lib/theme'
 import { PrivacyProvider } from './lib/privacy'
 import {
   authPath,
+  normalizeSuiteApp,
   pathForApp,
   readNextApp,
   readPath,
   resolveAuthPage,
   resolveLoggedInView,
+  suiteHomePath,
+  TRIP_PLANNER_ENABLED,
 } from './lib/appRoutes'
 import Landing from './components/Landing'
 import AppHub from './components/AppHub'
@@ -51,7 +54,9 @@ export default function App() {
   const afterAuth = (u, nextOverride = null) => {
     setUser(u)
     localStorage.setItem('user', JSON.stringify(u))
-    const next = nextOverride || pendingNext || readNextApp() || 'hub'
+    const next = normalizeSuiteApp(
+      nextOverride || pendingNext || readNextApp() || (TRIP_PLANNER_ENABLED ? 'hub' : 'stock'),
+    )
     setPendingNext(null)
     setPage('landing')
     navigate(pathForApp(next === 'stock' || next === 'trip' ? next : 'hub'))
@@ -119,8 +124,9 @@ export default function App() {
   useEffect(() => {
     if (!user || authChecking) return
     const view = resolveLoggedInView(path)
-    if (view === 'hub-redirect') navigate('/hub')
-    if (path === '/admin' && user.role !== 'admin') navigate('/hub')
+    if (view === 'stock-redirect') navigate('/app')
+    else if (view === 'hub-redirect') navigate('/hub')
+    if (path === '/admin' && user.role !== 'admin') navigate(suiteHomePath())
   }, [user, path, authChecking])
 
   useEffect(() => {
@@ -130,11 +136,11 @@ export default function App() {
       return
     }
     if (path === '/trip' || path.startsWith('/trip/')) {
-      openAuth('login', 'trip')
+      openAuth('login', TRIP_PLANNER_ENABLED ? 'trip' : 'stock')
       return
     }
     if (path === '/hub') {
-      openAuth('login', 'hub')
+      openAuth('login', TRIP_PLANNER_ENABLED ? 'hub' : 'stock')
     }
   }, [user, path, authChecking])
 
@@ -156,12 +162,12 @@ export default function App() {
     if (view === 'admin' && user.role === 'admin') {
       return (
         <ThemeProvider>
-          <AdminPage user={user} onBack={() => navigate('/hub')} onLogout={logout} />
+          <AdminPage user={user} onBack={() => navigate(suiteHomePath())} onLogout={logout} />
         </ThemeProvider>
       )
     }
 
-    if (view === 'trip') {
+    if (view === 'trip' && TRIP_PLANNER_ENABLED) {
       return (
         <ThemeProvider>
           <TripApp
@@ -188,7 +194,7 @@ export default function App() {
           <AppHub
             user={user}
             onOpenStock={() => navigate('/app')}
-            onOpenTrip={() => navigate('/trip')}
+            onOpenTrip={TRIP_PLANNER_ENABLED ? () => navigate('/trip') : undefined}
             onOpenSubscription={() => navigate('/app?tab=subscription')}
             onLogout={logout}
             onOpenAdmin={user.role === 'admin' ? () => navigate('/admin') : undefined}
@@ -208,8 +214,8 @@ export default function App() {
               localStorage.setItem('user', JSON.stringify(u))
             }}
             onOpenAdmin={user.role === 'admin' ? () => navigate('/admin') : undefined}
-            onGoHub={() => navigate('/hub')}
-            onOpenTrip={() => navigate('/trip')}
+            onGoHub={TRIP_PLANNER_ENABLED ? () => navigate('/hub') : undefined}
+            onOpenTrip={TRIP_PLANNER_ENABLED ? () => navigate('/trip') : undefined}
           />
         </PrivacyProvider>
       </ThemeProvider>
@@ -270,7 +276,7 @@ export default function App() {
         onLogin={(next) => openAuth('login', next || null)}
         onRegister={(next) => openAuth('register', next || null)}
         onChooseStock={() => openAuth('login', 'stock')}
-        onChooseTrip={() => openAuth('login', 'trip')}
+        onChooseTrip={TRIP_PLANNER_ENABLED ? () => openAuth('login', 'trip') : undefined}
       />
     </ThemeProvider>
   )
