@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   estimatePlaceCost,
+  formatEstimateRange,
   sumTripCostEstimates,
 } from '../../src/lib/tripPriceEstimate.js'
 
@@ -49,5 +50,13 @@ describe('tripPriceEstimate', () => {
     expect(sum.budgeted).toBe(1)
     expect(sum.estimated).toBe(1)
     expect(sum.total).toBeGreaterThan(3000)
+  })
+
+  it('formats dual-currency ranges with currencies grouped', () => {
+    const estimate = { source: 'estimate', amount: 28000, low: 18000, high: 38000, label: 'ประมาณ' }
+    const one = (n) => `฿${n} · ¥${n * 5}`
+    const range = (low, high) => `฿${low} – ฿${high} · ¥${low * 5} – ¥${high * 5}`
+    expect(formatEstimateRange(estimate, one, range)).toBe('฿18000 – ฿38000 · ¥90000 – ¥190000')
+    expect(formatEstimateRange(estimate, (n) => `฿${n}`)).toBe('฿18000 – ฿38000')
   })
 })

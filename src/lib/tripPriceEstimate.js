@@ -222,11 +222,17 @@ export function sumTripCostEstimates(places, ctx = {}) {
   }
 }
 
-export function formatEstimateRange(estimate, formatMoney) {
+/**
+ * @param {object} estimate
+ * @param {(amount: number) => string} formatMoney - formats a single amount (may include dual currency)
+ * @param {(low: number, high: number) => string} [formatRange] - formats a range with currencies grouped
+ */
+export function formatEstimateRange(estimate, formatMoney, formatRange = null) {
   if (!estimate || estimate.source === 'none' || estimate.amount <= 0) return null
   if (estimate.source === 'budget') {
     return formatMoney(estimate.amount)
   }
   if (estimate.low === estimate.high) return formatMoney(estimate.amount)
+  if (typeof formatRange === 'function') return formatRange(estimate.low, estimate.high)
   return `${formatMoney(estimate.low)} – ${formatMoney(estimate.high)}`
 }

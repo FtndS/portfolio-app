@@ -273,7 +273,20 @@ export default function TripApp({
   const formatPlaceBudget = (amount, fromCcy = nativeCurrency) => {
     const home = convertTripAmount(amount, fromCcy, HOME_CURRENCY, unitsPerUsd)
     const foreignAmt = convertTripAmount(amount, fromCcy, fxForeign, unitsPerUsd)
+    if (fxInverted) {
+      return `${formatTripMoney(foreignAmt, fxForeign)} · ${formatTripMoney(home, HOME_CURRENCY)}`
+    }
     return `${formatTripMoney(home, HOME_CURRENCY)} · ${formatTripMoney(foreignAmt, fxForeign)}`
+  }
+
+  const formatPlaceBudgetRange = (low, high, fromCcy = nativeCurrency) => {
+    const homeLow = convertTripAmount(low, fromCcy, HOME_CURRENCY, unitsPerUsd)
+    const homeHigh = convertTripAmount(high, fromCcy, HOME_CURRENCY, unitsPerUsd)
+    const foreignLow = convertTripAmount(low, fromCcy, fxForeign, unitsPerUsd)
+    const foreignHigh = convertTripAmount(high, fromCcy, fxForeign, unitsPerUsd)
+    const homePart = `${formatTripMoney(homeLow, HOME_CURRENCY)} – ${formatTripMoney(homeHigh, HOME_CURRENCY)}`
+    const foreignPart = `${formatTripMoney(foreignLow, fxForeign)} – ${formatTripMoney(foreignHigh, fxForeign)}`
+    return fxInverted ? `${foreignPart} · ${homePart}` : `${homePart} · ${foreignPart}`
   }
 
   const setForeignManual = (code) => {
@@ -924,6 +937,7 @@ export default function TripApp({
                     focusedPlaceId={mapFocusId}
                     onSelectPlace={focusPlaceOnMap}
                     formatBudget={formatPlaceBudget}
+                    formatBudgetRange={formatPlaceBudgetRange}
                     estimateCtx={estimateCtx}
                   />
                 ) : (

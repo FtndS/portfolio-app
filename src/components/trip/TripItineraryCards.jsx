@@ -30,9 +30,9 @@ function timeRange(place) {
   return a || b || null
 }
 
-function PlacePrice({ place, estimateCtx, formatBudget }) {
+function PlacePrice({ place, estimateCtx, formatBudget, formatBudgetRange }) {
   const estimate = estimatePlaceCost(place, estimateCtx)
-  const range = formatEstimateRange(estimate, formatBudget)
+  const range = formatEstimateRange(estimate, formatBudget, formatBudgetRange)
   if (!range) return null
   return (
     <p className={`trip-icard-price${estimate.source === 'estimate' ? ' trip-icard-price--estimate' : ''}`}>
@@ -45,7 +45,7 @@ function PlacePrice({ place, estimateCtx, formatBudget }) {
   )
 }
 
-function FlightCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
+function FlightCard({ place, onSelect, focused, formatBudget, formatBudgetRange, estimateCtx }) {
   const leg = place.flight_leg
   return (
     <article className={`trip-icard trip-icard--flight${focused ? ' is-focused' : ''}`}>
@@ -72,7 +72,12 @@ function FlightCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
           </div>
         )}
         {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-        <PlacePrice place={place} estimateCtx={estimateCtx} formatBudget={formatBudget} />
+        <PlacePrice
+          place={place}
+          estimateCtx={estimateCtx}
+          formatBudget={formatBudget}
+          formatBudgetRange={formatBudgetRange}
+        />
         {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
         {onSelect && showPlaceOnMap(place) && (
           <button type="button" className="trip-icard-map-btn" onClick={() => onSelect(place)}>
@@ -84,7 +89,7 @@ function FlightCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
   )
 }
 
-function StayCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
+function StayCard({ place, onSelect, focused, formatBudget, formatBudgetRange, estimateCtx }) {
   const canMap = onSelect && showPlaceOnMap(place)
   return (
     <article className={`trip-icard trip-icard--stay${focused ? ' is-focused' : ''}`}>
@@ -114,7 +119,12 @@ function StayCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
           )}
           {place.address && <p className="trip-icard-notes">{place.address}</p>}
           {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-          <PlacePrice place={place} estimateCtx={estimateCtx} formatBudget={formatBudget} />
+          <PlacePrice
+            place={place}
+            estimateCtx={estimateCtx}
+            formatBudget={formatBudget}
+            formatBudgetRange={formatBudgetRange}
+          />
           {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
         </div>
       </div>
@@ -122,7 +132,7 @@ function StayCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
   )
 }
 
-function PlaceCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
+function PlaceCard({ place, onSelect, focused, formatBudget, formatBudgetRange, estimateCtx }) {
   const meta = TYPE_META[place.type] || TYPE_META.other
   const canMap = onSelect && showPlaceOnMap(place)
   const withPhoto = showPlacePhoto(place)
@@ -156,7 +166,12 @@ function PlaceCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
           )}
           {place.address && <p className="trip-icard-notes">{place.address}</p>}
           {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-          <PlacePrice place={place} estimateCtx={estimateCtx} formatBudget={formatBudget} />
+          <PlacePrice
+            place={place}
+            estimateCtx={estimateCtx}
+            formatBudget={formatBudget}
+            formatBudgetRange={formatBudgetRange}
+          />
           {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
         </div>
       </div>
@@ -164,7 +179,7 @@ function PlaceCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
   )
 }
 
-function TransportCard({ place, onSelect, focused, formatBudget, estimateCtx }) {
+function TransportCard({ place, onSelect, focused, formatBudget, formatBudgetRange, estimateCtx }) {
   if (place.flight_leg) {
     return (
       <FlightCard
@@ -172,6 +187,7 @@ function TransportCard({ place, onSelect, focused, formatBudget, estimateCtx }) 
         onSelect={onSelect}
         focused={focused}
         formatBudget={formatBudget}
+        formatBudgetRange={formatBudgetRange}
         estimateCtx={estimateCtx}
       />
     )
@@ -188,7 +204,12 @@ function TransportCard({ place, onSelect, focused, formatBudget, estimateCtx }) 
         </div>
         <h4 className="trip-icard-title">{place.name}</h4>
         {place.notes && <p className="trip-icard-notes">{place.notes}</p>}
-        <PlacePrice place={place} estimateCtx={estimateCtx} formatBudget={formatBudget} />
+        <PlacePrice
+          place={place}
+          estimateCtx={estimateCtx}
+          formatBudget={formatBudget}
+          formatBudgetRange={formatBudgetRange}
+        />
         {showPlaceBooking(place) && <TripPlaceBooking place={place} />}
       </div>
     </article>
@@ -202,6 +223,7 @@ export default function TripItineraryCards({
   focusedPlaceId = null,
   onSelectPlace = null,
   formatBudget = (n) => formatTripMoney(n, HOME_CURRENCY),
+  formatBudgetRange = null,
   estimateCtx = {},
 }) {
   const sorted = [...(places || [])].sort((a, b) => {
@@ -238,6 +260,7 @@ export default function TripItineraryCards({
             focused,
             onSelect: onSelectPlace,
             formatBudget,
+            formatBudgetRange,
             estimateCtx,
           }
           if (place.type === 'hotel') return <StayCard key={place.id} {...props} />
