@@ -181,7 +181,9 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
         <p className="landing-pricing-more">
           <a href="/pricing.html">ดูรายละเอียดแพ็กเกจ</a>
           {' · '}
-          <a href="/terms.html">ยกเลิก / คืนเงิน</a>
+          <a href="/checkout.html">ตะกร้า / Checkout</a>
+          {' · '}
+          <a href="/refund.html">ยกเลิก / คืนเงิน</a>
           {' · '}
           <a href="/contact.html">ติดต่อเรา</a>
         </p>
@@ -200,6 +202,8 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
       <footer className="landing-footer">
         <div className="landing-footer-links">
           <a href="/pricing.html">แพ็กเกจและราคา</a>
+          <a href="/checkout.html">ตะกร้า / Checkout</a>
+          <a href="/refund.html">ยกเลิกและคืนเงิน</a>
           <a href="/contact.html">ติดต่อเรา</a>
           <a href="/terms.html">ข้อกำหนดการใช้งาน</a>
           <a href="/privacy.html">นโยบายความเป็นส่วนตัว</a>
