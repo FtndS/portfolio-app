@@ -9,7 +9,7 @@ import {
   formatTicketAttachmentLimitMb,
 } from '../../lib/ticketAttachments'
 
-export default function TicketImagePicker({ files, onChange, err, setErr }) {
+export default function TicketImagePicker({ files, onChange, err, setErr, label, required = false }) {
   const onPick = (e) => {
     setErr?.('')
     const picked = [...(e.target.files || [])]
@@ -49,7 +49,8 @@ export default function TicketImagePicker({ files, onChange, err, setErr }) {
   return (
     <div className="dash-sub-receipt">
       <label className="dash-text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
-        แนบรูป (ไม่บังคับ) — สูงสุด {MAX_TICKET_ATTACHMENTS} ไฟล์, ไฟล์ละ {formatTicketAttachmentLimitMb()} MB
+        {label
+          || `แนบรูป${required ? '' : ' (ไม่บังคับ)'} — สูงสุด ${MAX_TICKET_ATTACHMENTS} ไฟล์, ไฟล์ละ ${formatTicketAttachmentLimitMb()} MB`}
       </label>
       <input
         type="file"

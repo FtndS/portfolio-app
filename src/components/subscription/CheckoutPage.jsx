@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
 import { btnPrimary, btnGhost, inp } from '../../lib/styles'
+import TicketImagePicker, { buildAttachmentsPayload } from '../support/TicketImagePicker'
+
+const UPGRADE_STATUS = {
+  open: 'รอตรวจสลิป',
+  in_progress: 'กำลังตรวจสอบ',
+}
 
 export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashMessage = '' }) {
   const [data, setData] = useState(null)
@@ -15,6 +21,10 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
   const [creatingPromptPay, setCreatingPromptPay] = useState(false)
   const [promptPayState, setPromptPayState] = useState(null)
   const [promptPayErr, setPromptPayErr] = useState('')
+  const [slipFiles, setSlipFiles] = useState([])
+  const [slipErr, setSlipErr] = useState('')
+  const [slipSubmitting, setSlipSubmitting] = useState(false)
+  const [slipMsg, setSlipMsg] = useState('')
   const [cardForm, setCardForm] = useState({
     name: user?.name || '',
     number: '',
@@ -140,6 +150,46 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
     }
   }
 
+  const submitManualSlip = async () => {
+    setSlipErr('')
+    setSlipMsg('')
+    setActionErr('')
+    if (!slipFiles.length) {
+      setSlipErr('กรุณาแนบสลิปการโอนเงิน')
+      return
+    }
+    setSlipSubmitting(true)
+    try {
+      const attachmentsBase64 = await buildAttachmentsPayload(slipFiles)
+      const message = [
+        `ขออัปเกรดบัญชีเป็นแผน Pro (฿${data?.catalog?.proMonthlyThb || 99}/เดือน)`,
+        '',
+        `อีเมลบัญชี: ${user?.email || '—'}`,
+        `ชื่อ: ${user?.name || '—'}`,
+        `User ID: ${user?.id || '—'}`,
+        '',
+        'แนบสลิปการโอน PromptPay แล้ว — รอทีมงานยืนยันและเปิด Pro',
+      ].join('\n')
+      const r = await api.post('/support', {
+        category: 'upgrade',
+        subject: 'ขออัปเกรดเป็น Pro',
+        message,
+        attachmentsBase64,
+      })
+      if (r.error) {
+        setSlipErr(r.error)
+        return
+      }
+      setSlipMsg('ส่งคำขอแล้ว — ทีมงานจะตรวจสลิปและเปิด Pro ให้ภายใน 1 วันทำการ')
+      setSlipFiles([])
+      await load()
+    } catch {
+      setSlipErr('ส่งคำขอไม่สำเร็จ — ลองใหม่อีกครั้ง')
+    } finally {
+      setSlipSubmitting(false)
+    }
+  }
+
   useEffect(() => {
     const chargeId = promptPayState?.chargeId
     const status = promptPayState?.status
@@ -182,6 +232,7 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
   const omisePendingMessage = data.omisePendingMessage
     || 'กำลังรอยืนยันบัญชี Omise — ใช้ชุดที่ 1 ชั่วคราว'
   const hasStripeSub = !!data.hasStripeSubscription
+  const pendingUpgrade = data.pendingUpgradeTicket
 
   const openStripePortal = async () => {
     setActionErr('')
@@ -242,6 +293,18 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
               {checkoutLoading ? 'กำลังเปิด...' : 'เปิดหน้าจัดการบัตร Stripe'}
             </button>
           )}
+        </div>
+      )}
+
+      {pendingUpgrade && (
+        <div className="dash-inset" style={{ padding: '12px 14px', marginBottom: '16px', borderColor: 'var(--accent)' }}>
+          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px' }}>
+            คำขอ PromptPay #{pendingUpgrade.id} — <strong>{UPGRADE_STATUS[pendingUpgrade.status] || pendingUpgrade.status}</strong>
+            {' '}({new Date(pendingUpgrade.created_at).toLocaleDateString('th-TH')})
+          </p>
+          <p className="dash-text-muted" style={{ margin: '6px 0 0', fontSize: '13px' }}>
+            ทีมงานจะตรวจสลิปและเปิด Pro ให้ทางอีเมล
+          </p>
         </div>
       )}
 
@@ -378,18 +441,50 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                       <div>
                         <ol className="dash-sub-steps">
                           <li>สแกน QR PromptPay โอน <strong>฿{proPrice}</strong></li>
-                          <li>ส่งสลิปผ่านเมนู Support เพื่อเปิด Pro</li>
-                          <li>ต่ออายุทุกเดือนด้วยตัวเอง (ไม่หักอัตโนมัติ)</li>
+                          <li>อัปโหลดสลิปด้านล่าง — ระบบแนบอีเมล <strong>{user?.email || '—'}</strong> ให้อัตโนมัติ</li>
+                          <li>กดส่งคำขอ — ทีมงานได้ Ticket + อีเมลเพื่อเปิด Pro</li>
                         </ol>
                         {canPay ? (
-                          <>
-                            <div className="dash-sub-qr-wrap" style={{ marginTop: '14px' }}>
+                          <div className="dash-sub-payment" style={{ marginTop: '14px' }}>
+                            <div className="dash-sub-qr-wrap">
                               <img src={qrUrl} alt={`PromptPay QR ฿${proPrice}`} className="dash-sub-qr" width={280} height={380} />
+                              <p className="dash-text-muted" style={{ fontSize: '12px', textAlign: 'center', margin: '8px 0 0' }}>
+                                PortDiary · ฿{proPrice}.00
+                              </p>
                             </div>
-                            {data.paymentInstructions && (
-                              <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '10px' }}>{data.paymentInstructions}</p>
-                            )}
-                          </>
+                            <div>
+                              {pendingUpgrade ? (
+                                <p className="dash-text-muted" style={{ fontSize: '14px', lineHeight: 1.6, margin: 0 }}>
+                                  มีคำขออัปเกรดรอตรวจอยู่แล้ว — ไม่ต้องส่งสลิปซ้ำจนกว่าทีมงานจะตอบกลับ
+                                </p>
+                              ) : (
+                                <>
+                                  <TicketImagePicker
+                                    files={slipFiles}
+                                    onChange={setSlipFiles}
+                                    err={slipErr}
+                                    setErr={setSlipErr}
+                                    required
+                                    label={`อัปโหลดสลิปการโอน (บังคับ) — สูงสุด 3 ไฟล์`}
+                                  />
+                                  {slipMsg && (
+                                    <p className="dash-text-gain" style={{ fontSize: '13px', marginTop: '10px' }}>{slipMsg}</p>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={submitManualSlip}
+                                    style={{ ...btnPrimary, marginTop: '12px', width: '100%' }}
+                                    disabled={slipSubmitting}
+                                  >
+                                    {slipSubmitting ? 'กำลังส่ง...' : 'ส่งคำขออัปเกรด Pro'}
+                                  </button>
+                                </>
+                              )}
+                              {data.paymentInstructions && (
+                                <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '10px' }}>{data.paymentInstructions}</p>
+                              )}
+                            </div>
+                          </div>
                         ) : (
                           <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '14px' }}>
                             บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องโอนซ้ำ
