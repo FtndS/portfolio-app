@@ -11,9 +11,11 @@ export const DASH_TABS = [
 ]
 
 export const SUBSCRIPTION_TAB = 'subscription'
+export const CHECKOUT_TAB = 'checkout'
 
 export function tabLabel(key) {
   if (key === SUBSCRIPTION_TAB) return 'แผน Pro'
+  if (key === CHECKOUT_TAB) return 'Checkout'
   return DASH_TABS.find(([k]) => k === key)?.[1] || key
 }
 

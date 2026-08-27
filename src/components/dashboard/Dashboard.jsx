@@ -18,6 +18,7 @@ import PortfolioManageModal from '../modals/PortfolioManageModal'
 import SettingsModal from '../modals/SettingsModal'
 import SupportModal from '../modals/SupportModal'
 import SubscriptionPage from '../subscription/SubscriptionPage'
+import CheckoutPage from '../subscription/CheckoutPage'
 import TickerStoryModal from '../modals/TickerStoryModal'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
@@ -431,6 +432,11 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
     setTab(k)
     setSearchQuery('')
     setSidebarOpen(false)
+    if (k === 'subscription' || k === 'checkout') {
+      window.history.replaceState({}, '', `/app?tab=${k}`)
+    } else if (window.location.search.includes('tab=')) {
+      window.history.replaceState({}, '', '/app')
+    }
   }
 
   const openAddTransaction = () => {
@@ -449,6 +455,11 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
     selectTab('subscription')
   }
 
+  const openCheckout = () => {
+    setModal(null)
+    selectTab('checkout')
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const sub = params.get('subscription')
@@ -457,6 +468,10 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
 
     if (tabParam === 'subscription') {
       setTab('subscription')
+      changed = true
+    }
+    if (tabParam === 'checkout') {
+      setTab('checkout')
       changed = true
     }
     if (sub === 'success') {
@@ -473,13 +488,17 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
       })
       changed = true
     } else if (sub === 'cancel') {
-      setTab('subscription')
+      setTab('checkout')
       setSubscriptionFlash('ยกเลิกการชำระเงิน — คุณยังใช้แผน Free อยู่')
       changed = true
     }
 
     if (changed) {
-      window.history.replaceState({}, '', window.location.pathname)
+      const keepTab = tabParam === 'checkout' ? '/app?tab=checkout'
+        : tabParam === 'subscription' || sub === 'success' || sub === 'cancel'
+          ? `/app?tab=${sub === 'cancel' ? 'checkout' : 'subscription'}`
+          : '/app'
+      window.history.replaceState({}, '', keepTab)
     }
   }, [onUserUpdate])
 
@@ -862,6 +881,15 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
           <SubscriptionPage
             user={user}
             onUserRefresh={onUserUpdate}
+            onOpenCheckout={openCheckout}
+            flashMessage={subscriptionFlash}
+          />
+        )}
+        {tab==='checkout' && (
+          <CheckoutPage
+            user={user}
+            onUserRefresh={onUserUpdate}
+            onBackToPlan={openSubscription}
             flashMessage={subscriptionFlash}
           />
         )}

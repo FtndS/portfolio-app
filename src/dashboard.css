@@ -2661,3 +2661,31 @@
 .dash-sub-retry {
   margin-top: 12px;
 }
+
+.dash-checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.dash-checkout-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 15px;
+}
+
+.dash-checkout-total strong {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 860px) {
+  .dash-checkout-grid {
+    grid-template-columns: 1fr;
+  }
+}
