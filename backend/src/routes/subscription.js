@@ -24,8 +24,34 @@ router.use(authMiddleware)
 function getPaymentMaintenanceNotice() {
   const disabled = String(process.env.PRO_UPGRADE_DISABLED || '').trim().toLowerCase() === 'true'
   const message = String(process.env.PRO_UPGRADE_DISABLED_MESSAGE || '').trim()
-    || 'ระบบชำระเงินปิดชั่วคราวระหว่างรออนุมัติจากผู้ให้บริการ กรุณาลองใหม่อีกครั้งภายหลัง'
+    || 'ระบบชำระเงินผ่าน Omise ยังรอยืนยัน — ใช้ PromptPay (manual) หรือบัตร Stripe ชั่วคราว'
   return { disabled, message }
+}
+
+function buildPaymentSuites({ stripeConfigured, omiseConfigured, maintenance }) {
+  const omisePending = maintenance.disabled || !omiseConfigured
+  return {
+    active: 'stripe_manual',
+    suites: [
+      {
+        id: 'stripe_manual',
+        label: 'PromptPay (manual) + บัตร Stripe',
+        status: 'available',
+        cardProvider: stripeConfigured ? 'stripe' : null,
+        promptPayMode: 'manual',
+        enabled: true,
+      },
+      {
+        id: 'omise',
+        label: 'Omise (บัตร + PromptPay อัตโนมัติ)',
+        status: omisePending ? 'pending_approval' : 'available',
+        cardProvider: omiseConfigured ? 'omise' : null,
+        promptPayMode: omiseConfigured ? 'omise' : null,
+        enabled: !omisePending && omiseConfigured,
+        pendingMessage: maintenance.message,
+      },
+    ],
+  }
 }
 
 router.get('/', async (req, res) => {
@@ -85,6 +111,11 @@ router.get('/', async (req, res) => {
     const mergedBillingHistory = [...billingHistory, ...omiseBillingHistory]
       .sort((a, b) => new Date(b.paidAt || b.createdAt) - new Date(a.paidAt || a.createdAt))
     const maintenance = getPaymentMaintenanceNotice()
+    const paymentSuites = buildPaymentSuites({
+      stripeConfigured,
+      omiseConfigured,
+      maintenance,
+    })
 
     res.json({
       plan: isOwner ? 'pro' : effective,
@@ -93,8 +124,9 @@ router.get('/', async (req, res) => {
       isOwner,
       paymentEnabled: stripeConfigured,
       paymentMode: stripeConfigured ? 'stripe' : 'manual',
-      omisePromptPayEnabled: omiseConfigured,
-      omiseCardEnabled: omiseConfigured,
+      paymentSuites,
+      omisePromptPayEnabled: omiseConfigured && !maintenance.disabled,
+      omiseCardEnabled: omiseConfigured && !maintenance.disabled,
       omisePublicKey: omiseConfigured ? (process.env.OMISE_PUBLIC_KEY?.trim() || '') : '',
       manualPaymentEnabled: true,
       stripeCustomerId,
@@ -107,8 +139,11 @@ router.get('/', async (req, res) => {
       billingHistory: mergedBillingHistory,
       paymentQrUrl: process.env.PRO_PAYMENT_QR_URL || '/promptpay-qr-99.png',
       paymentInstructions: process.env.PRO_PAYMENT_INSTRUCTIONS || null,
-      paymentTemporarilyDisabled: maintenance.disabled,
-      paymentTemporarilyDisabledMessage: maintenance.message,
+      // Keep for older clients; Omise-only pending — suite 1 (Stripe/manual) stays available
+      paymentTemporarilyDisabled: false,
+      paymentTemporarilyDisabledMessage: '',
+      omisePending: maintenance.disabled || !omiseConfigured,
+      omisePendingMessage: maintenance.message,
       catalog: buildSubscriptionCatalog(),
       quota,
     })
@@ -197,10 +232,7 @@ router.post('/promptpay/:chargeId/sync', async (req, res) => {
 
 router.post('/checkout', async (req, res) => {
   try {
-    const maintenance = getPaymentMaintenanceNotice()
-    if (maintenance.disabled) {
-      return res.status(503).json({ error: maintenance.message })
-    }
+    // Suite 1 (Stripe) stays available while Omise is pending approval
     if (!isStripeConfigured()) {
       return res.status(503).json({ error: 'ระบบชำระเงินอัตโนมัติยังไม่พร้อม — ติดต่อทีมงาน' })
     }

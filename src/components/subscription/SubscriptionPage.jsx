@@ -37,7 +37,8 @@ const QUOTA_KEYS = [
   ['tickerJournal', 'สรุป journal หุ้น'],
   ...(TRIP_PLANNER_ENABLED ? [['tripPlan', 'AI จัดทริป']] : []),
 ]
-const PAYMENT_MAINTENANCE_POPUP_SEEN_KEY = 'portdiary_payment_maintenance_popup_seen'
+
+const HIDDEN_FEATURE_IDS = TRIP_PLANNER_ENABLED ? [] : ['tripPlan', 'tripChat']
 
 const UPGRADE_STATUS = {
   open: 'รอตรวจสลิป',
@@ -96,7 +97,6 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
   const [actionErr, setActionErr] = useState('')
   const [banner, setBanner] = useState(flashMessage)
   const [syncLoading, setSyncLoading] = useState(false)
-  const [showMaintenancePopup, setShowMaintenancePopup] = useState(false)
 
   const load = async (opts = {}) => {
     setLoading(true)
@@ -167,20 +167,6 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
     }
   }
 
-  useEffect(() => {
-    if (!data?.paymentTemporarilyDisabled) {
-      setShowMaintenancePopup(false)
-      return
-    }
-    let seen = false
-    try {
-      seen = window.localStorage.getItem(PAYMENT_MAINTENANCE_POPUP_SEEN_KEY) === '1'
-    } catch {
-      seen = false
-    }
-    setShowMaintenancePopup(!seen)
-  }, [data?.paymentTemporarilyDisabled])
-
   if (loading) {
     return (
       <div className="dash-sub-page">
@@ -203,7 +189,7 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
   const plans = data.catalog?.plans || []
   const freePlan = plans.find((p) => p.id === 'free')
   const proPlan = plans.find((p) => p.id === 'pro')
-  const features = freePlan?.features || []
+  const features = (freePlan?.features || []).filter((f) => !HIDDEN_FEATURE_IDS.includes(f.id))
   const proPrice = data.catalog?.proMonthlyThb || 99
   const pending = data.pendingUpgradeTicket
   const isStripePro = isPro && data.hasStripeSubscription
@@ -214,58 +200,13 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
   const showOmiseManage = !data.isOwner && isOmiseCardPro
   const billingHistory = data.billingHistory || []
   const stripeCancelled = data.stripeSubscription?.cancelAtPeriodEnd
-  const paymentMaintenance = !!data.paymentTemporarilyDisabled
   const stripeAuto = data.paymentEnabled && data.paymentMode === 'stripe'
+  const omisePending = !!data.omisePending
 
   const quotaCards = QUOTA_KEYS.map(([key, label]) => quotaCard(data.quota, key, label)).filter(Boolean)
 
   return (
     <div className="dash-sub-page">
-      {paymentMaintenance && showMaintenancePopup && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(10, 12, 18, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1100,
-            padding: '16px',
-          }}
-        >
-          <div
-            className="dash-card"
-            style={{
-              width: 'min(460px, 100%)',
-              borderColor: 'var(--warn)',
-              boxShadow: '0 24px 54px rgba(0,0,0,.35)',
-            }}
-          >
-            <h3 className="dash-card-title" style={{ marginBottom: '8px' }}>แจ้งเตือน</h3>
-            <p className="dash-text-secondary" style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: 700 }}>
-              ปิดปรับปรุงระบบชำระเงินชั่วคราว
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setShowMaintenancePopup(false)
-                try {
-                  window.localStorage.setItem(PAYMENT_MAINTENANCE_POPUP_SEEN_KEY, '1')
-                } catch {
-                  // ignore storage failures (private mode / browser policy)
-                }
-              }}
-              style={{ ...btnPrimary, width: '100%' }}
-            >
-              รับทราบ
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="dash-sub-hero">
         <div>
           <h2 className="dash-sub-title">แผนการใช้งาน</h2>
@@ -327,21 +268,11 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
         <p className="dash-text-loss" style={{ marginBottom: '12px', fontSize: '14px' }}>{actionErr}</p>
       )}
 
-      {paymentMaintenance && (
-        <div
-          className="dash-inset"
-          style={{
-            padding: '14px 16px',
-            marginBottom: '16px',
-            borderColor: 'var(--warn)',
-            background: 'color-mix(in srgb, var(--warn) 14%, transparent)',
-          }}
-        >
-          <p
-            className="dash-text-secondary"
-            style={{ margin: 0, fontSize: '15px', fontWeight: 700, textAlign: 'center' }}
-          >
-            ปิดปรับปรุงระบบชำระเงินชั่วคราว
+      {omisePending && (
+        <div className="dash-inset dash-sub-omise-note">
+          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
+            <strong>ชุดชำระเงิน Omise</strong> กำลังรอยืนยัน —
+            ตอนนี้ชำระได้ด้วย <strong>PromptPay (manual)</strong> หรือ <strong>บัตร Stripe</strong> ที่หน้า Checkout
           </p>
         </div>
       )}
@@ -406,7 +337,7 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
             <h3 className="dash-sub-plan-name">{plan.label}</h3>
             <div className="dash-sub-plan-price">{plan.priceLabel}</div>
             <ul className="dash-sub-plan-features">
-              {plan.features.map((f) => (
+              {plan.features.filter((f) => !HIDDEN_FEATURE_IDS.includes(f.id)).map((f) => (
                 <li key={f.id}>
                   <span className="dash-sub-feature-label">{f.label}</span>
                   <span className="dash-sub-feature-val">{plan.id === 'free' ? f.free : f.pro}</span>
@@ -450,21 +381,21 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
         </div>
       )}
 
-      {showPayChooser && !paymentMaintenance && (
-        <div className="dash-card dash-sub-note">
-          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '6px' }}>
-            {isManualPro ? 'ต่ออายุ Pro' : 'อัปเกรดเป็น Pro'} — ฿{proPrice}/เดือน
-          </h3>
-          <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '14px' }}>
-            ไปหน้า Checkout เพื่อดูตะกร้าและชำระด้วยบัตรหรือ PromptPay
-          </p>
+      {showPayChooser && (
+        <div className="dash-card dash-sub-checkout-cta">
+          <div>
+            <p className="dash-checkout-kicker">Checkout</p>
+            <h3 className="dash-card-title" style={{ marginBottom: '6px' }}>
+              {isManualPro ? 'ต่ออายุ Pro' : 'อัปเกรดเป็น Pro'} — ฿{proPrice}/เดือน
+            </h3>
+            <p className="dash-text-muted" style={{ fontSize: '14px', margin: 0, lineHeight: 1.65 }}>
+              ชุด 1 พร้อมใช้: PromptPay (manual) + บัตร Stripe
+              {omisePending ? ' · ชุด 2 Omise รอยืนยัน' : ' · ชุด 2 Omise พร้อมใช้'}
+            </p>
+          </div>
           <button type="button" onClick={onOpenCheckout} style={btnPrimary}>
             ไปหน้า Checkout
           </button>
-          <p className="dash-text-faint" style={{ fontSize: '12px', marginTop: '10px', lineHeight: 1.6 }}>
-            มีหน้าตะกร้าและ Checkout แยก · นโยบาย{' '}
-            <a href="/refund.html" className="dash-link-btn" target="_blank" rel="noreferrer">ยกเลิกและคืนเงิน</a>
-          </p>
         </div>
       )}
 
