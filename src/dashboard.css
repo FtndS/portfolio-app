@@ -2280,7 +2280,13 @@
 }
 
 .dash-sub-page {
-  max-width: 920px;
+  max-width: 1100px;
+  width: 100%;
+}
+
+.dash-checkout-page {
+  max-width: none;
+  width: 100%;
 }
 
 .dash-sub-hero {
@@ -2699,13 +2705,26 @@
 
 .dash-checkout-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.2fr);
-  gap: 18px;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
+}
+
+.dash-checkout-cart {
+  position: sticky;
+  top: 72px;
+}
+
+.dash-checkout-pay {
+  min-height: 280px;
 }
 
 .dash-checkout-top {
   margin-bottom: 20px;
+}
+
+.dash-checkout-top .dash-sub-lead {
+  max-width: 720px;
 }
 
 .dash-checkout-kicker {
@@ -2847,6 +2866,10 @@
   .dash-checkout-grid,
   .dash-checkout-suites {
     grid-template-columns: 1fr;
+  }
+
+  .dash-checkout-cart {
+    position: static;
   }
 
   .dash-sub-checkout-cta,
