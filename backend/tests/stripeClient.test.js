@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { isStripeConfigured } from '../src/lib/stripeClient.js'
+import { formatStripeError, isStripeConfigured } from '../src/lib/stripeClient.js'
 
 describe('stripeClient', () => {
   const env = { ...process.env }
@@ -18,5 +18,11 @@ describe('stripeClient', () => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_x'
     process.env.STRIPE_PRICE_ID = 'price_x'
     expect(isStripeConfigured()).toBe(true)
+  })
+
+  it('formatStripeError maps common Stripe failures', () => {
+    expect(formatStripeError({ message: 'No such price: price_x' })).toMatch(/STRIPE_PRICE_ID/)
+    expect(formatStripeError({ message: 'Invalid API Key provided' })).toMatch(/STRIPE_SECRET_KEY/)
+    expect(formatStripeError({ message: 'Something custom from Stripe' })).toBe('Something custom from Stripe')
   })
 })

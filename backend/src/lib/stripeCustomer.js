@@ -6,6 +6,11 @@ export function stripeCustomerDisplayName({ name, email }) {
   return (local || 'PortDiary member').slice(0, 120)
 }
 
+function isMissingCustomerError(err) {
+  const msg = String(err?.raw?.message || err?.message || '')
+  return err?.code === 'resource_missing' || /No such customer/i.test(msg)
+}
+
 export async function ensureStripeCustomer(stripe, pool, userId) {
   const row = await pool.query(
     'SELECT email, name, stripe_customer_id FROM users WHERE id = $1',
@@ -17,8 +22,13 @@ export async function ensureStripeCustomer(stripe, pool, userId) {
   const displayName = stripeCustomerDisplayName({ name: user.name, email: user.email })
 
   if (user.stripe_customer_id) {
-    await stripe.customers.update(user.stripe_customer_id, { name: displayName })
-    return user.stripe_customer_id
+    try {
+      await stripe.customers.update(user.stripe_customer_id, { name: displayName })
+      return user.stripe_customer_id
+    } catch (err) {
+      if (!isMissingCustomerError(err)) throw err
+      await pool.query('UPDATE users SET stripe_customer_id = NULL WHERE id = $1', [userId])
+    }
   }
 
   const customer = await stripe.customers.create({
@@ -33,15 +43,12 @@ export async function ensureStripeCustomer(stripe, pool, userId) {
   return customer.id
 }
 
+/** Prefer omitting name collection (defaults off). Keep customer name locked to PortDiary username. */
 export function checkoutPrivacyParams() {
   return {
     customer_update: {
       name: 'never',
-      address: 'never',
-    },
-    name_collection: {
-      individual: { enabled: false },
-      business: { enabled: false },
+      address: 'auto',
     },
   }
 }

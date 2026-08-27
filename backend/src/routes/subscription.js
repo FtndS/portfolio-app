@@ -3,7 +3,7 @@ import { authMiddleware } from '../middleware/auth.js'
 import { getAiQuota } from '../lib/aiQuota.js'
 import { isAiPrivilegedUser, resolveEffectivePlan } from '../lib/aiPlan.js'
 import { buildSubscriptionCatalog, PRO_MONTHLY_THB } from '../lib/subscriptionCatalog.js'
-import { appBaseUrl, getStripe, isStripeConfigured } from '../lib/stripeClient.js'
+import { appBaseUrl, formatStripeError, getStripe, isStripeConfigured } from '../lib/stripeClient.js'
 import { syncUserSubscriptionFromStripe, fetchBillingHistory, getStripeSubscriptionFlags } from '../lib/stripeSubscription.js'
 import { ensureStripeCustomer, checkoutPrivacyParams } from '../lib/stripeCustomer.js'
 import { isOmiseConfigured } from '../lib/omiseClient.js'
@@ -257,11 +257,15 @@ router.post('/checkout', async (req, res) => {
     }
 
     const customerId = await ensureStripeCustomer(stripe, pool, req.userId)
+    if (!customerId) {
+      return res.status(400).json({ error: 'สร้างข้อมูลลูกค้า Stripe ไม่สำเร็จ — ตรวจอีเมลบัญชี' })
+    }
 
     const base = appBaseUrl()
+    const priceId = process.env.STRIPE_PRICE_ID.trim()
     const sessionParams = {
       mode: 'subscription',
-      line_items: [{ price: process.env.STRIPE_PRICE_ID.trim(), quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${base}/app?subscription=success`,
       cancel_url: `${base}/app?subscription=cancel`,
       client_reference_id: String(req.userId),
@@ -273,10 +277,19 @@ router.post('/checkout', async (req, res) => {
       ...checkoutPrivacyParams(),
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams)
+    let session
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams)
+    } catch (firstErr) {
+      // Retry without privacy params if Stripe rejects customer_update / related fields
+      console.warn('POST subscription/checkout privacy retry:', firstErr?.message || firstErr)
+      const { customer_update: _cu, name_collection: _nc, ...basic } = sessionParams
+      session = await stripe.checkout.sessions.create(basic)
+    }
     res.json({ url: session.url })
   } catch (err) {
-    serverError(res, err, 'POST subscription/checkout error:')
+    console.error('POST subscription/checkout error:', err)
+    return res.status(502).json({ error: formatStripeError(err) })
   }
 })
 
@@ -357,7 +370,8 @@ router.post('/portal', async (req, res) => {
     })
     res.json({ url: session.url })
   } catch (err) {
-    serverError(res, err, 'POST subscription/portal error:')
+    console.error('POST subscription/portal error:', err)
+    return res.status(502).json({ error: formatStripeError(err, 'เปิดหน้าจัดการบัตร Stripe ไม่สำเร็จ') })
   }
 })
 
