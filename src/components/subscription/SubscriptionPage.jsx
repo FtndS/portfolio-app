@@ -197,12 +197,16 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
   const isManualPro = isPro && data.proPaymentSource === 'manual'
   const canOpenCheckout = !data.isOwner
   const needsPay = !data.isOwner && (!isPro || isManualPro)
-  const showStripeManage = !data.isOwner && isStripePro
+  const stripeReady = !!data.paymentEnabled
+  const showStripeManage = !data.isOwner && isStripePro && stripeReady
   const showOmiseManage = !data.isOwner && isOmiseCardPro
   const billingHistory = data.billingHistory || []
   const stripeCancelled = data.stripeSubscription?.cancelAtPeriodEnd
-  const stripeAuto = data.paymentEnabled && data.paymentMode === 'stripe'
+  const stripeAuto = stripeReady && data.paymentMode === 'stripe'
   const omisePending = !!data.omisePending
+  const suite1Label = stripeReady
+    ? 'ชุด 1 พร้อมใช้: PromptPay (manual) + บัตร Stripe'
+    : 'ชุด 1: PromptPay (manual) · บัตร Stripe ยังไม่พร้อมบนเซิร์ฟเวอร์'
 
   const quotaCards = QUOTA_KEYS.map(([key, label]) => quotaCard(data.quota, key, label)).filter(Boolean)
 
@@ -261,7 +265,19 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
       )}
 
       {actionErr && (
-        <p className="dash-text-loss" style={{ marginBottom: '12px', fontSize: '14px' }}>{actionErr}</p>
+        <div className="dash-inset dash-sub-action-err" style={{ marginBottom: '12px' }}>
+          <p className="dash-text-loss" style={{ margin: 0, fontSize: '14px', lineHeight: 1.55 }}>{actionErr}</p>
+        </div>
+      )}
+
+      {!stripeReady && !data.isOwner && (
+        <div className="dash-inset dash-sub-omise-note" style={{ marginBottom: '16px' }}>
+          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
+            <strong>Stripe ยังไม่พร้อมบนเซิร์ฟเวอร์</strong> — บน VPS ตรวจว่ามี
+            {' '}<code>STRIPE_ENABLED=true</code>, <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_PRICE_ID</code>
+            {' '}แล้ว <code>docker compose up -d --force-recreate backend</code>
+          </p>
+        </div>
       )}
 
       {canOpenCheckout && (
@@ -274,7 +290,7 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
                 : 'จัดการ / ดูช่องทางชำระเงิน'}
             </h3>
             <p className="dash-sub-pay-strip-desc">
-              ชุด 1 พร้อมใช้: PromptPay (manual) + บัตร Stripe
+              {suite1Label}
               {omisePending ? ' · ชุด 2 Omise รอยืนยัน' : ' · ชุด 2 Omise พร้อมใช้'}
             </p>
           </div>
@@ -285,6 +301,11 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
             {showStripeManage && (
               <button type="button" onClick={openPortal} style={btnGhost} disabled={portalLoading}>
                 {portalLoading ? 'กำลังเปิด...' : 'จัดการบัตร Stripe'}
+              </button>
+            )}
+            {isStripePro && !stripeReady && (
+              <button type="button" onClick={openPortal} style={btnGhost} disabled={portalLoading}>
+                {portalLoading ? 'กำลังเปิด...' : 'ลองเปิด Stripe อีกครั้ง'}
               </button>
             )}
             {showOmiseManage && (

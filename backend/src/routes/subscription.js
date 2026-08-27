@@ -234,7 +234,9 @@ router.post('/checkout', async (req, res) => {
   try {
     // Suite 1 (Stripe) stays available while Omise is pending approval
     if (!isStripeConfigured()) {
-      return res.status(503).json({ error: 'ระบบชำระเงินอัตโนมัติยังไม่พร้อม — ติดต่อทีมงาน' })
+      return res.status(503).json({
+        error: 'Stripe ยังไม่พร้อมบนเซิร์ฟเวอร์ — ตรวจ STRIPE_ENABLED=true, STRIPE_SECRET_KEY, STRIPE_PRICE_ID แล้ว restart backend',
+      })
     }
 
     const stripe = getStripe()
@@ -281,7 +283,9 @@ router.post('/checkout', async (req, res) => {
 router.post('/sync', async (req, res) => {
   try {
     if (!isStripeConfigured()) {
-      return res.status(503).json({ error: 'ระบบชำระเงินอัตโนมัติยังไม่พร้อม' })
+      return res.status(503).json({
+        error: 'Stripe ยังไม่พร้อมบนเซิร์ฟเวอร์ — ตรวจ STRIPE_ENABLED / STRIPE_SECRET_KEY / STRIPE_PRICE_ID แล้ว restart backend',
+      })
     }
 
     const result = await syncUserSubscriptionFromStripe(pool, req.userId, req.userEmail)
@@ -328,7 +332,9 @@ router.get('/billing', async (req, res) => {
 router.post('/portal', async (req, res) => {
   try {
     if (!isStripeConfigured()) {
-      return res.status(503).json({ error: 'ระบบชำระเงินอัตโนมัติยังไม่พร้อม' })
+      return res.status(503).json({
+        error: 'Stripe ยังไม่พร้อมบนเซิร์ฟเวอร์ — ตรวจ STRIPE_ENABLED=true, STRIPE_SECRET_KEY, STRIPE_PRICE_ID แล้ว restart backend',
+      })
     }
 
     const stripe = getStripe()

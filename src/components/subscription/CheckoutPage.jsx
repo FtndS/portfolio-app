@@ -171,7 +171,7 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
 
   const isPro = data.plan === 'pro' || data.isOwner
   const proPrice = data.catalog?.proMonthlyThb || 99
-  const stripeAuto = !!data.paymentEnabled
+  const stripeReady = !!data.paymentEnabled
   const omiseReady = !!data.omiseCardEnabled || !!data.omisePromptPayEnabled
   const qrUrl = data.paymentQrUrl || '/promptpay-qr-99.png'
   const isManualPro = isPro && data.proPaymentSource === 'manual'
@@ -181,6 +181,19 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
   const omisePending = !!data.omisePending || !omiseReady
   const omisePendingMessage = data.omisePendingMessage
     || 'กำลังรอยืนยันบัญชี Omise — ใช้ชุดที่ 1 ชั่วคราว'
+  const hasStripeSub = !!data.hasStripeSubscription
+
+  const openStripePortal = async () => {
+    setActionErr('')
+    setCheckoutLoading(true)
+    const r = await api.post('/subscription/portal')
+    setCheckoutLoading(false)
+    if (r.error) {
+      setActionErr(r.error)
+      return
+    }
+    if (r.url) window.location.href = r.url
+  }
 
   return (
     <div className="dash-sub-page dash-checkout-page">
@@ -198,17 +211,44 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
         </div>
       )}
 
-      {alreadyAutoPro && (
-        <div className="dash-inset dash-checkout-active-note">
+      {!stripeReady && !data.isOwner && (
+        <div className="dash-inset dash-sub-omise-note" style={{ marginBottom: '16px' }}>
           <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
-            คุณเป็นแผน Pro และต่ออายุอัตโนมัติอยู่แล้ว — ดูช่องทางด้านล่างได้
-            {' '}หรือกลับไป <button type="button" className="dash-link-btn" onClick={onBackToPlan}>จัดการแผน</button>
+            <strong>บัตร Stripe ยังไม่พร้อม</strong> — เซิร์ฟเวอร์ยังไม่โหลด
+            {' '}<code>STRIPE_ENABLED</code> / <code>STRIPE_SECRET_KEY</code> / <code>STRIPE_PRICE_ID</code>
+            {' '}ครบ ตอนนี้ชุดที่ 1 ใช้ได้แค่ PromptPay (manual)
           </p>
         </div>
       )}
 
+      {alreadyAutoPro && (
+        <div className="dash-inset dash-checkout-active-note">
+          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
+            คุณเป็นแผน Pro และต่ออายุอัตโนมัติอยู่แล้ว — ไม่เปิดหน้า Checkout บัตรซ้ำ
+            {hasStripeSub && stripeReady
+              ? ' · จัดการบัตร/ยกเลิกได้จากปุ่มด้านล่าง'
+              : ' · หรือกลับไป '}
+            {!(hasStripeSub && stripeReady) && (
+              <button type="button" className="dash-link-btn" onClick={onBackToPlan}>จัดการแผน</button>
+            )}
+          </p>
+          {hasStripeSub && stripeReady && (
+            <button
+              type="button"
+              style={{ ...btnPrimary, marginTop: '12px' }}
+              onClick={openStripePortal}
+              disabled={checkoutLoading}
+            >
+              {checkoutLoading ? 'กำลังเปิด...' : 'เปิดหน้าจัดการบัตร Stripe'}
+            </button>
+          )}
+        </div>
+      )}
+
       {actionErr && (
-        <p className="dash-text-loss" style={{ marginBottom: '12px', fontSize: '14px' }}>{actionErr}</p>
+        <div className="dash-inset dash-sub-action-err" style={{ marginBottom: '12px' }}>
+          <p className="dash-text-loss" style={{ margin: 0, fontSize: '14px', lineHeight: 1.55 }}>{actionErr}</p>
+        </div>
       )}
 
       <div className="dash-checkout-grid">
@@ -255,12 +295,14 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                   className={`dash-checkout-suite${suite === 'stripe_manual' ? ' is-active' : ''}`}
                   onClick={() => {
                     setSuite('stripe_manual')
-                    setPayMethod(stripeAuto ? 'card' : 'promptpay')
+                    setPayMethod(stripeReady ? 'card' : 'promptpay')
                   }}
                 >
-                  <span className="dash-checkout-suite-badge">ชุด 1 · พร้อมใช้</span>
+                  <span className={`dash-checkout-suite-badge${stripeReady ? '' : ' dash-checkout-suite-badge--pending'}`}>
+                    ชุด 1 · {stripeReady ? 'พร้อมใช้' : 'Stripe ยังไม่พร้อม'}
+                  </span>
                   <strong>PromptPay + Stripe</strong>
-                  <span>QR โอนเอง หรือตัดบัตรอัตโนมัติ</span>
+                  <span>{stripeReady ? 'QR โอนเอง หรือตัดบัตรอัตโนมัติ' : 'ตอนนี้ใช้ได้แค่ PromptPay (manual)'}</span>
                 </button>
                 <button
                   type="button"
@@ -285,7 +327,7 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                   <>
                     <h3 className="dash-card-title">ชำระด้วยชุดที่ 1</h3>
                     <div className="dash-segment dash-sub-pay-tabs" style={{ marginBottom: '16px' }}>
-                      {stripeAuto && (
+                      {stripeReady && (
                         <button
                           type="button"
                           className={`dash-segment-btn${payMethod === 'card' ? ' dash-segment-btn--active' : ''}`}
@@ -303,7 +345,13 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                       </button>
                     </div>
 
-                    {payMethod === 'card' && stripeAuto && (
+                    {!stripeReady && (
+                      <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px', lineHeight: 1.55 }}>
+                        ปุ่มบัตร Stripe จะโผล่เมื่อเซิร์ฟเวอร์ตั้งค่า Stripe ครบแล้ว
+                      </p>
+                    )}
+
+                    {payMethod === 'card' && stripeReady && (
                       <div>
                         <ul className="dash-sub-steps">
                           <li>ต่ออายุอัตโนมัติทุกเดือนผ่าน Stripe</li>
@@ -313,6 +361,10 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                         {canPay ? (
                           <button type="button" onClick={startCheckout} style={{ ...btnPrimary, marginTop: '14px' }} disabled={checkoutLoading}>
                             {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`}
+                          </button>
+                        ) : hasStripeSub ? (
+                          <button type="button" onClick={openStripePortal} style={{ ...btnPrimary, marginTop: '14px' }} disabled={checkoutLoading}>
+                            {checkoutLoading ? 'กำลังเปิด...' : 'เปิดหน้าจัดการบัตร Stripe'}
                           </button>
                         ) : (
                           <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '14px' }}>
@@ -365,7 +417,7 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                           style={{ ...btnGhost, marginTop: '14px' }}
                           onClick={() => {
                             setSuite('stripe_manual')
-                            setPayMethod(stripeAuto ? 'card' : 'promptpay')
+                            setPayMethod(stripeReady ? 'card' : 'promptpay')
                           }}
                         >
                           กลับไปชุดที่ 1
