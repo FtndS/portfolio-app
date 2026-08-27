@@ -249,11 +249,13 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
   return (
     <div className="dash-sub-page dash-checkout-page">
       <div className="dash-checkout-top">
-        <button type="button" className="dash-link-btn" onClick={onBackToPlan}>
+        <button type="button" className="dash-link-btn dash-checkout-back" onClick={onBackToPlan}>
           ← กลับหน้าแผน Pro
         </button>
-        <h2 className="dash-sub-title">Checkout</h2>
-        <p className="dash-sub-lead">ตรวจสอบตะกร้า แล้วเลือกชุดชำระเงิน</p>
+        <div className="dash-checkout-heading">
+          <h2 className="dash-sub-title">Checkout</h2>
+          <p className="dash-sub-lead">เลือกชุดชำระเงินด้านขวา · ตรวจสอบยอดด้านซ้าย</p>
+        </div>
       </div>
 
       {banner && (
@@ -317,26 +319,30 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
       <div className="dash-checkout-grid">
         <section className="dash-card dash-checkout-cart">
           <p className="dash-checkout-kicker">ตะกร้า</p>
-          <h3 className="dash-card-title">PortDiary Pro</h3>
-          <p className="dash-text-muted" style={{ fontSize: '14px', lineHeight: 1.65, margin: '0 0 16px' }}>
+          <h3 className="dash-checkout-product">PortDiary Pro</h3>
+          <p className="dash-checkout-product-desc">
             โควตา AI สูงขึ้น · Copilot ถามเองได้ · ต่ออายุรายเดือน
           </p>
-          <div className="dash-checkout-line">
-            <span>จำนวน</span>
-            <strong>1</strong>
-          </div>
-          <div className="dash-checkout-line">
-            <span>ประเภท</span>
-            <strong>บริการดิจิทัล (ไม่จัดส่ง)</strong>
-          </div>
+          <dl className="dash-checkout-meta">
+            <div>
+              <dt>จำนวน</dt>
+              <dd>1</dd>
+            </div>
+            <div>
+              <dt>ประเภท</dt>
+              <dd>บริการดิจิทัล</dd>
+            </div>
+          </dl>
           <div className="dash-checkout-total">
-            <span>ยอดชำระ</span>
-            <strong>฿{proPrice}<span>/เดือน</span></strong>
+            <span className="dash-checkout-total-label">ยอดชำระ</span>
+            <p className="dash-checkout-total-price">
+              <strong>฿{proPrice}</strong>
+              <span>/เดือน</span>
+            </p>
           </div>
-          <p className="dash-text-faint" style={{ fontSize: '12px', marginTop: '14px', lineHeight: 1.6 }}>
-            นโยบาย{' '}
+          <p className="dash-checkout-legal">
             <a href="/refund.html" className="dash-link-btn" target="_blank" rel="noreferrer">ยกเลิกและคืนเงิน</a>
-            {' · '}
+            <span aria-hidden>·</span>
             <a href="/terms.html" className="dash-link-btn" target="_blank" rel="noreferrer">ข้อกำหนด</a>
           </p>
         </section>
@@ -388,8 +394,11 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
               <div className="dash-card dash-checkout-pay">
                 {suite === 'stripe_manual' && (
                   <>
-                    <h3 className="dash-card-title">ชำระด้วยชุดที่ 1</h3>
-                    <div className="dash-segment dash-sub-pay-tabs" style={{ marginBottom: '16px' }}>
+                    <div className="dash-checkout-pay-head">
+                      <p className="dash-checkout-kicker">ชุดที่ 1</p>
+                      <h3 className="dash-checkout-pay-title">ชำระเงิน</h3>
+                    </div>
+                    <div className="dash-segment dash-sub-pay-tabs dash-checkout-method-tabs">
                       {stripeReady && (
                         <button
                           type="button"
@@ -409,52 +418,48 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                     </div>
 
                     {!stripeReady && (
-                      <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px', lineHeight: 1.55 }}>
+                      <p className="dash-checkout-hint">
                         ปุ่มบัตร Stripe จะโผล่เมื่อเซิร์ฟเวอร์ตั้งค่า Stripe ครบแล้ว
                       </p>
                     )}
 
                     {payMethod === 'card' && stripeReady && (
-                      <div>
-                        <ul className="dash-sub-steps">
+                      <div className="dash-checkout-method">
+                        <ul className="dash-checkout-points">
                           <li>ต่ออายุอัตโนมัติทุกเดือนผ่าน Stripe</li>
                           <li>เปิด Pro ทันทีหลังชำระสำเร็จ</li>
                           <li>ยกเลิกได้จากหน้าแผน Pro</li>
                         </ul>
                         {canPay ? (
-                          <button type="button" onClick={startCheckout} style={{ ...btnPrimary, marginTop: '14px' }} disabled={checkoutLoading}>
+                          <button type="button" className="dash-checkout-cta" onClick={startCheckout} style={btnPrimary} disabled={checkoutLoading}>
                             {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`}
                           </button>
                         ) : hasStripeSub ? (
-                          <button type="button" onClick={openStripePortal} style={{ ...btnPrimary, marginTop: '14px' }} disabled={checkoutLoading}>
+                          <button type="button" className="dash-checkout-cta" onClick={openStripePortal} style={btnPrimary} disabled={checkoutLoading}>
                             {checkoutLoading ? 'กำลังเปิด...' : 'เปิดหน้าจัดการบัตร Stripe'}
                           </button>
                         ) : (
-                          <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '14px' }}>
-                            บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ
-                          </p>
+                          <p className="dash-checkout-hint">บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ</p>
                         )}
                       </div>
                     )}
 
                     {payMethod === 'promptpay' && (
-                      <div>
-                        <ol className="dash-sub-steps">
+                      <div className="dash-checkout-method">
+                        <ol className="dash-checkout-points dash-checkout-points--numbered">
                           <li>สแกน QR PromptPay โอน <strong>฿{proPrice}</strong></li>
-                          <li>อัปโหลดสลิปด้านล่าง — ระบบแนบอีเมล <strong>{user?.email || '—'}</strong> ให้อัตโนมัติ</li>
-                          <li>กดส่งคำขอ — ทีมงานได้ Ticket + อีเมลเพื่อเปิด Pro</li>
+                          <li>อัปโหลดสลิป — ระบบแนบอีเมล <strong>{user?.email || '—'}</strong> ให้อัตโนมัติ</li>
+                          <li>กดส่งคำขอ — ทีมงานได้ Ticket เพื่อเปิด Pro</li>
                         </ol>
                         {canPay ? (
-                          <div className="dash-sub-payment" style={{ marginTop: '14px' }}>
+                          <div className="dash-checkout-slip">
                             <div className="dash-sub-qr-wrap">
                               <img src={qrUrl} alt={`PromptPay QR ฿${proPrice}`} className="dash-sub-qr" width={280} height={380} />
-                              <p className="dash-text-muted" style={{ fontSize: '12px', textAlign: 'center', margin: '8px 0 0' }}>
-                                PortDiary · ฿{proPrice}.00
-                              </p>
+                              <p className="dash-checkout-qr-caption">PortDiary · ฿{proPrice}.00</p>
                             </div>
-                            <div>
+                            <div className="dash-checkout-slip-form">
                               {pendingUpgrade ? (
-                                <p className="dash-text-muted" style={{ fontSize: '14px', lineHeight: 1.6, margin: 0 }}>
+                                <p className="dash-checkout-hint">
                                   มีคำขออัปเกรดรอตรวจอยู่แล้ว — ไม่ต้องส่งสลิปซ้ำจนกว่าทีมงานจะตอบกลับ
                                 </p>
                               ) : (
@@ -465,15 +470,16 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                                     err={slipErr}
                                     setErr={setSlipErr}
                                     required
-                                    label={`อัปโหลดสลิปการโอน (บังคับ) — สูงสุด 3 ไฟล์`}
+                                    label="อัปโหลดสลิปการโอน (บังคับ) — สูงสุด 3 ไฟล์"
                                   />
                                   {slipMsg && (
                                     <p className="dash-text-gain" style={{ fontSize: '13px', marginTop: '10px' }}>{slipMsg}</p>
                                   )}
                                   <button
                                     type="button"
+                                    className="dash-checkout-cta"
                                     onClick={submitManualSlip}
-                                    style={{ ...btnPrimary, marginTop: '12px', width: '100%' }}
+                                    style={btnPrimary}
                                     disabled={slipSubmitting}
                                   >
                                     {slipSubmitting ? 'กำลังส่ง...' : 'ส่งคำขออัปเกรด Pro'}
@@ -481,14 +487,12 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                                 </>
                               )}
                               {data.paymentInstructions && (
-                                <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '10px' }}>{data.paymentInstructions}</p>
+                                <p className="dash-checkout-hint">{data.paymentInstructions}</p>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '14px' }}>
-                            บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องโอนซ้ำ
-                          </p>
+                          <p className="dash-checkout-hint">บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องโอนซ้ำ</p>
                         )}
                       </div>
                     )}
@@ -497,14 +501,17 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
 
                 {suite === 'omise' && (
                   <>
-                    <h3 className="dash-card-title">ชำระด้วยชุดที่ 2 — Omise</h3>
+                    <div className="dash-checkout-pay-head">
+                      <p className="dash-checkout-kicker">ชุดที่ 2</p>
+                      <h3 className="dash-checkout-pay-title">Omise</h3>
+                    </div>
                     {omisePending ? (
                       <div className="dash-checkout-pending">
                         <p className="dash-checkout-pending-title">กำลังรอยืนยัน Omise</p>
-                        <p className="dash-text-muted" style={{ fontSize: '14px', lineHeight: 1.65, margin: 0 }}>
+                        <p className="dash-checkout-hint" style={{ margin: 0 }}>
                           {omisePendingMessage}
                         </p>
-                        <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '12px' }}>
+                        <p className="dash-checkout-hint">
                           ระหว่างนี้ใช้ <strong>ชุดที่ 1</strong> (PromptPay manual หรือบัตร Stripe) ได้ตามปกติ
                         </p>
                         <button
