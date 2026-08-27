@@ -93,11 +93,11 @@ export default function DashboardSidebar({
       <div className="dash-sidebar-pro">
         <button
           type="button"
-          className={`dash-sidebar-pro-btn${tab === SUBSCRIPTION_TAB ? ' dash-sidebar-pro-btn--active' : ''}${user.plan === 'pro' ? ' dash-sidebar-pro-btn--owned' : ''}`}
-          onClick={() => onTabChange(SUBSCRIPTION_TAB)}
+          className={`dash-sidebar-pro-btn${tab === SUBSCRIPTION_TAB || tab === CHECKOUT_TAB ? ' dash-sidebar-pro-btn--active' : ''}${user.plan === 'pro' ? ' dash-sidebar-pro-btn--owned' : ''}`}
+          onClick={() => onTabChange(user.plan === 'pro' ? SUBSCRIPTION_TAB : CHECKOUT_TAB)}
         >
           <span className="dash-sidebar-pro-icon" aria-hidden>✦</span>
-          <span>แผน Pro</span>
+          <span>{user.plan === 'pro' ? 'แผน Pro' : 'อัปเกรด Pro'}</span>
           {user.plan === 'pro' ? (
             <span className="dash-sidebar-pro-tag dash-sidebar-pro-tag--owned">ใช้งานอยู่</span>
           ) : (

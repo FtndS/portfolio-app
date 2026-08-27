@@ -176,7 +176,8 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
   const qrUrl = data.paymentQrUrl || '/promptpay-qr-99.png'
   const isManualPro = isPro && data.proPaymentSource === 'manual'
   const alreadyAutoPro = isPro && !isManualPro && !data.isOwner
-  const canCheckout = !data.isOwner && (!isPro || isManualPro)
+  const canPay = !data.isOwner && (!isPro || isManualPro)
+  const showSuites = !data.isOwner
   const omisePending = !!data.omisePending || !omiseReady
   const omisePendingMessage = data.omisePendingMessage
     || 'กำลังรอยืนยันบัญชี Omise — ใช้ชุดที่ 1 ชั่วคราว'
@@ -194,6 +195,15 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
       {banner && (
         <div className="dash-inset dash-sub-banner" style={{ padding: '12px 14px', marginBottom: '16px' }}>
           <p className="dash-text-gain" style={{ margin: 0, fontSize: '14px' }}>{banner}</p>
+        </div>
+      )}
+
+      {alreadyAutoPro && (
+        <div className="dash-inset dash-checkout-active-note">
+          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
+            คุณเป็นแผน Pro และต่ออายุอัตโนมัติอยู่แล้ว — ดูช่องทางด้านล่างได้
+            {' '}หรือกลับไป <button type="button" className="dash-link-btn" onClick={onBackToPlan}>จัดการแผน</button>
+          </p>
         </div>
       )}
 
@@ -235,16 +245,7 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
             </div>
           )}
 
-          {alreadyAutoPro && (
-            <div className="dash-card">
-              <p className="dash-text-gain" style={{ fontSize: '14px', marginBottom: '12px' }}>
-                คุณเป็นแผน Pro และต่ออายุอัตโนมัติอยู่แล้ว
-              </p>
-              <button type="button" style={btnGhost} onClick={onBackToPlan}>ไปจัดการแผน Pro</button>
-            </div>
-          )}
-
-          {canCheckout && (
+          {showSuites && (
             <>
               <div className="dash-checkout-suites" role="tablist" aria-label="ชุดชำระเงิน">
                 <button
@@ -271,7 +272,7 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                     setPayMethod('card')
                   }}
                 >
-                  <span className="dash-checkout-suite-badge dash-checkout-suite-badge--pending">
+                  <span className={`dash-checkout-suite-badge${omisePending ? ' dash-checkout-suite-badge--pending' : ''}`}>
                     ชุด 2 · {omisePending ? 'รอยืนยัน' : 'พร้อมใช้'}
                   </span>
                   <strong>Omise</strong>
@@ -309,9 +310,15 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                           <li>เปิด Pro ทันทีหลังชำระสำเร็จ</li>
                           <li>ยกเลิกได้จากหน้าแผน Pro</li>
                         </ul>
-                        <button type="button" onClick={startCheckout} style={{ ...btnPrimary, marginTop: '14px' }} disabled={checkoutLoading}>
-                          {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`}
-                        </button>
+                        {canPay ? (
+                          <button type="button" onClick={startCheckout} style={{ ...btnPrimary, marginTop: '14px' }} disabled={checkoutLoading}>
+                            {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`}
+                          </button>
+                        ) : (
+                          <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '14px' }}>
+                            บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -322,11 +329,19 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
                           <li>ส่งสลิปผ่านเมนู Support เพื่อเปิด Pro</li>
                           <li>ต่ออายุทุกเดือนด้วยตัวเอง (ไม่หักอัตโนมัติ)</li>
                         </ol>
-                        <div className="dash-sub-qr-wrap" style={{ marginTop: '14px' }}>
-                          <img src={qrUrl} alt={`PromptPay QR ฿${proPrice}`} className="dash-sub-qr" width={280} height={380} />
-                        </div>
-                        {data.paymentInstructions && (
-                          <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '10px' }}>{data.paymentInstructions}</p>
+                        {canPay ? (
+                          <>
+                            <div className="dash-sub-qr-wrap" style={{ marginTop: '14px' }}>
+                              <img src={qrUrl} alt={`PromptPay QR ฿${proPrice}`} className="dash-sub-qr" width={280} height={380} />
+                            </div>
+                            {data.paymentInstructions && (
+                              <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '10px' }}>{data.paymentInstructions}</p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="dash-text-muted" style={{ fontSize: '13px', marginTop: '14px' }}>
+                            บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องโอนซ้ำ
+                          </p>
                         )}
                       </div>
                     )}
@@ -377,34 +392,50 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
 
                         {payMethod === 'card' && (
                           <div className="dash-sub-receipt" style={{ maxWidth: '420px' }}>
-                            <input style={inp({ marginBottom: '8px' })} placeholder="ชื่อบนบัตร" value={cardForm.name} onChange={(e) => setCardForm({ ...cardForm, name: e.target.value })} />
-                            <input style={inp({ marginBottom: '8px' })} placeholder="เลขบัตร" value={cardForm.number} onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })} />
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                              <input style={inp({ marginBottom: 0 })} placeholder="MM" value={cardForm.month} onChange={(e) => setCardForm({ ...cardForm, month: e.target.value })} />
-                              <input style={inp({ marginBottom: 0 })} placeholder="YY" value={cardForm.year} onChange={(e) => setCardForm({ ...cardForm, year: e.target.value })} />
-                              <input style={inp({ marginBottom: 0 })} placeholder="CVC" value={cardForm.cvc} onChange={(e) => setCardForm({ ...cardForm, cvc: e.target.value })} />
-                            </div>
-                            <button type="button" onClick={subscribeOmiseCard} style={{ ...btnPrimary, marginTop: '12px' }} disabled={omiseCardLoading}>
-                              {omiseCardLoading ? 'กำลังสมัครบัตร...' : `ยืนยันชำระ — ฿${proPrice}/เดือน`}
-                            </button>
+                            {canPay ? (
+                              <>
+                                <input style={inp({ marginBottom: '8px' })} placeholder="ชื่อบนบัตร" value={cardForm.name} onChange={(e) => setCardForm({ ...cardForm, name: e.target.value })} />
+                                <input style={inp({ marginBottom: '8px' })} placeholder="เลขบัตร" value={cardForm.number} onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })} />
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                                  <input style={inp({ marginBottom: 0 })} placeholder="MM" value={cardForm.month} onChange={(e) => setCardForm({ ...cardForm, month: e.target.value })} />
+                                  <input style={inp({ marginBottom: 0 })} placeholder="YY" value={cardForm.year} onChange={(e) => setCardForm({ ...cardForm, year: e.target.value })} />
+                                  <input style={inp({ marginBottom: 0 })} placeholder="CVC" value={cardForm.cvc} onChange={(e) => setCardForm({ ...cardForm, cvc: e.target.value })} />
+                                </div>
+                                <button type="button" onClick={subscribeOmiseCard} style={{ ...btnPrimary, marginTop: '12px' }} disabled={omiseCardLoading}>
+                                  {omiseCardLoading ? 'กำลังสมัครบัตร...' : `ยืนยันชำระ — ฿${proPrice}/เดือน`}
+                                </button>
+                              </>
+                            ) : (
+                              <p className="dash-text-muted" style={{ fontSize: '13px', margin: 0 }}>
+                                บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ
+                              </p>
+                            )}
                           </div>
                         )}
 
                         {payMethod === 'promptpay' && (
                           <div>
-                            {!promptPayState?.chargeId && (
-                              <button type="button" onClick={startPromptPayCheckout} style={btnPrimary} disabled={creatingPromptPay}>
-                                {creatingPromptPay ? 'กำลังสร้าง QR...' : `สร้าง PromptPay QR — ฿${proPrice}`}
-                              </button>
-                            )}
-                            {promptPayErr && <p className="dash-text-loss" style={{ fontSize: '13px', marginTop: '10px' }}>{promptPayErr}</p>}
-                            {promptPayState?.chargeId && (
-                              <div className="dash-sub-qr-wrap" style={{ marginTop: '12px' }}>
-                                <img src={promptPayState.qrImageUrl} alt="PromptPay QR" className="dash-sub-qr" width={280} height={380} />
-                                <button type="button" style={{ ...btnGhost, width: '100%', marginTop: '10px' }} onClick={() => syncPromptPay(promptPayState.chargeId)}>
-                                  รีเฟรชสถานะ
-                                </button>
-                              </div>
+                            {canPay ? (
+                              <>
+                                {!promptPayState?.chargeId && (
+                                  <button type="button" onClick={startPromptPayCheckout} style={btnPrimary} disabled={creatingPromptPay}>
+                                    {creatingPromptPay ? 'กำลังสร้าง QR...' : `สร้าง PromptPay QR — ฿${proPrice}`}
+                                  </button>
+                                )}
+                                {promptPayErr && <p className="dash-text-loss" style={{ fontSize: '13px', marginTop: '10px' }}>{promptPayErr}</p>}
+                                {promptPayState?.chargeId && (
+                                  <div className="dash-sub-qr-wrap" style={{ marginTop: '12px' }}>
+                                    <img src={promptPayState.qrImageUrl} alt="PromptPay QR" className="dash-sub-qr" width={280} height={380} />
+                                    <button type="button" style={{ ...btnGhost, width: '100%', marginTop: '10px' }} onClick={() => syncPromptPay(promptPayState.chargeId)}>
+                                      รีเฟรชสถานะ
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <p className="dash-text-muted" style={{ fontSize: '13px', margin: 0 }}>
+                                บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ
+                              </p>
                             )}
                           </div>
                         )}

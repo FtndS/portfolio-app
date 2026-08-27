@@ -195,7 +195,8 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
   const isStripePro = isPro && data.hasStripeSubscription
   const isOmiseCardPro = isPro && data.hasOmiseSubscription
   const isManualPro = isPro && data.proPaymentSource === 'manual'
-  const showPayChooser = !data.isOwner && (!isPro || isManualPro)
+  const canOpenCheckout = !data.isOwner
+  const needsPay = !data.isOwner && (!isPro || isManualPro)
   const showStripeManage = !data.isOwner && isStripePro
   const showOmiseManage = !data.isOwner && isOmiseCardPro
   const billingHistory = data.billingHistory || []
@@ -205,35 +206,31 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
 
   const quotaCards = QUOTA_KEYS.map(([key, label]) => quotaCard(data.quota, key, label)).filter(Boolean)
 
+  let statusNote = null
+  if (data.isOwner) statusNote = 'โควต้า AI ไม่จำกัด'
+  else if (!isPro) statusNote = user?.email || null
+  else if (stripeCancelled && expires) statusNote = `ยกเลิกบัตรแล้ว — ใช้ได้ถึง ${expires}`
+  else if (isManualPro) statusNote = 'ชำระผ่าน PromptPay — ต่ออายุด้วยมือ'
+  else if (data.proPaymentSource === 'omise_card') statusNote = 'ต่ออายุอัตโนมัติด้วยบัตร (Omise)'
+  else if (data.proPaymentSource === 'stripe') statusNote = 'ต่ออายุอัตโนมัติด้วยบัตร'
+  else if (expires) statusNote = `หมดอายุ ${expires}`
+
   return (
     <div className="dash-sub-page">
       <div className="dash-sub-hero">
         <div>
           <h2 className="dash-sub-title">แผนการใช้งาน</h2>
           <p className="dash-sub-lead">
-            จัดการพอร์ตฟรีได้เต็มที่ — อัปเกรด Pro เพื่อใช้ AI Copilot ได้มากขึ้น
+            จัดการพอร์ตฟรีได้เต็มที่ — อัปเกรด Pro เพื่อใช้ AI ได้มากขึ้น
           </p>
         </div>
         <div className={`dash-sub-status${isPro ? ' dash-sub-status--pro' : ''}`}>
           <span className="dash-sub-status-label">แผนปัจจุบัน</span>
           <span className="dash-sub-status-plan">{data.planLabel}</span>
-          {data.isOwner && <span className="dash-sub-status-note">โควต้า AI ไม่จำกัด</span>}
-          {!data.isOwner && isPro && expires && (
+          {isPro && expires && !stripeCancelled && (
             <span className="dash-sub-status-note">หมดอายุ {expires}</span>
           )}
-          {!data.isOwner && isPro && data.proPaymentSource === 'stripe' && !stripeCancelled && (
-            <span className="dash-sub-status-note">ต่ออายุอัตโนมัติด้วยบัตร</span>
-          )}
-          {!data.isOwner && isPro && data.proPaymentSource === 'omise_card' && (
-            <span className="dash-sub-status-note">ต่ออายุอัตโนมัติด้วยบัตร (Omise)</span>
-          )}
-          {!data.isOwner && isPro && stripeCancelled && expires && (
-            <span className="dash-sub-status-note">ยกเลิกบัตรแล้ว — ใช้ได้ถึง {expires}</span>
-          )}
-          {!data.isOwner && isManualPro && (
-            <span className="dash-sub-status-note">ชำระผ่าน PromptPay — ต่ออายุด้วยมือ</span>
-          )}
-          {!isPro && <span className="dash-sub-status-note">อีเมล: {user?.email}</span>}
+          {statusNote && <span className="dash-sub-status-note">{statusNote}</span>}
         </div>
       </div>
 
@@ -259,7 +256,6 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
         <div className="dash-inset dash-sub-cancel-notice">
           <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px' }}>
             ยกเลิกการต่ออายุด้วยบัตรแล้ว — แผน Pro ยังใช้ได้จนถึง <strong>{expires}</strong>
-            {' '}หลังจากนั้นจะไม่หักบัตรอีก
           </p>
         </div>
       )}
@@ -268,12 +264,35 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
         <p className="dash-text-loss" style={{ marginBottom: '12px', fontSize: '14px' }}>{actionErr}</p>
       )}
 
-      {omisePending && (
-        <div className="dash-inset dash-sub-omise-note">
-          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
-            <strong>ชุดชำระเงิน Omise</strong> กำลังรอยืนยัน —
-            ตอนนี้ชำระได้ด้วย <strong>PromptPay (manual)</strong> หรือ <strong>บัตร Stripe</strong> ที่หน้า Checkout
-          </p>
+      {canOpenCheckout && (
+        <div className="dash-card dash-sub-pay-strip">
+          <div className="dash-sub-pay-strip-copy">
+            <p className="dash-checkout-kicker">ช่องทางชำระเงิน</p>
+            <h3 className="dash-sub-pay-strip-title">
+              {needsPay
+                ? (isManualPro ? `ต่ออายุ Pro — ฿${proPrice}/เดือน` : `อัปเกรดเป็น Pro — ฿${proPrice}/เดือน`)
+                : 'จัดการ / ดูช่องทางชำระเงิน'}
+            </h3>
+            <p className="dash-sub-pay-strip-desc">
+              ชุด 1 พร้อมใช้: PromptPay (manual) + บัตร Stripe
+              {omisePending ? ' · ชุด 2 Omise รอยืนยัน' : ' · ชุด 2 Omise พร้อมใช้'}
+            </p>
+          </div>
+          <div className="dash-sub-pay-strip-actions">
+            <button type="button" onClick={onOpenCheckout} style={btnPrimary}>
+              ไปหน้า Checkout
+            </button>
+            {showStripeManage && (
+              <button type="button" onClick={openPortal} style={btnGhost} disabled={portalLoading}>
+                {portalLoading ? 'กำลังเปิด...' : 'จัดการบัตร Stripe'}
+              </button>
+            )}
+            {showOmiseManage && (
+              <button type="button" onClick={cancelOmiseCard} style={btnGhost} disabled={portalLoading}>
+                {portalLoading ? 'กำลังยกเลิก...' : 'ยกเลิกตัดบัตร Omise'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -328,76 +347,44 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
       )}
 
       <div className="dash-sub-plans">
-        {[freePlan, proPlan].filter(Boolean).map((plan) => (
-          <div
-            key={plan.id}
-            className={`dash-sub-plan${plan.highlight ? ' dash-sub-plan--pro' : ''}${data.plan === plan.id && !data.isOwner ? ' dash-sub-plan--current' : ''}`}
-          >
-            {plan.highlight && <span className="dash-sub-plan-badge">แนะนำ</span>}
-            <h3 className="dash-sub-plan-name">{plan.label}</h3>
-            <div className="dash-sub-plan-price">{plan.priceLabel}</div>
-            <ul className="dash-sub-plan-features">
-              {plan.features.filter((f) => !HIDDEN_FEATURE_IDS.includes(f.id)).map((f) => (
-                <li key={f.id}>
-                  <span className="dash-sub-feature-label">{f.label}</span>
-                  <span className="dash-sub-feature-val">{plan.id === 'free' ? f.free : f.pro}</span>
-                </li>
-              ))}
-            </ul>
-            {plan.id === 'pro' && isPro && !data.isOwner && (
-              <p className="dash-sub-plan-active">✓ แผนที่ใช้อยู่</p>
-            )}
-            {plan.id === 'free' && !isPro && (
-              <p className="dash-sub-plan-active">✓ แผนที่ใช้อยู่</p>
-            )}
-          </div>
-        ))}
+        {[freePlan, proPlan].filter(Boolean).map((plan) => {
+          const isCurrent = data.plan === plan.id && !data.isOwner
+          return (
+            <div
+              key={plan.id}
+              className={`dash-sub-plan${plan.highlight ? ' dash-sub-plan--pro' : ''}${isCurrent ? ' dash-sub-plan--current' : ''}`}
+            >
+              {plan.highlight && <span className="dash-sub-plan-badge">แนะนำ</span>}
+              <h3 className="dash-sub-plan-name">{plan.label}</h3>
+              <div className="dash-sub-plan-price">{plan.priceLabel}</div>
+              <ul className="dash-sub-plan-features">
+                {plan.features.filter((f) => !HIDDEN_FEATURE_IDS.includes(f.id)).map((f) => (
+                  <li key={f.id}>
+                    <span className="dash-sub-feature-label">{f.label}</span>
+                    <span className="dash-sub-feature-val">{plan.id === 'free' ? f.free : f.pro}</span>
+                  </li>
+                ))}
+              </ul>
+              {plan.id === 'pro' && canOpenCheckout && (
+                <div className="dash-sub-plan-actions">
+                  {isPro && !data.isOwner && <p className="dash-sub-plan-active">✓ แผนที่ใช้อยู่</p>}
+                  <button
+                    type="button"
+                    className="dash-sub-upgrade-btn"
+                    onClick={onOpenCheckout}
+                    style={needsPay ? btnPrimary : btnGhost}
+                  >
+                    {needsPay ? 'ไปหน้า Checkout' : 'ดูช่องทางชำระเงิน'}
+                  </button>
+                </div>
+              )}
+              {plan.id === 'free' && !isPro && (
+                <p className="dash-sub-plan-active">✓ แผนที่ใช้อยู่</p>
+              )}
+            </div>
+          )
+        })}
       </div>
-
-      {showStripeManage && (
-        <div className="dash-card dash-sub-note">
-          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '10px' }}>จัดการแผน Pro (บัตร)</h3>
-          <p className="dash-text-muted" style={{ fontSize: '13px', lineHeight: 1.65, margin: '0 0 12px' }}>
-            แผน Pro ของคุณต่ออายุอัตโนมัติทุกเดือน — เปลี่ยนบัตรหรือยกเลิกได้จาก Stripe
-          </p>
-          <button type="button" onClick={openPortal} style={btnPrimary} disabled={portalLoading}>
-            {portalLoading ? 'กำลังเปิด...' : 'จัดการการชำระเงิน / ยกเลิก Pro'}
-          </button>
-          <p className="dash-text-faint" style={{ fontSize: '12px', marginTop: '10px', lineHeight: 1.6 }}>
-            ยกเลิกแล้วยังใช้ Pro ได้จนถึงวันหมดอายุรอบปัจจุบัน — หลังจากนั้นจะไม่หักบัตรอีก
-          </p>
-        </div>
-      )}
-
-      {showOmiseManage && (
-        <div className="dash-card dash-sub-note">
-          <h3 className="dash-card-title" style={{ fontSize: '14px', marginBottom: '10px' }}>จัดการแผน Pro (บัตร Omise)</h3>
-          <p className="dash-text-muted" style={{ fontSize: '13px', lineHeight: 1.65, margin: '0 0 12px' }}>
-            แผน Pro ของคุณต่ออายุอัตโนมัติทุกเดือน — ยกเลิกการต่ออายุได้ทันที
-          </p>
-          <button type="button" onClick={cancelOmiseCard} style={btnGhost} disabled={portalLoading}>
-            {portalLoading ? 'กำลังยกเลิก...' : 'ยกเลิกตัดบัตรอัตโนมัติ'}
-          </button>
-        </div>
-      )}
-
-      {showPayChooser && (
-        <div className="dash-card dash-sub-checkout-cta">
-          <div>
-            <p className="dash-checkout-kicker">Checkout</p>
-            <h3 className="dash-card-title" style={{ marginBottom: '6px' }}>
-              {isManualPro ? 'ต่ออายุ Pro' : 'อัปเกรดเป็น Pro'} — ฿{proPrice}/เดือน
-            </h3>
-            <p className="dash-text-muted" style={{ fontSize: '14px', margin: 0, lineHeight: 1.65 }}>
-              ชุด 1 พร้อมใช้: PromptPay (manual) + บัตร Stripe
-              {omisePending ? ' · ชุด 2 Omise รอยืนยัน' : ' · ชุด 2 Omise พร้อมใช้'}
-            </p>
-          </div>
-          <button type="button" onClick={onOpenCheckout} style={btnPrimary}>
-            ไปหน้า Checkout
-          </button>
-        </div>
-      )}
 
       {billingHistory.length > 0 && (
         <div className="dash-card dash-sub-compare">
@@ -464,38 +451,6 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
           </div>
         </div>
       )}
-
-      <div className="dash-card dash-sub-compare" style={{ marginTop: 0 }}>
-        <h3 className="dash-card-title">เปรียบเทียบช่องทางชำระ</h3>
-        <div className="dash-sub-table-wrap">
-          <table className="dash-sub-table">
-            <thead>
-              <tr>
-                <th />
-                <th>บัตร (Stripe)</th>
-                <th>PromptPay</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>เปิด Pro</td>
-                <td>ทันที</td>
-                <td>ภายใน 1 วันทำการ</td>
-              </tr>
-              <tr>
-                <td>ต่ออายุ</td>
-                <td>อัตโนมัติทุกเดือน</td>
-                <td>โอน + ส่งสลิปเอง</td>
-              </tr>
-              <tr>
-                <td>ยกเลิก</td>
-                <td>จัดการการชำระเงินใน Stripe</td>
-                <td>ไม่ต่ออายุเมื่อหมดอายุ</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   )
 }
