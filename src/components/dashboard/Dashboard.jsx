@@ -413,14 +413,18 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
     <div className="dash-news-grid">
       <div>
         <h3 className="dash-section-title">
-          🔥 Real-Time News (เฉพาะกลุ่ม Sector ที่ถือ)
+          <span className="dash-section-bar" aria-hidden />
+          Real-Time News
+          <span className="dash-section-count">เฉพาะกลุ่ม Sector ที่ถือ</span>
         </h3>
         {!inSectorNews.length ? <p className="dash-text-faint" style={{ fontSize: '13px' }}>กำลังอัปเดตข่าวสารจากระบบ...</p>
         : inSectorNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
       </div>
       <div>
         <h3 className="dash-section-title dash-section-title--muted">
-          🌐 Market Insights (ข่าวน่าสนใจเกี่ยวกับหุ้นอื่นๆ)
+          <span className="dash-section-bar" aria-hidden />
+          Market Insights
+          <span className="dash-section-count">ข่าวน่าสนใจเกี่ยวกับหุ้นอื่นๆ</span>
         </h3>
         {!outSectorNews.length ? <p className="dash-text-faint" style={{ fontSize: '13px' }}>ไม่มีข้อมูลข่าวสารธุรกิจในขณะนี้</p>
         : outSectorNews.map((article, idx) => <NewsCard key={idx} article={article} />)}
@@ -572,7 +576,6 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
               aria-label="AI Copilot"
               aria-expanded={aiOpen}
             >
-              <span className="dash-ai-cta-icon" aria-hidden>🤖</span>
               <span className="dash-ai-cta-text">Copilot</span>
             </button>
             <div className="dash-header-util" role="group" aria-label="เมนูบัญชี">
@@ -641,17 +644,30 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
               <DonutChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
             </div>
             <SectorAreaChart holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate}/>
-            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px',gap:'6px'}}>
-              <span className="dash-text-muted" style={{fontSize:'12px',alignSelf:'center'}}>Heatmap:</span>
-              {[['today','% วันนี้'],['invested','% จากทุน']].map(([k,l])=>(
-                <button key={k} type="button" className={`dash-chart-segment-btn${heatmapMode===k?' dash-chart-segment-btn--active':''}`} onClick={()=>setHeatmapMode(k)}>{l}</button>
+            <div className="dash-heatmap-toolbar">
+              <div className="dash-section-title" style={{ margin: 0, flex: 1 }}>
+                <span className="dash-section-bar" aria-hidden />
+                <span>Heatmap</span>
+                <span className="dash-section-count">
+                  {heatmapMode === 'today' ? '% เปลี่ยนแปลงวันนี้' : '% จากราคาทุนเฉลี่ย'}
+                </span>
+              </div>
+              {[['today', '% วันนี้'], ['invested', '% จากทุน']].map(([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={`dash-chart-segment-btn${heatmapMode === k ? ' dash-chart-segment-btn--active' : ''}`}
+                  onClick={() => setHeatmapMode(k)}
+                >
+                  {l}
+                </button>
               ))}
             </div>
             <Treemap holdings={holdings} prices={prices} displayCurrency={displayCurrency} fxRate={fxRate} heatmapMode={heatmapMode}/>
             {renderNewsGrid()}
           </>}
           {holdings.length===0&&<div className="dash-empty-state">
-            <p style={{fontSize:'36px',marginBottom:'12px'}}>📊</p>
+            <p style={{fontSize:'15px',marginBottom:'8px',fontWeight:600,color:'var(--text)'}}>ยังไม่มี holding ในพอร์ตนี้</p>
             <p style={{fontSize:'14px',marginBottom:'20px'}}>เริ่มบันทึกรายการซื้อ/ขายแรกเพื่อสร้างพอร์ต</p>
             <button type="button" onClick={openAddTransaction} style={{...btnPrimary,width:'auto',padding:'10px 24px'}}>+ บันทึกซื้อ/ขายแรก</button>
           </div>}

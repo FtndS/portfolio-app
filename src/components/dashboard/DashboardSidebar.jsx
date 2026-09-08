@@ -46,7 +46,7 @@ export default function DashboardSidebar({
           <Logo size={24} className="dash-sidebar-logo" />
         </button>
         <p className="dash-sidebar-sub">
-          PortDiary · สวัสดี, {user.name}
+          สวัสดี, {user.name}
           {user.plan === 'pro' && (
             <span className="dash-plan-badge dash-plan-badge--pro">Pro</span>
           )}
@@ -68,8 +68,8 @@ export default function DashboardSidebar({
               </option>
             ))}
           </select>
-          <button type="button" className="dash-icon-btn" onClick={onManagePort} title="จัดการพอร์ต">
-            ⚙️
+          <button type="button" className="dash-icon-btn" onClick={onManagePort} title="จัดการพอร์ต" aria-label="จัดการพอร์ต">
+            ⚙
           </button>
           <button type="button" className="dash-icon-btn dash-icon-btn--accent" onClick={onNewPort} title="สร้างพอร์ตใหม่">
             +
@@ -96,7 +96,7 @@ export default function DashboardSidebar({
           className={`dash-sidebar-pro-btn${tab === SUBSCRIPTION_TAB || tab === CHECKOUT_TAB ? ' dash-sidebar-pro-btn--active' : ''}${user.plan === 'pro' ? ' dash-sidebar-pro-btn--owned' : ''}`}
           onClick={() => onTabChange(user.plan === 'pro' ? SUBSCRIPTION_TAB : CHECKOUT_TAB)}
         >
-          <span className="dash-sidebar-pro-icon" aria-hidden>✦</span>
+          <span className="dash-sidebar-pro-icon" aria-hidden />
           <span>{user.plan === 'pro' ? 'แผน Pro' : 'อัปเกรด Pro'}</span>
           {user.plan === 'pro' ? (
             <span className="dash-sidebar-pro-tag dash-sidebar-pro-tag--owned">ใช้งานอยู่</span>

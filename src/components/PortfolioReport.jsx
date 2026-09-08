@@ -16,8 +16,7 @@ import {
 import ReportDonut from './report/ReportDonut'
 import ReportBarChart, { shouldUseBarChart } from './report/ReportBarChart'
 import ReportLineChart from './report/ReportLineChart'
-
-const SECTOR_COLORS = ['#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e', '#e84393', '#55efc4', '#a29bfe']
+import { SECTOR_COLORS } from '../lib/constants'
 
 function CcyChip({ ccy = 'USD' }) {
   const c = ccy || 'USD'
@@ -352,7 +351,7 @@ export default function PortfolioReport({
   const currencySlices = currencyRows.map((c) => ({
     label: c.ccy,
     value: c.value,
-    color: c.ccy === 'THB' ? '#00b894' : c.ccy === 'USD' ? '#0984e3' : '#a29bfe',
+    color: c.ccy === 'THB' ? 'var(--chart-set)' : c.ccy === 'USD' ? 'var(--info)' : 'var(--accent-text)',
   }))
 
   const useHoldingBars = shouldUseBarChart(holdingSlices.length)

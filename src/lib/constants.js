@@ -17,8 +17,16 @@ export const CURRENCY_SYMBOL = { USD: '$', THB: '฿', HKD: 'HK$', CNY: '¥' }
 export const symFor = (c) => CURRENCY_SYMBOL[c] || '$'
 
 export const SECTOR_COLORS = [
-  '#6c5ce7', '#00b894', '#e17055', '#0984e3', '#fdcb6e',
-  '#e84393', '#55efc4', '#fd79a8', '#a29bfe', '#74b9ff',
+  'var(--sector-1)',
+  'var(--sector-2)',
+  'var(--sector-3)',
+  'var(--sector-4)',
+  'var(--sector-5)',
+  'var(--chart-cost)',
+  'var(--gain)',
+  'var(--loss)',
+  'var(--info)',
+  'var(--accent-text)',
 ]
 
 export const JOURNAL_TAGS = [

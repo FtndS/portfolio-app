@@ -1,25 +1,24 @@
 import { createContext, useContext, useCallback, useState } from 'react'
 
 const STORAGE_KEY = 'portdiary-theme'
-const ThemeContext = createContext({ theme: 'dark', setTheme: () => {}, toggleTheme: () => {} })
+const ThemeContext = createContext({ theme: 'light', setTheme: () => {}, toggleTheme: () => {} })
 
 export function getStoredTheme() {
   const stored = localStorage.getItem(STORAGE_KEY)
   if (stored === 'light' || stored === 'dark') return stored
-  if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light'
-  return 'dark'
+  return 'light'
 }
 
 export function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme)
   localStorage.setItem(STORAGE_KEY, theme)
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.content = theme === 'light' ? '#f3ede4' : '#0f0f12'
+  if (meta) meta.content = theme === 'light' ? '#f3f4f1' : '#10141c'
 }
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(
-    () => document.documentElement.getAttribute('data-theme') || 'dark'
+    () => document.documentElement.getAttribute('data-theme') || 'light'
   )
 
   const setTheme = useCallback((next) => {

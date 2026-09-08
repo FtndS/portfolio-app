@@ -237,8 +237,8 @@ export default function ReportLineChart({
       <svg viewBox={`0 0 ${W} ${H}`} className="dash-report-line-svg" aria-hidden>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6c5ce7" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#6c5ce7" stopOpacity="0.02" />
+            <stop offset="0%" stopColor="var(--chart-port)" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="var(--chart-port)" stopOpacity="0.02" />
           </linearGradient>
         </defs>
 

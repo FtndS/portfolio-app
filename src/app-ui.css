@@ -80,11 +80,9 @@
 .dash-workflow:hover,
 .dash-sub-plan:hover,
 .dash-sub-quota-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
-  box-shadow:
-    0 14px 32px color-mix(in srgb, var(--accent) 14%, transparent),
-    var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  box-shadow: var(--shadow-sm);
 }
 
 .dash-kpi-grid .dash-kpi-card {
@@ -146,7 +144,7 @@
 }
 
 .dash-ai-cta:hover {
-  transform: translateY(-1px) scale(1.02);
+  filter: brightness(1.06);
 }
 
 .modal-overlay {
