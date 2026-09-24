@@ -6,17 +6,17 @@ import { symFor } from '../../lib/constants'
 import { btnPrimary, btnGhost } from '../../lib/styles'
 
 const STATUS_LABEL = {
-  set_exempt: 'กำไรขาย SET — โดยทั่วไปยกเว้นสำหรับบุคคล',
-  set_dividend_final: 'ใช้หัก ณ ที่จ่ายเป็นภาษีสุดท้าย',
-  set_dividend_included: 'รวมเข้าฐานของปีนี้',
-  pre_2024: 'เกิดก่อน 1 ม.ค. 2567 — ไม่อยู่ในหลักนำเข้าไทยชุดใหม่',
-  not_remitted: 'ยังไม่บันทึกว่าโอนเข้าไทย',
+  set_exempt: 'กำไรขาย โดยทั่วไปยกเว้น',
+  set_dividend_final: 'หัก 10% แล้วจบ',
+  set_dividend_included: 'นำไปรวมในฐานปีนี้',
+  pre_2024: 'เกิดก่อนปี 2567 ไม่เข้าหลักนี้',
+  not_remitted: 'ยังไม่ได้ติ๊กว่าโอนเข้าไทย',
   not_resident: 'ปีที่เกิดเงินได้อยู่ไทยไม่ถึง 180 วัน',
-  needs_residence: 'ยังไม่ระบุวันอยู่ในไทยของปีที่เกิดเงินได้',
-  needs_fx: 'ยังไม่มีอัตราแลกตอนโอน',
-  in_base: 'เข้าฐานของปีนี้',
+  needs_residence: 'ขาดจำนวนวันอยู่ในไทยของปีที่เกิดเงินได้',
+  needs_fx: 'ขาดอัตราแลกตอนโอน',
+  in_base: 'นำเข้าฐานของปีที่เลือกแล้ว',
   remitted_other_year: 'โอนเข้าคนละปีกับปีที่เลือก',
-  loss: 'ขาดทุน — ไม่บวกเข้าฐานในหน้านี้',
+  loss: 'ขาดทุน ไม่บวกเข้าฐาน',
 }
 
 function lineKey(line) {
@@ -47,6 +47,7 @@ export default function TaxPage() {
   const [savingKey, setSavingKey] = useState('')
   const [error, setError] = useState('')
   const [rowError, setRowError] = useState('')
+  const [savedFlash, setSavedFlash] = useState(false)
   const [reload, setReload] = useState(0)
 
   const money = (n, ccy = 'THB') => {
@@ -105,6 +106,7 @@ export default function TaxPage() {
       setError(res.error || 'บันทึกข้อเท็จจริงไม่สำเร็จ')
       return
     }
+    setSavedFlash(true)
     setReload((n) => n + 1)
   }
 
@@ -161,6 +163,44 @@ export default function TaxPage() {
   const thaiSells = estimate?.thai?.sells || []
   const thaiDivs = estimate?.thai?.dividends || []
   const foreign = estimate?.foreign || []
+  const thaiRows = [...thaiSells, ...thaiDivs]
+  const daysSaved = estimate?.facts?.days_in_thailand != null
+  const foreignGaps = estimate?.incomplete?.length || 0
+
+  const steps = [
+    {
+      id: 'tax-step-1',
+      n: '1',
+      title: 'วันอยู่ในไทย',
+      detail: daysSaved ? `${estimate.facts.days_in_thailand} วัน` : 'ยังไม่กรอก',
+      state: daysSaved ? 'done' : 'todo',
+    },
+    {
+      id: 'tax-step-2',
+      n: '2',
+      title: 'วิธีคิดปันผล',
+      detail: factsForm.mode === 'include' ? 'นำไปรวมคำนวณ' : 'หัก 10% แล้วจบ',
+      state: 'ready',
+    },
+    {
+      id: 'tax-step-3',
+      n: '3',
+      title: 'ตรวจหุ้นไทย',
+      detail: thaiRows.length ? `${thaiRows.length} รายการ` : 'ไม่มีในปีนี้',
+      state: 'ready',
+    },
+    {
+      id: 'tax-step-4',
+      n: '4',
+      title: 'หุ้นนอกที่โอนกลับ',
+      detail: foreign.length === 0 ? 'ยังไม่มีรายการ' : foreignGaps ? `อีก ${foreignGaps} รายการ` : 'ครบแล้ว',
+      state: foreign.length === 0 ? 'ready' : foreignGaps ? 'todo' : 'done',
+    },
+  ]
+
+  const jumpTo = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div className="dash-tax-page">
@@ -169,94 +209,144 @@ export default function TaxPage() {
           <p className="dash-checkout-kicker">ประมาณการ</p>
           <h2 className="dash-sub-title">ภาษีจากรายการที่บันทึก</h2>
           <p className="dash-sub-lead">
-            แยกหุ้นไทยกับหุ้นนอกตามธุรกรรมและปันผลในทุกพอร์ต วันอยู่ในไทยกับวันที่โอนเข้าไทยบันทึกไว้ใช้ปีถัดไป
+            กรอกตาม 4 ขั้นด้านล่าง ระบบดึงยอดซื้อขายและปันผลจากทุกพอร์ตให้แล้ว ส่วนที่ต้องพิมพ์เองมีแค่ข้อมูลที่แอปไม่มี
           </p>
         </div>
-        <label className="dash-tax-year">
-          ปีภาษี
-          <select className="dash-select" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {yearOptions().map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </label>
       </header>
+
+      <nav className="dash-tax-steps" aria-label="ขั้นตอนกรอกข้อมูลภาษี">
+        {steps.map((step) => (
+          <button
+            key={step.id}
+            type="button"
+            className={`dash-tax-step dash-tax-step--${step.state}`}
+            onClick={() => jumpTo(step.id)}
+          >
+            <span className="dash-tax-step-n">{step.n}</span>
+            <span>
+              <strong>{step.title}</strong>
+              <em>{step.detail}</em>
+            </span>
+          </button>
+        ))}
+      </nav>
 
       {error && <p className="dash-tax-error">{error}</p>}
       {loading && <p className="dash-text-muted">กำลังคำนวณ...</p>}
 
       {estimate && !loading && (
         <>
-          <form className="dash-card dash-tax-card" onSubmit={saveFacts}>
-            <h3 className="dash-card-title">ข้อเท็จจริงของปี {year}</h3>
-            <p className="dash-card-sub">
-              วันอยู่ในไทยและ W-8BEN ใช้กับเงินได้ที่เกิดในปีนี้ ถ้าโอนกำไรของปีอื่น ให้สลับไปบันทึกปีที่เงินได้เกิดด้วย
-            </p>
-            <div className="dash-tax-facts">
-              <label>
-                วันอยู่ในไทย
-                <input
-                  type="number"
-                  min="0"
-                  max="366"
-                  className="dash-tax-input"
-                  value={factsForm.days}
-                  onChange={(e) => setFactsForm({ ...factsForm, days: e.target.value })}
-                />
-              </label>
-              <label>
-                รายได้อื่นในปีนี้ (บาท)
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="dash-tax-input"
-                  value={factsForm.other}
-                  onChange={(e) => setFactsForm({ ...factsForm, other: e.target.value })}
-                />
-              </label>
-              <label>
-                ปันผลไทย
-                <select
-                  className="dash-select"
-                  value={factsForm.mode}
-                  onChange={(e) => setFactsForm({ ...factsForm, mode: e.target.value })}
-                >
-                  <option value="final">ใช้หัก 10% เป็นภาษีสุดท้าย</option>
-                  <option value="include">นำไปรวมคำนวณ</option>
-                </select>
-              </label>
-              <label>
-                ยอดปันผลที่บันทึก
-                <select
-                  className="dash-select"
-                  value={factsForm.basis}
-                  onChange={(e) => setFactsForm({ ...factsForm, basis: e.target.value })}
-                >
-                  <option value="gross">ก่อนหัก ณ ที่จ่าย</option>
-                  <option value="net">หลังหัก ณ ที่จ่าย (ยอดที่ได้รับ)</option>
-                </select>
-              </label>
-            </div>
-            <label className="dash-tax-check">
-              <input
-                type="checkbox"
-                checked={factsForm.w8ben}
-                onChange={(e) => setFactsForm({ ...factsForm, w8ben: e.target.checked })}
-              />
-              ส่ง W-8BEN สำหรับปันผลสหรัฐในปีนี้ (ใช้อัตราหัก 15% แทน 30%)
-            </label>
-            <p className="dash-tax-hint">
-              ฟอร์มปันผลถามจำนวนที่ได้รับ ถ้าบันทึกยอดหลังหัก ให้เลือก “หลังหัก ณ ที่จ่าย”
-            </p>
-            <button type="submit" style={{ ...btnPrimary, width: 'auto' }} disabled={savingFacts}>
-              {savingFacts ? 'กำลังบันทึก...' : 'บันทึกข้อเท็จจริง'}
-            </button>
+          <form onSubmit={saveFacts}>
+            <section id="tax-step-1" className="dash-card dash-tax-card">
+              <p className="dash-tax-kicker">ขั้นที่ 1</p>
+              <h3 className="dash-card-title">เลือกปี แล้วกรอกวันอยู่ในไทย</h3>
+              <ol className="dash-tax-howto">
+                <li>เลือกปีปฏิทินที่ต้องการดู ตั้งแต่เดือนมกราคมถึงธันวาคม</li>
+                <li>นับทุกวันที่อยู่ในประเทศไทยในปีนั้น แล้วใส่เป็นจำนวนวัน</li>
+                <li>ถ้าอยู่ถึง 180 วัน กำไรและปันผลหุ้นนอกที่โอนเข้าไทยอาจต้องนำไปรวมภาษี</li>
+              </ol>
+              <div className="dash-tax-facts">
+                <label>
+                  ปีภาษี
+                  <select
+                    className="dash-select"
+                    value={year}
+                    onChange={(e) => {
+                      setSavedFlash(false)
+                      setYear(Number(e.target.value))
+                    }}
+                  >
+                    {yearOptions().map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  <span className="dash-tax-field-help">เปลี่ยนปีแล้ว วันอยู่ในไทยกับแบบ W-8BEN ของปีนั้นจะคนละชุด</span>
+                </label>
+                <label>
+                  วันอยู่ในไทย
+                  <input
+                    type="number"
+                    min="0"
+                    max="366"
+                    placeholder="เช่น 365"
+                    className="dash-tax-input"
+                    value={factsForm.days}
+                    onChange={(e) => setFactsForm({ ...factsForm, days: e.target.value })}
+                  />
+                  <span className="dash-tax-field-help">อยู่ทั้งปีใส่ 365 ถ้ายังไม่แน่ใจให้เว้นไว้ รายการหุ้นนอกจะบอกว่าขาดข้อมูลนี้</span>
+                </label>
+                <label>
+                  รายได้อื่นในปีนี้ (บาท)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="เว้นว่างได้"
+                    className="dash-tax-input"
+                    value={factsForm.other}
+                    onChange={(e) => setFactsForm({ ...factsForm, other: e.target.value })}
+                  />
+                  <span className="dash-tax-field-help">เช่น เงินเดือน ใส่เมื่ออยากเห็นฐานรวมคร่าว ๆ หน้านี้ยังไม่หักค่าลดหย่อน</span>
+                </label>
+                <label className="dash-tax-check dash-tax-check--field">
+                  <input
+                    type="checkbox"
+                    checked={factsForm.w8ben}
+                    onChange={(e) => setFactsForm({ ...factsForm, w8ben: e.target.checked })}
+                  />
+                  <span>
+                    ส่งแบบ W-8BEN ให้โบรกเกอร์หุ้นสหรัฐในปีนี้แล้ว
+                    <span className="dash-tax-field-help">ส่งแล้วปันผลสหรัฐใช้หัก 15% ยังไม่ส่งใช้ 30% ติ๊กเฉพาะปีที่ส่งแบบแล้ว</span>
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section id="tax-step-2" className="dash-card dash-tax-card">
+              <p className="dash-tax-kicker">ขั้นที่ 2</p>
+              <h3 className="dash-card-title">เลือกวิธีคิดปันผล แล้วบันทึก</h3>
+              <ol className="dash-tax-howto">
+                <li>คนส่วนใหญ่เลือก “หัก 10% แล้วจบ” เพื่อไม่เอาปันผลไทยไปรวมในแบบยื่น</li>
+                <li>แท็บปันผลให้กรอกยอดที่เข้าบัญชี ดังนั้นเลือก “หลังหัก ณ ที่จ่าย”</li>
+                <li>กดบันทึกครั้งเดียว ขั้นที่ 1 และขั้นที่ 2 จะถูกเก็บไว้ปีหน้า</li>
+              </ol>
+              <div className="dash-tax-facts">
+                <label>
+                  ปันผลไทยในปีนี้
+                  <select
+                    className="dash-select"
+                    value={factsForm.mode}
+                    onChange={(e) => setFactsForm({ ...factsForm, mode: e.target.value })}
+                  >
+                    <option value="final">หัก 10% แล้วจบ ไม่ต้องรวมในแบบ</option>
+                    <option value="include">นำไปรวมคำนวณกับรายได้อื่น</option>
+                  </select>
+                </label>
+                <label>
+                  ยอดในแท็บปันผลเป็นแบบไหน
+                  <select
+                    className="dash-select"
+                    value={factsForm.basis}
+                    onChange={(e) => setFactsForm({ ...factsForm, basis: e.target.value })}
+                  >
+                    <option value="net">หลังหัก ณ ที่จ่าย (ยอดที่ได้รับ)</option>
+                    <option value="gross">ก่อนหัก ณ ที่จ่าย</option>
+                  </select>
+                </label>
+              </div>
+              {savedFlash && <p className="dash-tax-saved">บันทึกแล้ว ตัวเลขด้านล่างใช้ค่านี้</p>}
+              <button type="submit" style={{ ...btnPrimary, width: 'auto' }} disabled={savingFacts}>
+                {savingFacts ? 'กำลังบันทึก...' : 'บันทึกขั้นที่ 1 และ 2'}
+              </button>
+            </section>
           </form>
 
-          <section className="dash-card dash-tax-card">
-            <h3 className="dash-card-title">หุ้นไทย</h3>
-            <p className="dash-card-sub">
-              กำไรขายหลักทรัพย์จดทะเบียนแสดงเป็นกลุ่มที่ยกเว้นสำหรับบุคคลทั่วไป และไม่บวกเข้าฐาน
-            </p>
+          <section id="tax-step-3" className="dash-card dash-tax-card">
+            <p className="dash-tax-kicker">ขั้นที่ 3</p>
+            <h3 className="dash-card-title">ตรวจรายการหุ้นไทย</h3>
+            <ol className="dash-tax-howto">
+              <li>ขั้นนี้ไม่ต้องพิมพ์ ระบบดึงจากแท็บซื้อ/ขายและปันผลของทุกพอร์ต</li>
+              <li>พอร์ตที่เลือกทางซ้ายไม่มีผลกับหน้านี้อยู่แล้ว</li>
+              <li>กำไรขายหุ้นในตลาดไทยของบุคคลทั่วไปอยู่ในกลุ่มที่ยกเว้น จึงไม่บวกเข้าฐาน</li>
+            </ol>
             <div className="dash-tax-metrics">
               <div>
                 <span>ปันผลที่นำไปรวม</span>
@@ -267,39 +357,35 @@ export default function TaxPage() {
                 <strong>{money(estimate.thai.dividendWithheldThb)}</strong>
               </div>
             </div>
-            {thaiSells.length === 0 && thaiDivs.length === 0 ? (
-              <p className="dash-text-muted">ไม่มีรายการขายหรือปันผลหุ้นไทยในปีนี้</p>
+            {thaiRows.length === 0 ? (
+              <p className="dash-text-muted">ไม่มีรายการขายหรือปันผลหุ้นไทยในปี {year} ถ้ามีให้ไปบันทึกที่แท็บซื้อ/ขายหรือปันผล</p>
             ) : (
-              <div className="dash-tax-table-wrap">
-                <table className="dash-table dash-tax-table">
-                  <thead>
-                    <tr>
-                      <th>รายการ</th>
-                      <th>วันที่</th>
-                      <th>จำนวน</th>
-                      <th>สถานะ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...thaiSells, ...thaiDivs].map((line) => (
-                      <tr key={lineKey(line)}>
-                        <td>{line.ticker} · {line.kind_label}</td>
-                        <td>{fmtDate(line.income_date)}</td>
-                        <td>{money(line.native_amount, line.currency)}</td>
-                        <td>{STATUS_LABEL[line.status] || line.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ul className="dash-tax-lines">
+                {thaiRows.map((line) => (
+                  <li key={lineKey(line)}>
+                    <div>
+                      <strong>{line.ticker}</strong>
+                      <span>{line.kind_label} · {fmtDate(line.income_date)}</span>
+                    </div>
+                    <div className="dash-tax-line-amt">{money(line.native_amount, line.currency)}</div>
+                    <div className={`dash-tax-status dash-tax-status--${line.status}`}>
+                      {STATUS_LABEL[line.status] || line.status}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 
-          <section className="dash-card dash-tax-card">
-            <h3 className="dash-card-title">หุ้นนอก</h3>
-            <p className="dash-card-sub">
-              เข้าฐานเมื่อเงินได้เกิดตั้งแต่ 1 ม.ค. 2567 อยู่ไทยอย่างน้อย 180 วันในปีนั้น และบันทึกวันโอนเข้าไทยพร้อมอัตราบาทต่อ 1 หน่วยสกุลเงิน ระบบไม่ใส่เรตวันนี้แทน
-            </p>
+          <section id="tax-step-4" className="dash-card dash-tax-card">
+            <p className="dash-tax-kicker">ขั้นที่ 4</p>
+            <h3 className="dash-card-title">ติ๊กหุ้นนอกที่โอนเงินกลับไทย</h3>
+            <ol className="dash-tax-howto">
+              <li>รายการมาจากขายหรือปันผลที่บันทึกแล้ว หุ้นที่ยังถืออยู่จะไม่โผล่</li>
+              <li>ติ๊กเฉพาะก้อนที่โอนเข้าบัญชีไทย เงินที่ยังอยู่ต่างประเทศปล่อยว่างไว้</li>
+              <li>ใส่วันที่เงินเข้าบัญชี และอัตราแลกจากสลิปวันนั้น เช่น 35.20 บาทต่อ 1 USD</li>
+              <li>กดบันทึกที่รายการนั้น ระบบจะไม่ใส่เรตวันนี้ให้เอง</li>
+            </ol>
             {estimate.cryptoSkipped > 0 && (
               <p className="dash-tax-hint">ไม่รวมคริปโต {estimate.cryptoSkipped} รายการ</p>
             )}
@@ -310,93 +396,91 @@ export default function TaxPage() {
             )}
             {rowError && <p className="dash-tax-error">{rowError}</p>}
             {foreign.length === 0 ? (
-              <p className="dash-text-muted">ไม่มีรายการขายหรือปันผลหุ้นนอก</p>
+              <p className="dash-text-muted">
+                ยังไม่มีกำไรขายหรือปันผลหุ้นนอก ไปบันทึกที่แท็บซื้อ/ขายหรือปันผล แล้วกลับมาติ๊กเฉพาะก้อนที่โอนเข้าไทย
+              </p>
             ) : (
-              <div className="dash-tax-table-wrap">
-                <table className="dash-table dash-tax-table">
-                  <thead>
-                    <tr>
-                      <th>รายการ</th>
-                      <th>เกิดปี</th>
-                      <th>จำนวน</th>
-                      <th>หักต่างประเทศ</th>
-                      <th>สถานะ</th>
-                      <th>โอนเข้าไทย</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {foreign.map((line) => {
-                      const key = lineKey(line)
-                      const draft = drafts[key] || { remitted: false, remitted_on: '', fx: '' }
-                      return (
-                        <tr key={key}>
-                          <td>{line.ticker} · {line.kind_label}<div className="dash-tax-sub">{fmtDate(line.income_date)}</div></td>
-                          <td>{line.earning_year || '—'}</td>
-                          <td>{money(line.native_amount, line.currency)}</td>
-                          <td>{line.kind_label === 'ปันผล' ? money(line.withheld_native, line.currency) : '—'}</td>
-                          <td>
-                            <span className={`dash-tax-status dash-tax-status--${line.status}`}>
-                              {STATUS_LABEL[line.status] || line.status}
-                            </span>
-                            {line.amount_thb != null && (
-                              <div className="dash-tax-sub">{money(line.amount_thb)}</div>
-                            )}
-                          </td>
-                          <td>
-                            <label className="dash-tax-check">
+              <ul className="dash-tax-foreign">
+                {foreign.map((line) => {
+                  const key = lineKey(line)
+                  const draft = drafts[key] || { remitted: false, remitted_on: '', fx: '' }
+                  return (
+                    <li key={key}>
+                      <div className="dash-tax-foreign-top">
+                        <div>
+                          <strong>{line.ticker}</strong>
+                          <span>{line.kind_label} · เกิด {fmtDate(line.income_date)} · ปี {line.earning_year || '—'}</span>
+                        </div>
+                        <div className="dash-tax-line-amt">
+                          {money(line.native_amount, line.currency)}
+                          {line.kind_label === 'ปันผล' && (
+                            <span>หักต่างประเทศ {money(line.withheld_native, line.currency)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <p className={`dash-tax-status dash-tax-status--${line.status}`}>
+                        {STATUS_LABEL[line.status] || line.status}
+                        {line.amount_thb != null ? ` · ${money(line.amount_thb)}` : ''}
+                      </p>
+                      <label className="dash-tax-check">
+                        <input
+                          type="checkbox"
+                          checked={draft.remitted}
+                          onChange={(e) => {
+                            const remitted = e.target.checked
+                            const next = { ...draft, remitted }
+                            patchDraft(key, { remitted })
+                            if (!remitted) saveRemittance(line, next)
+                          }}
+                        />
+                        โอนเงินก้อนนี้เข้าไทยแล้ว
+                      </label>
+                      {draft.remitted && (
+                        <div className="dash-tax-remit">
+                          <label>
+                            วันที่เงินเข้าบัญชี
+                            <input
+                              type="date"
+                              className="dash-tax-input"
+                              value={draft.remitted_on}
+                              onChange={(e) => patchDraft(key, { remitted_on: e.target.value })}
+                            />
+                          </label>
+                          {line.currency !== 'THB' && (
+                            <label>
+                              บาทต่อ 1 {line.currency}
                               <input
-                                type="checkbox"
-                                checked={draft.remitted}
-                                onChange={(e) => {
-                                  const remitted = e.target.checked
-                                  const next = { ...draft, remitted }
-                                  patchDraft(key, { remitted })
-                                  if (!remitted) saveRemittance(line, next)
-                                }}
+                                type="number"
+                                min="0"
+                                step="0.0001"
+                                placeholder="เช่น 35.20"
+                                className="dash-tax-input"
+                                value={draft.fx}
+                                onChange={(e) => patchDraft(key, { fx: e.target.value })}
                               />
-                              โอนแล้ว
                             </label>
-                            {draft.remitted && (
-                              <div className="dash-tax-remit">
-                                <input
-                                  type="date"
-                                  className="dash-tax-input"
-                                  value={draft.remitted_on}
-                                  onChange={(e) => patchDraft(key, { remitted_on: e.target.value })}
-                                />
-                                {line.currency !== 'THB' && (
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.0001"
-                                    placeholder={`บาทต่อ 1 ${line.currency}`}
-                                    className="dash-tax-input"
-                                    value={draft.fx}
-                                    onChange={(e) => patchDraft(key, { fx: e.target.value })}
-                                  />
-                                )}
-                                <button
-                                  type="button"
-                                  style={{ ...btnGhost, width: 'auto', padding: '8px 12px' }}
-                                  disabled={savingKey === key}
-                                  onClick={() => saveRemittance(line, draft)}
-                                >
-                                  {savingKey === key ? 'กำลังบันทึก...' : 'บันทึก'}
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          )}
+                          <button
+                            type="button"
+                            style={{ ...btnGhost, width: 'auto', padding: '8px 14px' }}
+                            disabled={savingKey === key}
+                            onClick={() => saveRemittance(line, draft)}
+                          >
+                            {savingKey === key ? 'กำลังบันทึก...' : 'บันทึกรายการนี้'}
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
             )}
           </section>
 
-          <section className="dash-card dash-tax-card dash-tax-summary">
-            <h3 className="dash-card-title">ฐานของปี {year}</h3>
+          <section id="tax-step-result" className="dash-card dash-tax-card dash-tax-summary">
+            <p className="dash-tax-kicker">ผลลัพธ์</p>
+            <h3 className="dash-card-title">ฐานโดยประมาณของปี {year}</h3>
+            <p className="dash-card-sub">ตัวเลขนี้เปลี่ยนหลังบันทึกขั้นที่ 1–2 และหลังบันทึกแต่ละรายการในขั้นที่ 4</p>
             <div className="dash-tax-metrics">
               <div>
                 <span>หุ้นนอกที่โอนเข้าปีนี้</span>
