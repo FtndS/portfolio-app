@@ -49,6 +49,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /root/manga-reader/.htpasswd-reader:/etc/nginx/.htpasswd-reader:ro
     depends_on:
       - backend
       - frontend
