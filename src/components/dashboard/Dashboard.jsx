@@ -19,6 +19,7 @@ import SettingsModal from '../modals/SettingsModal'
 import SupportModal from '../modals/SupportModal'
 import SubscriptionPage from '../subscription/SubscriptionPage'
 import CheckoutPage from '../subscription/CheckoutPage'
+import TaxPage from '../tax/TaxPage'
 import TickerStoryModal from '../modals/TickerStoryModal'
 import Modal from '../ui/Modal'
 import Field from '../ui/Field'
@@ -436,7 +437,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
     setTab(k)
     setSearchQuery('')
     setSidebarOpen(false)
-    if (k === 'subscription' || k === 'checkout') {
+    if (k === 'subscription' || k === 'checkout' || k === 'tax') {
       window.history.replaceState({}, '', `/app?tab=${k}`)
     } else if (window.location.search.includes('tab=')) {
       window.history.replaceState({}, '', '/app')
@@ -478,6 +479,10 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
       setTab('checkout')
       changed = true
     }
+    if (tabParam === 'tax') {
+      setTab('tax')
+      changed = true
+    }
     if (sub === 'success') {
       setTab('subscription')
       setSubscriptionFlash('ชำระเงินสำเร็จ — กำลังซิงค์สถานะจาก Stripe...')
@@ -498,10 +503,12 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
     }
 
     if (changed) {
-      const keepTab = tabParam === 'checkout' ? '/app?tab=checkout'
-        : tabParam === 'subscription' || sub === 'success' || sub === 'cancel'
-          ? `/app?tab=${sub === 'cancel' ? 'checkout' : 'subscription'}`
-          : '/app'
+      const keepTab = tabParam === 'tax'
+        ? '/app?tab=tax'
+        : tabParam === 'checkout' ? '/app?tab=checkout'
+          : tabParam === 'subscription' || sub === 'success' || sub === 'cancel'
+            ? `/app?tab=${sub === 'cancel' ? 'checkout' : 'subscription'}`
+            : '/app'
       window.history.replaceState({}, '', keepTab)
     }
   }, [onUserUpdate])
@@ -891,6 +898,8 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
         </>}
 
         {/* News Tab Section */}
+        {tab==='tax' && <TaxPage />}
+
         {tab==='news' && renderNewsGrid()}
 
         {tab==='subscription' && (

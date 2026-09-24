@@ -3105,3 +3105,164 @@
     flex: 1;
   }
 }
+
+.dash-tax-page {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.dash-tax-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.dash-tax-year {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 120px;
+}
+
+.dash-tax-card {
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+
+.dash-tax-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 14px 0;
+}
+
+.dash-tax-facts label,
+.dash-tax-year {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.dash-tax-input,
+.dash-tax-facts .dash-select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+}
+
+.dash-tax-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.dash-tax-hint,
+.dash-tax-disclaimer {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.dash-tax-disclaimer {
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+
+.dash-tax-error {
+  margin: 0 0 12px;
+  color: var(--loss);
+  font-size: 13px;
+}
+
+.dash-tax-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+
+.dash-tax-metrics div {
+  padding: 12px;
+  background: var(--surface-subtle);
+  border-radius: var(--radius);
+}
+
+.dash-tax-metrics span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dash-tax-metrics strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-tax-table-wrap {
+  overflow-x: auto;
+}
+
+.dash-tax-table td,
+.dash-tax-table th {
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.dash-tax-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-tax-status {
+  display: inline-block;
+  max-width: 220px;
+  white-space: normal;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.dash-tax-status--in_base,
+.dash-tax-status--set_dividend_included {
+  color: var(--gain);
+}
+
+.dash-tax-status--needs_fx,
+.dash-tax-status--needs_residence {
+  color: var(--accent-text);
+}
+
+.dash-tax-remit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .dash-tax-head,
+  .dash-tax-facts {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .dash-tax-head {
+    align-items: stretch;
+  }
+}

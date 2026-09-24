@@ -663,6 +663,42 @@ const migrations = [
       ALTER TABLE trips ADD COLUMN IF NOT EXISTS origin VARCHAR(255);
     `,
   },
+  {
+    name: '032_tax_estimate',
+    sql: `
+      CREATE TABLE IF NOT EXISTS tax_year_facts (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        tax_year INTEGER NOT NULL,
+        days_in_thailand INTEGER,
+        us_w8ben BOOLEAN NOT NULL DEFAULT false,
+        set_dividend_mode VARCHAR(16) NOT NULL DEFAULT 'final',
+        dividend_amount_basis VARCHAR(8) NOT NULL DEFAULT 'gross',
+        other_assessable_thb NUMERIC(18, 2),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, tax_year),
+        CONSTRAINT tax_year_facts_days_chk CHECK (
+          days_in_thailand IS NULL OR (days_in_thailand >= 0 AND days_in_thailand <= 366)
+        ),
+        CONSTRAINT tax_year_facts_div_mode_chk CHECK (set_dividend_mode IN ('final', 'include')),
+        CONSTRAINT tax_year_facts_basis_chk CHECK (dividend_amount_basis IN ('gross', 'net'))
+      );
+
+      CREATE TABLE IF NOT EXISTS tax_remittances (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        source_type VARCHAR(16) NOT NULL,
+        source_id INTEGER NOT NULL,
+        remitted_on DATE NOT NULL,
+        fx_thb_per_unit NUMERIC(18, 6),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT tax_remittances_source_chk CHECK (source_type IN ('sell', 'dividend')),
+        CONSTRAINT tax_remittances_source_unique UNIQUE (user_id, source_type, source_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS tax_remittances_user_idx ON tax_remittances (user_id);
+    `,
+  },
 ]
 
 export async function runMigrations() {

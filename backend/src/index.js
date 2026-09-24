@@ -20,6 +20,7 @@ import stripeWebhookRoutes from './routes/stripeWebhook.js'
 import omiseWebhookRoutes from './routes/omiseWebhook.js'
 import adminRoutes from './routes/admin.js'
 import portfoliosRoutes from './routes/portfolios.js'
+import taxRoutes from './routes/tax.js'
 import tripsRoutes from './routes/trips.js'
 import { fetchHoldingQuote, fetchLiveQuote } from './lib/yahooPrices.js'
 import { createLruCache } from './lib/lruCache.js'
@@ -175,6 +176,7 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/thesis', thesisRoutes)
 app.use('/api/support', supportRoutes)
 app.use('/api/subscription', subscriptionRoutes)
+app.use('/api/tax', taxRoutes)
 app.use('/api/admin', adminRoutes)
 
 runMigrations()

@@ -6,6 +6,7 @@ export const DASH_TABS = [
   ['holdings', 'หุ้นที่ถือ'],
   ['transactions', 'ซื้อ/ขาย'],
   ['dividends', 'ปันผล'],
+  ['tax', 'ภาษี'],
   ['journal', 'บันทึกเหตุผล'],
   ['news', 'ข่าว'],
 ]
