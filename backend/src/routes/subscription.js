@@ -37,6 +37,10 @@ router.get('/', async (req, res) => {
     if (hasStripeSubscription && stripeConfigured) {
       const stripe = getStripe()
       stripeSubscription = await getStripeSubscriptionFlags(stripe, stripeSubscriptionId)
+        .catch((err) => {
+          console.warn('GET subscription: Stripe subscription lookup failed', req.userId, err?.message || err)
+          return null
+        })
     }
 
     const effectiveForSource = resolveEffectivePlan(req.userPlan, req.userPlanExpiresAt)

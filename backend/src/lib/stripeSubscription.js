@@ -320,15 +320,22 @@ export async function fetchBillingHistory(pool, userId, { email, stripeCustomerI
   const stripe = getStripe()
   if (!stripe) return rows.sort(byPaidAtDesc)
 
-  let customerId = stripeCustomerId
-  if (!customerId && email) {
-    const customers = await stripe.customers.list({ email: String(email).trim(), limit: 5 })
-    customerId = customers.data.find((c) => !c.deleted)?.id || null
+  // A stored customer id from the other Stripe mode (test vs live) or a deleted
+  // customer must not break the plan page; show what we have instead.
+  let invoices
+  try {
+    let customerId = stripeCustomerId
+    if (!customerId && email) {
+      const customers = await stripe.customers.list({ email: String(email).trim(), limit: 5 })
+      customerId = customers.data.find((c) => !c.deleted)?.id || null
+    }
+    if (!customerId) return rows.sort(byPaidAtDesc)
+    invoices = await stripe.invoices.list({ customer: customerId, limit: 36 })
+  } catch (err) {
+    console.warn('fetchBillingHistory: Stripe lookup failed', userId, err?.message || err)
+    return rows.sort(byPaidAtDesc)
   }
 
-  if (!customerId) return rows.sort(byPaidAtDesc)
-
-  const invoices = await stripe.invoices.list({ customer: customerId, limit: 36 })
   for (const inv of invoices.data) {
     const paidAt = inv.status_transitions?.paid_at
       ? new Date(inv.status_transitions.paid_at * 1000).toISOString()
