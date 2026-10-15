@@ -171,7 +171,7 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
             <p className="landing-price-amount">฿99<span>/เดือน</span></p>
             <ul>
               <li>โควตา AI สูงขึ้น + Copilot ถามเองได้</li>
-              <li>ชำระบัตรหรือ PromptPay</li>
+              <li>ชำระด้วยบัตรผ่าน Stripe</li>
             </ul>
             <button type="button" className="landing-btn-primary landing-price-cta" onClick={() => onRegister()}>
               อัปเกรด Pro

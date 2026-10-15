@@ -1,37 +1,14 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { btnPrimary, btnGhost, inp } from '../../lib/styles'
-import TicketImagePicker, { buildAttachmentsPayload } from '../support/TicketImagePicker'
+import { btnPrimary, btnGhost } from '../../lib/styles'
 
-const UPGRADE_STATUS = {
-  open: 'รอตรวจสลิป',
-  in_progress: 'กำลังตรวจสอบ',
-}
-
-export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashMessage = '' }) {
+export default function CheckoutPage({ onBackToPlan, flashMessage = '' }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
-  const [suite, setSuite] = useState('stripe_manual')
-  const [payMethod, setPayMethod] = useState('card')
   const [checkoutLoading, setCheckoutLoading] = useState(false)
-  const [omiseCardLoading, setOmiseCardLoading] = useState(false)
   const [actionErr, setActionErr] = useState('')
   const [banner, setBanner] = useState(flashMessage)
-  const [creatingPromptPay, setCreatingPromptPay] = useState(false)
-  const [promptPayState, setPromptPayState] = useState(null)
-  const [promptPayErr, setPromptPayErr] = useState('')
-  const [slipFiles, setSlipFiles] = useState([])
-  const [slipErr, setSlipErr] = useState('')
-  const [slipSubmitting, setSlipSubmitting] = useState(false)
-  const [slipMsg, setSlipMsg] = useState('')
-  const [cardForm, setCardForm] = useState({
-    name: user?.name || '',
-    number: '',
-    month: '',
-    year: '',
-    cvc: '',
-  })
 
   const load = async () => {
     setLoading(true)
@@ -43,11 +20,6 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
       return
     }
     setData(r)
-    window.__PORTDIARY_OMISE_PKEY = r.omisePublicKey || ''
-    const active = r.paymentSuites?.active || 'stripe_manual'
-    setSuite(active)
-    if (r.paymentEnabled) setPayMethod('card')
-    else setPayMethod('promptpay')
   }
 
   useEffect(() => {
@@ -57,16 +29,6 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
   useEffect(() => {
     if (flashMessage) setBanner(flashMessage)
   }, [flashMessage])
-
-  useEffect(() => {
-    if (!data?.omiseCardEnabled) return
-    if (document.getElementById('omise-js-sdk')) return
-    const s = document.createElement('script')
-    s.id = 'omise-js-sdk'
-    s.src = 'https://cdn.omise.co/omise.js'
-    s.async = true
-    document.body.appendChild(s)
-  }, [data?.omiseCardEnabled])
 
   const startCheckout = async () => {
     setActionErr('')
@@ -84,123 +46,17 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
     setActionErr('ไม่สามารถเปิดหน้าชำระเงินได้')
   }
 
-  const subscribeOmiseCard = async () => {
+  const openStripePortal = async () => {
     setActionErr('')
-    if (!window.Omise) {
-      setActionErr('ยังโหลด Omise.js ไม่สำเร็จ กรุณารีเฟรชหน้า')
-      return
-    }
-    const pkey = window.__PORTDIARY_OMISE_PKEY || ''
-    if (!pkey) {
-      setActionErr('ยังไม่ได้ตั้งค่า OMISE_PUBLIC_KEY')
-      return
-    }
-    setOmiseCardLoading(true)
-    window.Omise.setPublicKey(pkey)
-    const tokenResult = await new Promise((resolve) => {
-      window.Omise.createToken('card', {
-        name: cardForm.name,
-        number: cardForm.number.replace(/\s+/g, ''),
-        expiration_month: cardForm.month,
-        expiration_year: cardForm.year,
-        security_code: cardForm.cvc,
-      }, (statusCode, response) => {
-        if (statusCode === 200 && response?.id) resolve({ ok: true, token: response.id })
-        else resolve({ ok: false, error: response?.message || 'สร้าง token บัตรไม่สำเร็จ' })
-      })
-    })
-    if (!tokenResult.ok) {
-      setOmiseCardLoading(false)
-      setActionErr(tokenResult.error)
-      return
-    }
-    const r = await api.post('/subscription/omise/card/subscribe', { cardToken: tokenResult.token })
-    setOmiseCardLoading(false)
+    setCheckoutLoading(true)
+    const r = await api.post('/subscription/portal')
+    setCheckoutLoading(false)
     if (r.error) {
       setActionErr(r.error)
       return
     }
-    setBanner('สมัครตัดบัตรอัตโนมัติผ่าน Omise แล้ว')
-    const me = await api.get('/auth/me')
-    if (me?.id && onUserRefresh) onUserRefresh(me)
-    await load()
+    if (r.url) window.location.href = r.url
   }
-
-  const startPromptPayCheckout = async () => {
-    setPromptPayErr('')
-    setCreatingPromptPay(true)
-    const r = await api.post('/subscription/promptpay/checkout')
-    setCreatingPromptPay(false)
-    if (r.error) {
-      setPromptPayErr(r.error)
-      return
-    }
-    setPromptPayState(r)
-  }
-
-  const syncPromptPay = async (chargeId) => {
-    const r = await api.post(`/subscription/promptpay/${encodeURIComponent(chargeId)}/sync`)
-    if (r.error) return
-    setPromptPayState((prev) => ({ ...(prev || {}), ...r }))
-    if (r.granted || r.status === 'successful') {
-      const me = await api.get('/auth/me')
-      if (me?.id && onUserRefresh) onUserRefresh(me)
-      await load()
-      setBanner('ชำระ PromptPay สำเร็จแล้ว — เปิด Pro เรียบร้อย')
-    }
-  }
-
-  const submitManualSlip = async () => {
-    setSlipErr('')
-    setSlipMsg('')
-    setActionErr('')
-    if (!slipFiles.length) {
-      setSlipErr('กรุณาแนบสลิปการโอนเงิน')
-      return
-    }
-    setSlipSubmitting(true)
-    try {
-      const attachmentsBase64 = await buildAttachmentsPayload(slipFiles)
-      const message = [
-        `ขออัปเกรดบัญชีเป็นแผน Pro (฿${data?.catalog?.proMonthlyThb || 99}/เดือน)`,
-        '',
-        `อีเมลบัญชี: ${user?.email || '—'}`,
-        `ชื่อ: ${user?.name || '—'}`,
-        `User ID: ${user?.id || '—'}`,
-        '',
-        'แนบสลิปการโอน PromptPay แล้ว — รอทีมงานยืนยันและเปิด Pro',
-      ].join('\n')
-      const r = await api.post('/support', {
-        category: 'upgrade',
-        subject: 'ขออัปเกรดเป็น Pro',
-        message,
-        attachmentsBase64,
-      })
-      if (r.error) {
-        setSlipErr(r.error)
-        return
-      }
-      setSlipMsg('ส่งคำขอแล้ว — ทีมงานจะตรวจสลิปและเปิด Pro ให้ภายใน 1 วันทำการ')
-      setSlipFiles([])
-      await load()
-    } catch {
-      setSlipErr('ส่งคำขอไม่สำเร็จ — ลองใหม่อีกครั้ง')
-    } finally {
-      setSlipSubmitting(false)
-    }
-  }
-
-  useEffect(() => {
-    const chargeId = promptPayState?.chargeId
-    const status = promptPayState?.status
-    if (!chargeId || status === 'successful' || status === 'failed' || status === 'expired') {
-      return undefined
-    }
-    const timer = setInterval(() => {
-      syncPromptPay(chargeId).catch(() => {})
-    }, 5000)
-    return () => clearInterval(timer)
-  }, [promptPayState?.chargeId, promptPayState?.status])
 
   if (loading) {
     return (
@@ -222,29 +78,10 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
   const isPro = data.plan === 'pro' || data.isOwner
   const proPrice = data.catalog?.proMonthlyThb || 99
   const stripeReady = !!data.paymentEnabled
-  const omiseReady = !!data.omiseCardEnabled || !!data.omisePromptPayEnabled
-  const qrUrl = data.paymentQrUrl || '/promptpay-qr-99.png'
+  // Admin-granted Pro does not auto-renew, so those users may still subscribe by card
   const isManualPro = isPro && data.proPaymentSource === 'manual'
-  const alreadyAutoPro = isPro && !isManualPro && !data.isOwner
   const canPay = !data.isOwner && (!isPro || isManualPro)
-  const showSuites = !data.isOwner
-  const omisePending = !!data.omisePending || !omiseReady
-  const omisePendingMessage = data.omisePendingMessage
-    || 'กำลังรอยืนยันบัญชี Omise — ใช้ชุดที่ 1 ชั่วคราว'
   const hasStripeSub = !!data.hasStripeSubscription
-  const pendingUpgrade = data.pendingUpgradeTicket
-
-  const openStripePortal = async () => {
-    setActionErr('')
-    setCheckoutLoading(true)
-    const r = await api.post('/subscription/portal')
-    setCheckoutLoading(false)
-    if (r.error) {
-      setActionErr(r.error)
-      return
-    }
-    if (r.url) window.location.href = r.url
-  }
 
   return (
     <div className="dash-sub-page dash-checkout-page">
@@ -254,59 +91,13 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
         </button>
         <div className="dash-checkout-heading">
           <h2 className="dash-sub-title">Checkout</h2>
-          <p className="dash-sub-lead">เลือกชุดชำระเงินด้านขวา · ตรวจสอบยอดด้านซ้าย</p>
+          <p className="dash-sub-lead">ชำระด้วยบัตรเครดิต/เดบิตผ่าน Stripe · ตรวจสอบยอดด้านซ้าย</p>
         </div>
       </div>
 
       {banner && (
         <div className="dash-inset dash-sub-banner" style={{ padding: '12px 14px', marginBottom: '16px' }}>
           <p className="dash-text-gain" style={{ margin: 0, fontSize: '14px' }}>{banner}</p>
-        </div>
-      )}
-
-      {!stripeReady && !data.isOwner && (
-        <div className="dash-inset dash-sub-omise-note" style={{ marginBottom: '16px' }}>
-          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
-            <strong>บัตร Stripe ยังไม่พร้อม</strong> — เซิร์ฟเวอร์ยังไม่โหลด
-            {' '}<code>STRIPE_ENABLED</code> / <code>STRIPE_SECRET_KEY</code> / <code>STRIPE_PRICE_ID</code>
-            {' '}ครบ ตอนนี้ชุดที่ 1 ใช้ได้แค่ PromptPay (manual)
-          </p>
-        </div>
-      )}
-
-      {alreadyAutoPro && (
-        <div className="dash-inset dash-checkout-active-note">
-          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
-            คุณเป็นแผน Pro และต่ออายุอัตโนมัติอยู่แล้ว — ไม่เปิดหน้า Checkout บัตรซ้ำ
-            {hasStripeSub && stripeReady
-              ? ' · จัดการบัตร/ยกเลิกได้จากปุ่มด้านล่าง'
-              : ' · หรือกลับไป '}
-            {!(hasStripeSub && stripeReady) && (
-              <button type="button" className="dash-link-btn" onClick={onBackToPlan}>จัดการแผน</button>
-            )}
-          </p>
-          {hasStripeSub && stripeReady && (
-            <button
-              type="button"
-              style={{ ...btnPrimary, marginTop: '12px' }}
-              onClick={openStripePortal}
-              disabled={checkoutLoading}
-            >
-              {checkoutLoading ? 'กำลังเปิด...' : 'เปิดหน้าจัดการบัตร Stripe'}
-            </button>
-          )}
-        </div>
-      )}
-
-      {pendingUpgrade && (
-        <div className="dash-inset" style={{ padding: '12px 14px', marginBottom: '16px', borderColor: 'var(--accent)' }}>
-          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px' }}>
-            คำขอ PromptPay #{pendingUpgrade.id} — <strong>{UPGRADE_STATUS[pendingUpgrade.status] || pendingUpgrade.status}</strong>
-            {' '}({new Date(pendingUpgrade.created_at).toLocaleDateString('th-TH')})
-          </p>
-          <p className="dash-text-muted" style={{ margin: '6px 0 0', fontSize: '13px' }}>
-            ทีมงานจะตรวจสลิปและเปิด Pro ให้ทางอีเมล
-          </p>
         </div>
       )}
 
@@ -348,258 +139,48 @@ export default function CheckoutPage({ user, onUserRefresh, onBackToPlan, flashM
         </section>
 
         <section className="dash-checkout-pay-wrap">
-          {data.isOwner && (
-            <div className="dash-card">
+          <div className="dash-card dash-checkout-pay">
+            {data.isOwner ? (
               <p className="dash-text-muted" style={{ fontSize: '14px', margin: 0 }}>บัญชี Owner — ไม่ต้องชำระเงิน</p>
-            </div>
-          )}
-
-          {showSuites && (
-            <>
-              <div className="dash-checkout-suites" role="tablist" aria-label="ชุดชำระเงิน">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={suite === 'stripe_manual'}
-                  className={`dash-checkout-suite${suite === 'stripe_manual' ? ' is-active' : ''}`}
-                  onClick={() => {
-                    setSuite('stripe_manual')
-                    setPayMethod(stripeReady ? 'card' : 'promptpay')
-                  }}
-                >
-                  <span className={`dash-checkout-suite-badge${stripeReady ? '' : ' dash-checkout-suite-badge--pending'}`}>
-                    ชุด 1 · {stripeReady ? 'พร้อมใช้' : 'Stripe ยังไม่พร้อม'}
-                  </span>
-                  <strong>PromptPay + Stripe</strong>
-                  <span>{stripeReady ? 'QR โอนเอง หรือตัดบัตรอัตโนมัติ' : 'ตอนนี้ใช้ได้แค่ PromptPay (manual)'}</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={suite === 'omise'}
-                  className={`dash-checkout-suite${suite === 'omise' ? ' is-active' : ''}${omisePending ? ' is-pending' : ''}`}
-                  onClick={() => {
-                    setSuite('omise')
-                    setPayMethod('card')
-                  }}
-                >
-                  <span className={`dash-checkout-suite-badge${omisePending ? ' dash-checkout-suite-badge--pending' : ''}`}>
-                    ชุด 2 · {omisePending ? 'รอยืนยัน' : 'พร้อมใช้'}
-                  </span>
-                  <strong>Omise</strong>
-                  <span>บัตร + PromptPay อัตโนมัติ</span>
-                </button>
-              </div>
-
-              <div className="dash-card dash-checkout-pay">
-                {suite === 'stripe_manual' && (
-                  <>
-                    <div className="dash-checkout-pay-head">
-                      <p className="dash-checkout-kicker">ชุดที่ 1</p>
-                      <h3 className="dash-checkout-pay-title">ชำระเงิน</h3>
-                    </div>
-                    <div className="dash-segment dash-sub-pay-tabs dash-checkout-method-tabs">
-                      {stripeReady && (
-                        <button
-                          type="button"
-                          className={`dash-segment-btn${payMethod === 'card' ? ' dash-segment-btn--active' : ''}`}
-                          onClick={() => setPayMethod('card')}
-                        >
-                          บัตร (Stripe)
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className={`dash-segment-btn${payMethod === 'promptpay' ? ' dash-segment-btn--active' : ''}`}
-                        onClick={() => setPayMethod('promptpay')}
-                      >
-                        PromptPay (manual)
+            ) : (
+              <>
+                <div className="dash-checkout-pay-head">
+                  <p className="dash-checkout-kicker">ชำระเงิน</p>
+                  <h3 className="dash-checkout-pay-title">บัตรเครดิต/เดบิต (Stripe)</h3>
+                </div>
+                {!stripeReady ? (
+                  <div className="dash-checkout-pending">
+                    <p className="dash-checkout-pending-title">ระบบชำระเงินยังไม่พร้อม</p>
+                    <p className="dash-checkout-hint" style={{ margin: 0 }}>
+                      กรุณาลองใหม่ภายหลัง หรือติดต่อทีมงานผ่านหน้าช่วยเหลือ
+                    </p>
+                  </div>
+                ) : (
+                  <div className="dash-checkout-method">
+                    <ul className="dash-checkout-points">
+                      <li>ต่ออายุอัตโนมัติทุกเดือนผ่าน Stripe</li>
+                      <li>เปิด Pro ทันทีหลังชำระสำเร็จ</li>
+                      <li>ยกเลิกการต่ออายุได้จากหน้าแผน Pro</li>
+                    </ul>
+                    {canPay ? (
+                      <button type="button" className="dash-checkout-cta" onClick={startCheckout} style={btnPrimary} disabled={checkoutLoading}>
+                        {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`}
                       </button>
-                    </div>
-
-                    {!stripeReady && (
-                      <p className="dash-checkout-hint">
-                        ปุ่มบัตร Stripe จะโผล่เมื่อเซิร์ฟเวอร์ตั้งค่า Stripe ครบแล้ว
-                      </p>
-                    )}
-
-                    {payMethod === 'card' && stripeReady && (
-                      <div className="dash-checkout-method">
-                        <ul className="dash-checkout-points">
-                          <li>ต่ออายุอัตโนมัติทุกเดือนผ่าน Stripe</li>
-                          <li>เปิด Pro ทันทีหลังชำระสำเร็จ</li>
-                          <li>ยกเลิกได้จากหน้าแผน Pro</li>
-                        </ul>
-                        {canPay ? (
-                          <button type="button" className="dash-checkout-cta" onClick={startCheckout} style={btnPrimary} disabled={checkoutLoading}>
-                            {checkoutLoading ? 'กำลังเปิดหน้าชำระเงิน...' : `ชำระด้วยบัตร — ฿${proPrice}/เดือน`}
-                          </button>
-                        ) : hasStripeSub ? (
-                          <button type="button" className="dash-checkout-cta" onClick={openStripePortal} style={btnPrimary} disabled={checkoutLoading}>
-                            {checkoutLoading ? 'กำลังเปิด...' : 'เปิดหน้าจัดการบัตร Stripe'}
-                          </button>
-                        ) : (
-                          <p className="dash-checkout-hint">บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ</p>
-                        )}
-                      </div>
-                    )}
-
-                    {payMethod === 'promptpay' && (
-                      <div className="dash-checkout-method">
-                        <ol className="dash-checkout-points dash-checkout-points--numbered">
-                          <li>สแกน QR PromptPay โอน <strong>฿{proPrice}</strong></li>
-                          <li>อัปโหลดสลิป — ระบบแนบอีเมล <strong>{user?.email || '—'}</strong> ให้อัตโนมัติ</li>
-                          <li>กดส่งคำขอ — ทีมงานได้ Ticket เพื่อเปิด Pro</li>
-                        </ol>
-                        {canPay ? (
-                          <div className="dash-checkout-slip">
-                            <div className="dash-sub-qr-wrap">
-                              <img src={qrUrl} alt={`PromptPay QR ฿${proPrice}`} className="dash-sub-qr" width={280} height={380} />
-                              <p className="dash-checkout-qr-caption">PortDiary · ฿{proPrice}.00</p>
-                            </div>
-                            <div className="dash-checkout-slip-form">
-                              {pendingUpgrade ? (
-                                <p className="dash-checkout-hint">
-                                  มีคำขออัปเกรดรอตรวจอยู่แล้ว — ไม่ต้องส่งสลิปซ้ำจนกว่าทีมงานจะตอบกลับ
-                                </p>
-                              ) : (
-                                <>
-                                  <TicketImagePicker
-                                    files={slipFiles}
-                                    onChange={setSlipFiles}
-                                    err={slipErr}
-                                    setErr={setSlipErr}
-                                    required
-                                    label="อัปโหลดสลิปการโอน (บังคับ) — สูงสุด 3 ไฟล์"
-                                  />
-                                  {slipMsg && (
-                                    <p className="dash-text-gain" style={{ fontSize: '13px', marginTop: '10px' }}>{slipMsg}</p>
-                                  )}
-                                  <button
-                                    type="button"
-                                    className="dash-checkout-cta"
-                                    onClick={submitManualSlip}
-                                    style={btnPrimary}
-                                    disabled={slipSubmitting}
-                                  >
-                                    {slipSubmitting ? 'กำลังส่ง...' : 'ส่งคำขออัปเกรด Pro'}
-                                  </button>
-                                </>
-                              )}
-                              {data.paymentInstructions && (
-                                <p className="dash-checkout-hint">{data.paymentInstructions}</p>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="dash-checkout-hint">บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องโอนซ้ำ</p>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {suite === 'omise' && (
-                  <>
-                    <div className="dash-checkout-pay-head">
-                      <p className="dash-checkout-kicker">ชุดที่ 2</p>
-                      <h3 className="dash-checkout-pay-title">Omise</h3>
-                    </div>
-                    {omisePending ? (
-                      <div className="dash-checkout-pending">
-                        <p className="dash-checkout-pending-title">กำลังรอยืนยัน Omise</p>
-                        <p className="dash-checkout-hint" style={{ margin: 0 }}>
-                          {omisePendingMessage}
-                        </p>
-                        <p className="dash-checkout-hint">
-                          ระหว่างนี้ใช้ <strong>ชุดที่ 1</strong> (PromptPay manual หรือบัตร Stripe) ได้ตามปกติ
-                        </p>
-                        <button
-                          type="button"
-                          style={{ ...btnGhost, marginTop: '14px' }}
-                          onClick={() => {
-                            setSuite('stripe_manual')
-                            setPayMethod(stripeReady ? 'card' : 'promptpay')
-                          }}
-                        >
-                          กลับไปชุดที่ 1
-                        </button>
-                      </div>
-                    ) : (
+                    ) : hasStripeSub ? (
                       <>
-                        <div className="dash-segment dash-sub-pay-tabs" style={{ marginBottom: '16px' }}>
-                          <button
-                            type="button"
-                            className={`dash-segment-btn${payMethod === 'card' ? ' dash-segment-btn--active' : ''}`}
-                            onClick={() => setPayMethod('card')}
-                          >
-                            บัตร (Omise)
-                          </button>
-                          <button
-                            type="button"
-                            className={`dash-segment-btn${payMethod === 'promptpay' ? ' dash-segment-btn--active' : ''}`}
-                            onClick={() => setPayMethod('promptpay')}
-                          >
-                            PromptPay (Omise)
-                          </button>
-                        </div>
-
-                        {payMethod === 'card' && (
-                          <div className="dash-sub-receipt" style={{ maxWidth: '420px' }}>
-                            {canPay ? (
-                              <>
-                                <input style={inp({ marginBottom: '8px' })} placeholder="ชื่อบนบัตร" value={cardForm.name} onChange={(e) => setCardForm({ ...cardForm, name: e.target.value })} />
-                                <input style={inp({ marginBottom: '8px' })} placeholder="เลขบัตร" value={cardForm.number} onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })} />
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                                  <input style={inp({ marginBottom: 0 })} placeholder="MM" value={cardForm.month} onChange={(e) => setCardForm({ ...cardForm, month: e.target.value })} />
-                                  <input style={inp({ marginBottom: 0 })} placeholder="YY" value={cardForm.year} onChange={(e) => setCardForm({ ...cardForm, year: e.target.value })} />
-                                  <input style={inp({ marginBottom: 0 })} placeholder="CVC" value={cardForm.cvc} onChange={(e) => setCardForm({ ...cardForm, cvc: e.target.value })} />
-                                </div>
-                                <button type="button" onClick={subscribeOmiseCard} style={{ ...btnPrimary, marginTop: '12px' }} disabled={omiseCardLoading}>
-                                  {omiseCardLoading ? 'กำลังสมัครบัตร...' : `ยืนยันชำระ — ฿${proPrice}/เดือน`}
-                                </button>
-                              </>
-                            ) : (
-                              <p className="dash-text-muted" style={{ fontSize: '13px', margin: 0 }}>
-                                บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {payMethod === 'promptpay' && (
-                          <div>
-                            {canPay ? (
-                              <>
-                                {!promptPayState?.chargeId && (
-                                  <button type="button" onClick={startPromptPayCheckout} style={btnPrimary} disabled={creatingPromptPay}>
-                                    {creatingPromptPay ? 'กำลังสร้าง QR...' : `สร้าง PromptPay QR — ฿${proPrice}`}
-                                  </button>
-                                )}
-                                {promptPayErr && <p className="dash-text-loss" style={{ fontSize: '13px', marginTop: '10px' }}>{promptPayErr}</p>}
-                                {promptPayState?.chargeId && (
-                                  <div className="dash-sub-qr-wrap" style={{ marginTop: '12px' }}>
-                                    <img src={promptPayState.qrImageUrl} alt="PromptPay QR" className="dash-sub-qr" width={280} height={380} />
-                                    <button type="button" style={{ ...btnGhost, width: '100%', marginTop: '10px' }} onClick={() => syncPromptPay(promptPayState.chargeId)}>
-                                      รีเฟรชสถานะ
-                                    </button>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <p className="dash-text-muted" style={{ fontSize: '13px', margin: 0 }}>
-                                บัญชีนี้ต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        <p className="dash-checkout-hint">คุณเป็นแผน Pro และต่ออายุอัตโนมัติอยู่แล้ว — ไม่ต้องชำระซ้ำ</p>
+                        <button type="button" className="dash-checkout-cta" onClick={openStripePortal} style={btnPrimary} disabled={checkoutLoading}>
+                          {checkoutLoading ? 'กำลังเปิด...' : 'เปิดหน้าจัดการบัตร Stripe'}
+                        </button>
                       </>
+                    ) : (
+                      <p className="dash-checkout-hint">บัญชีนี้เป็นแผน Pro อยู่แล้ว — ไม่ต้องชำระซ้ำ</p>
                     )}
-                  </>
+                  </div>
                 )}
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </section>
       </div>
     </div>

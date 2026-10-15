@@ -2,7 +2,7 @@ import express from 'express'
 import pool from '../db/index.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { supportLimiter } from '../middleware/rateLimit.js'
-import { sendEmail, buildSupportTicketEmail, sendSlipReceivedEmail } from '../lib/email.js'
+import { sendEmail, buildSupportTicketEmail } from '../lib/email.js'
 import { serverError } from '../lib/httpErrors.js'
 import {
   parseAttachmentsInput,
@@ -28,8 +28,10 @@ function validateTicketInput({ category, subject, message, attachmentCount = 0 }
   if (body.length < 10 || body.length > 5000) {
     return 'รายละเอียดต้องมี 10–5,000 ตัวอักษร'
   }
-  if (category === 'upgrade' && attachmentCount < 1) {
-    return 'กรุณาแนบสลิปการโอนเงิน'
+  // Manual PromptPay upgrades were retired; Pro is paid by card via Stripe only.
+  // 'upgrade' stays in CATEGORIES so admins can still read and close old tickets.
+  if (category === 'upgrade') {
+    return 'ปิดรับการโอน PromptPay แล้ว — อัปเกรด Pro ด้วยบัตรผ่าน Stripe ในหน้าแผน Pro'
   }
   return null
 }
@@ -131,18 +133,6 @@ router.post('/', supportLimiter, async (req, res) => {
     })
     if (validationErr) return res.status(400).json({ error: validationErr })
 
-    if (category === 'upgrade') {
-      const openUpgrade = await pool.query(
-        `SELECT id FROM support_tickets
-         WHERE user_id = $1 AND category = 'upgrade' AND status IN ('open', 'in_progress')
-         LIMIT 1`,
-        [req.userId]
-      )
-      if (openUpgrade.rows.length) {
-        return res.status(400).json({ error: 'มีคำขออัปเกรดที่รอตรวจอยู่แล้ว — รอทีมงานยืนยันก่อนส่งใหม่' })
-      }
-    }
-
     const recent = await pool.query(
       `SELECT COUNT(*)::int AS count FROM support_tickets
        WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'`,
@@ -183,12 +173,6 @@ router.post('/', supportLimiter, async (req, res) => {
     notifyAdmins(ticket, userResult.rows[0], attachments).catch((e) => {
       console.error('Support ticket email error:', e)
     })
-
-    if (category === 'upgrade') {
-      sendSlipReceivedEmail(userResult.rows[0], ticket.id).catch((e) => {
-        console.error('Slip received email error:', e)
-      })
-    }
 
     res.status(201).json(sanitizeTicketRow(ticket, attachments.length))
   } catch (err) {

@@ -6,53 +6,11 @@ import { buildSubscriptionCatalog, PRO_MONTHLY_THB } from '../lib/subscriptionCa
 import { appBaseUrl, formatStripeError, getStripe, isStripeConfigured } from '../lib/stripeClient.js'
 import { syncUserSubscriptionFromStripe, fetchBillingHistory, getStripeSubscriptionFlags } from '../lib/stripeSubscription.js'
 import { ensureStripeCustomer, checkoutPrivacyParams } from '../lib/stripeCustomer.js'
-import { isOmiseConfigured } from '../lib/omiseClient.js'
-import {
-  cancelOmiseCardSubscription,
-  createPromptPayCheckout,
-  fetchOmiseBillingHistory,
-  getOmiseCardFlags,
-  subscribeOmiseCard,
-  syncPromptPayCharge,
-} from '../lib/omiseSubscription.js'
 import { serverError } from '../lib/httpErrors.js'
 import pool from '../db/index.js'
 
 const router = express.Router()
 router.use(authMiddleware)
-
-function getPaymentMaintenanceNotice() {
-  const disabled = String(process.env.PRO_UPGRADE_DISABLED || '').trim().toLowerCase() === 'true'
-  const message = String(process.env.PRO_UPGRADE_DISABLED_MESSAGE || '').trim()
-    || 'ระบบชำระเงินผ่าน Omise ยังรอยืนยัน — ใช้ PromptPay (manual) หรือบัตร Stripe ชั่วคราว'
-  return { disabled, message }
-}
-
-function buildPaymentSuites({ stripeConfigured, omiseConfigured, maintenance }) {
-  const omisePending = maintenance.disabled || !omiseConfigured
-  return {
-    active: 'stripe_manual',
-    suites: [
-      {
-        id: 'stripe_manual',
-        label: 'PromptPay (manual) + บัตร Stripe',
-        status: 'available',
-        cardProvider: stripeConfigured ? 'stripe' : null,
-        promptPayMode: 'manual',
-        enabled: true,
-      },
-      {
-        id: 'omise',
-        label: 'Omise (บัตร + PromptPay อัตโนมัติ)',
-        status: omisePending ? 'pending_approval' : 'available',
-        cardProvider: omiseConfigured ? 'omise' : null,
-        promptPayMode: omiseConfigured ? 'omise' : null,
-        enabled: !omisePending && omiseConfigured,
-        pendingMessage: maintenance.message,
-      },
-    ],
-  }
-}
 
 router.get('/', async (req, res) => {
   try {
@@ -67,54 +25,31 @@ router.get('/', async (req, res) => {
     )
 
     const stripeConfigured = isStripeConfigured()
-    const omiseConfigured = isOmiseConfigured()
     const userRow = await pool.query(
-      'SELECT stripe_customer_id, stripe_subscription_id, omise_customer_id, omise_schedule_id FROM users WHERE id = $1',
+      'SELECT stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1',
       [req.userId]
     )
     const stripeCustomerId = userRow.rows[0]?.stripe_customer_id || null
     const stripeSubscriptionId = userRow.rows[0]?.stripe_subscription_id || null
     const hasStripeSubscription = !!stripeSubscriptionId
-    const hasOmiseSubscription = !!(userRow.rows[0]?.omise_schedule_id)
 
     let stripeSubscription = null
     if (hasStripeSubscription && stripeConfigured) {
       const stripe = getStripe()
       stripeSubscription = await getStripeSubscriptionFlags(stripe, stripeSubscriptionId)
     }
-    const omiseSubscription = (hasOmiseSubscription && omiseConfigured)
-      ? await getOmiseCardFlags(pool, req.userId)
-      : null
-
-    const pendingUpgrade = await pool.query(
-      `SELECT id, status, created_at
-       FROM support_tickets
-       WHERE user_id = $1 AND category = 'upgrade' AND status IN ('open', 'in_progress')
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [req.userId]
-    )
 
     const effectiveForSource = resolveEffectivePlan(req.userPlan, req.userPlanExpiresAt)
     let proPaymentSource = null
     if (effectiveForSource === 'pro' && !isOwner) {
-      if (hasOmiseSubscription) proPaymentSource = 'omise_card'
-      else proPaymentSource = hasStripeSubscription ? 'stripe' : 'manual'
+      // 'manual' = Pro granted by an admin (no auto-renewal)
+      proPaymentSource = hasStripeSubscription ? 'stripe' : 'manual'
     }
 
     const billingHistory = await fetchBillingHistory(pool, req.userId, {
       email: req.userEmail,
       stripeCustomerId,
       proMonthlyThb: PRO_MONTHLY_THB,
-    })
-    const omiseBillingHistory = await fetchOmiseBillingHistory(pool, req.userId)
-    const mergedBillingHistory = [...billingHistory, ...omiseBillingHistory]
-      .sort((a, b) => new Date(b.paidAt || b.createdAt) - new Date(a.paidAt || a.createdAt))
-    const maintenance = getPaymentMaintenanceNotice()
-    const paymentSuites = buildPaymentSuites({
-      stripeConfigured,
-      omiseConfigured,
-      maintenance,
     })
 
     res.json({
@@ -123,27 +58,11 @@ router.get('/', async (req, res) => {
       planExpiresAt: req.userPlanExpiresAt || null,
       isOwner,
       paymentEnabled: stripeConfigured,
-      paymentMode: stripeConfigured ? 'stripe' : 'manual',
-      paymentSuites,
-      omisePromptPayEnabled: omiseConfigured && !maintenance.disabled,
-      omiseCardEnabled: omiseConfigured && !maintenance.disabled,
-      omisePublicKey: omiseConfigured ? (process.env.OMISE_PUBLIC_KEY?.trim() || '') : '',
-      manualPaymentEnabled: true,
       stripeCustomerId,
       hasStripeSubscription,
       stripeSubscription,
-      hasOmiseSubscription,
-      omiseSubscription,
       proPaymentSource,
-      pendingUpgradeTicket: pendingUpgrade.rows[0] || null,
-      billingHistory: mergedBillingHistory,
-      paymentQrUrl: process.env.PRO_PAYMENT_QR_URL || '/promptpay-qr-99.png',
-      paymentInstructions: process.env.PRO_PAYMENT_INSTRUCTIONS || null,
-      // Keep for older clients; Omise-only pending — suite 1 (Stripe/manual) stays available
-      paymentTemporarilyDisabled: false,
-      paymentTemporarilyDisabledMessage: '',
-      omisePending: maintenance.disabled || !omiseConfigured,
-      omisePendingMessage: maintenance.message,
+      billingHistory,
       catalog: buildSubscriptionCatalog(),
       quota,
     })
@@ -152,87 +71,8 @@ router.get('/', async (req, res) => {
   }
 })
 
-router.post('/omise/card/subscribe', async (req, res) => {
-  try {
-    const maintenance = getPaymentMaintenanceNotice()
-    if (maintenance.disabled) {
-      return res.status(503).json({ error: maintenance.message })
-    }
-    if (!isOmiseConfigured()) {
-      return res.status(503).json({ error: 'ระบบตัดบัตร Omise ยังไม่พร้อม' })
-    }
-    const cardToken = String(req.body?.cardToken || '').trim()
-    if (!cardToken) return res.status(400).json({ error: 'ไม่พบข้อมูลบัตรสำหรับสมัคร' })
-
-    const userRow = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [req.userId])
-    const user = userRow.rows[0]
-    if (!user?.email) return res.status(400).json({ error: 'ไม่พบข้อมูลบัญชีผู้ใช้' })
-
-    const result = await subscribeOmiseCard(pool, user, { cardToken, amountThb: PRO_MONTHLY_THB })
-    res.json({ ok: true, ...result })
-  } catch (err) {
-    serverError(res, err, 'POST subscription/omise/card/subscribe error:')
-  }
-})
-
-router.post('/omise/card/cancel', async (req, res) => {
-  try {
-    if (!isOmiseConfigured()) {
-      return res.status(503).json({ error: 'ระบบตัดบัตร Omise ยังไม่พร้อม' })
-    }
-    const result = await cancelOmiseCardSubscription(pool, req.userId)
-    res.json(result)
-  } catch (err) {
-    serverError(res, err, 'POST subscription/omise/card/cancel error:')
-  }
-})
-
-router.post('/promptpay/checkout', async (req, res) => {
-  try {
-    const maintenance = getPaymentMaintenanceNotice()
-    if (maintenance.disabled) {
-      return res.status(503).json({ error: maintenance.message })
-    }
-    if (!isOmiseConfigured()) {
-      return res.status(503).json({ error: 'ระบบ PromptPay อัตโนมัติยังไม่พร้อม' })
-    }
-
-    const userRow = await pool.query(
-      'SELECT id, email, name FROM users WHERE id = $1',
-      [req.userId]
-    )
-    const user = userRow.rows[0]
-    if (!user?.email) {
-      return res.status(400).json({ error: 'ไม่พบข้อมูลบัญชีสำหรับชำระเงิน' })
-    }
-
-    const checkout = await createPromptPayCheckout(pool, user, PRO_MONTHLY_THB)
-    res.json(checkout)
-  } catch (err) {
-    serverError(res, err, 'POST subscription/promptpay/checkout error:')
-  }
-})
-
-router.post('/promptpay/:chargeId/sync', async (req, res) => {
-  try {
-    if (!isOmiseConfigured()) {
-      return res.status(503).json({ error: 'ระบบ PromptPay อัตโนมัติยังไม่พร้อม' })
-    }
-
-    const { chargeId } = req.params
-    const result = await syncPromptPayCharge(pool, req.userId, chargeId)
-    if (result.error === 'charge_not_found') {
-      return res.status(404).json({ error: 'ไม่พบรายการ PromptPay นี้' })
-    }
-    res.json(result)
-  } catch (err) {
-    serverError(res, err, 'POST subscription/promptpay/sync error:')
-  }
-})
-
 router.post('/checkout', async (req, res) => {
   try {
-    // Suite 1 (Stripe) stays available while Omise is pending approval
     if (!isStripeConfigured()) {
       return res.status(503).json({
         error: 'Stripe ยังไม่พร้อมบนเซิร์ฟเวอร์ — ตรวจ STRIPE_ENABLED=true, STRIPE_SECRET_KEY, STRIPE_PRICE_ID แล้ว restart backend',

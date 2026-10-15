@@ -40,11 +40,6 @@ const QUOTA_KEYS = [
 
 const HIDDEN_FEATURE_IDS = TRIP_PLANNER_ENABLED ? [] : ['tripPlan', 'tripChat']
 
-const UPGRADE_STATUS = {
-  open: 'รอตรวจสลิป',
-  in_progress: 'กำลังตรวจสอบ',
-}
-
 function fmtBillingDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -54,14 +49,13 @@ function fmtBillingDate(iso) {
   })
 }
 
+// Past manual PromptPay rows stay in the history even though that channel is closed
 function billingMethodLabel(source) {
-  if (source === 'omise_promptpay') return 'PromptPay (Omise)'
-  if (source === 'omise_card') return 'บัตร (Omise)'
   return source === 'stripe' ? 'บัตร (Stripe)' : 'PromptPay'
 }
 
 function billingStatusLabel(row) {
-  if (row.source === 'promptpay' || row.source === 'omise_promptpay') {
+  if (row.source === 'promptpay') {
     if (row.status === 'paid') return 'ชำระแล้ว'
     if (row.status === 'successful') return 'ชำระแล้ว'
     if (row.status === 'pending') return 'รอชำระ'
@@ -69,12 +63,6 @@ function billingStatusLabel(row) {
     if (row.status === 'expired') return 'หมดเวลา'
     if (row.status === 'open') return 'รอตรวจสลิป'
     if (row.status === 'in_progress') return 'กำลังตรวจ'
-    return row.status
-  }
-  if (row.source === 'omise_card') {
-    if (row.status === 'successful' || row.status === 'paid') return 'ชำระแล้ว'
-    if (row.status === 'pending') return 'รอชำระ'
-    if (row.status === 'failed') return 'ไม่สำเร็จ'
     return row.status
   }
   if (row.status === 'paid') return 'ชำระแล้ว'
@@ -117,7 +105,6 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
       return
     }
     setData(r)
-    window.__PORTDIARY_OMISE_PKEY = r.omisePublicKey || ''
   }
 
   useEffect(() => {
@@ -138,19 +125,6 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
       return
     }
     if (r.url) window.location.href = r.url
-  }
-
-  const cancelOmiseCard = async () => {
-    setActionErr('')
-    setPortalLoading(true)
-    const r = await api.post('/subscription/omise/card/cancel')
-    setPortalLoading(false)
-    if (r.error) {
-      setActionErr(r.error)
-      return
-    }
-    setBanner('ยกเลิกตัดบัตรอัตโนมัติแล้ว')
-    await load()
   }
 
   const refreshAccount = async () => {
@@ -191,22 +165,17 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
   const proPlan = plans.find((p) => p.id === 'pro')
   const features = (freePlan?.features || []).filter((f) => !HIDDEN_FEATURE_IDS.includes(f.id))
   const proPrice = data.catalog?.proMonthlyThb || 99
-  const pending = data.pendingUpgradeTicket
   const isStripePro = isPro && data.hasStripeSubscription
-  const isOmiseCardPro = isPro && data.hasOmiseSubscription
   const isManualPro = isPro && data.proPaymentSource === 'manual'
   const canOpenCheckout = !data.isOwner
   const needsPay = !data.isOwner && (!isPro || isManualPro)
   const stripeReady = !!data.paymentEnabled
   const showStripeManage = !data.isOwner && isStripePro && stripeReady
-  const showOmiseManage = !data.isOwner && isOmiseCardPro
   const billingHistory = data.billingHistory || []
   const stripeCancelled = data.stripeSubscription?.cancelAtPeriodEnd
-  const stripeAuto = stripeReady && data.paymentMode === 'stripe'
-  const omisePending = !!data.omisePending
-  const suite1Label = stripeReady
-    ? 'ชุด 1 พร้อมใช้: PromptPay (manual) + บัตร Stripe'
-    : 'ชุด 1: PromptPay (manual) · บัตร Stripe ยังไม่พร้อมบนเซิร์ฟเวอร์'
+  const payChannelLabel = stripeReady
+    ? 'บัตรเครดิต/เดบิตผ่าน Stripe · ต่ออายุอัตโนมัติรายเดือน'
+    : 'ระบบชำระเงินยังไม่พร้อม — ลองใหม่ภายหลัง'
 
   const quotaCards = QUOTA_KEYS.map(([key, label]) => quotaCard(data.quota, key, label)).filter(Boolean)
 
@@ -214,8 +183,7 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
   if (data.isOwner) statusNote = 'โควต้า AI ไม่จำกัด'
   else if (!isPro) statusNote = user?.email || null
   else if (stripeCancelled && expires) statusNote = `ยกเลิกบัตรแล้ว — ใช้ได้ถึง ${expires}`
-  else if (isManualPro) statusNote = 'ชำระผ่าน PromptPay — ต่ออายุด้วยมือ'
-  else if (data.proPaymentSource === 'omise_card') statusNote = 'ต่ออายุอัตโนมัติด้วยบัตร (Omise)'
+  else if (isManualPro) statusNote = 'ทีมงานเปิดสิทธิ์ให้ — ไม่ต่ออายุอัตโนมัติ'
   else if (data.proPaymentSource === 'stripe') statusNote = 'ต่ออายุอัตโนมัติด้วยบัตร'
   else if (expires) statusNote = `หมดอายุ ${expires}`
 
@@ -247,7 +215,7 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
         </div>
       )}
 
-      {stripeAuto && !data.isOwner && !isStripePro && (
+      {stripeReady && !data.isOwner && !isStripePro && (
         <p className="dash-text-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
           ชำระด้วยบัตรแล้วแต่สถานะยังไม่เปลี่ยน?{' '}
           <button type="button" className="dash-link-btn" onClick={refreshAccount} disabled={syncLoading}>
@@ -290,8 +258,7 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
                 : 'จัดการ / ดูช่องทางชำระเงิน'}
             </h3>
             <p className="dash-sub-pay-strip-desc">
-              {suite1Label}
-              {omisePending ? ' · ชุด 2 Omise รอยืนยัน' : ' · ชุด 2 Omise พร้อมใช้'}
+              {payChannelLabel}
             </p>
           </div>
           <div className="dash-sub-pay-strip-actions">
@@ -308,24 +275,7 @@ export default function SubscriptionPage({ user, onUserRefresh, onOpenCheckout, 
                 {portalLoading ? 'กำลังเปิด...' : 'ลองเปิด Stripe อีกครั้ง'}
               </button>
             )}
-            {showOmiseManage && (
-              <button type="button" onClick={cancelOmiseCard} style={btnGhost} disabled={portalLoading}>
-                {portalLoading ? 'กำลังยกเลิก...' : 'ยกเลิกตัดบัตร Omise'}
-              </button>
-            )}
           </div>
-        </div>
-      )}
-
-      {pending && (
-        <div className="dash-inset" style={{ padding: '12px 14px', marginBottom: '16px', borderColor: 'var(--accent)' }}>
-          <p className="dash-text-secondary" style={{ margin: 0, fontSize: '14px' }}>
-            คำขอ PromptPay #{pending.id} — <strong>{UPGRADE_STATUS[pending.status] || pending.status}</strong>
-            {' '}({new Date(pending.created_at).toLocaleDateString('th-TH')})
-          </p>
-          <p className="dash-text-muted" style={{ margin: '6px 0 0', fontSize: '13px' }}>
-            ทีมงานจะตรวจสลิปและเปิด Pro ให้ทางอีเมล
-          </p>
         </div>
       )}
 
