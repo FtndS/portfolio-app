@@ -21,12 +21,15 @@
         }
       })();
     </script>
-    <title>PortDiary — บันทึกพอร์ตการลงทุน</title>
-    <meta name="description" content="PortDiary — บันทึกพอร์ตการลงทุน กราฟพอร์ต, journal, ข่าว และ AI วิเคราะห์พอร์ต รองรับหุ้นไทยและต่างประเทศ" />
+    <title>PortDiary — บันทึกพอร์ตการลงทุน หุ้นไทย หุ้นอเมริกา และคริปโต</title>
+    <meta name="description" content="เว็บบันทึกพอร์ตการลงทุนแบบกรอกเองสำหรับนักลงทุนไทย รองรับหุ้นไทย หุ้นอเมริกา ฮ่องกง จีน และคริปโต มีบันทึกเหตุผลการลงทุน กราฟผลตอบแทน และ AI สรุปพอร์ตภาษาไทย ไม่ต้องให้รหัสโบรกเกอร์ เริ่มใช้ฟรี" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://portdiary.com/" />
+    <meta property="og:site_name" content="PortDiary" />
     <meta property="og:title" content="PortDiary — บันทึกพอร์ตการลงทุน" />
-    <meta property="og:description" content="บันทึก transaction, journal, กราฟ และ AI วิเคราะห์พอร์ตในที่เดียว" />
+    <meta property="og:description" content="บันทึกพอร์ตหุ้นไทย หุ้นอเมริกา และคริปโตแบบกรอกเอง พร้อมบันทึกเหตุผลการลงทุน กราฟผลตอบแทน และ AI สรุปพอร์ตภาษาไทย ไม่ต้องให้รหัสโบรกเกอร์" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://portdiary.com" />
+    <meta property="og:url" content="https://portdiary.com/" />
     <meta property="og:image" content="https://portdiary.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -34,11 +37,92 @@
     <meta property="og:locale" content="th_TH" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="PortDiary — บันทึกพอร์ตการลงทุน" />
-    <meta name="twitter:description" content="บันทึก transaction, journal, กราฟ และ AI วิเคราะห์พอร์ตในที่เดียว" />
+    <meta name="twitter:description" content="บันทึกพอร์ตหุ้นไทย หุ้นอเมริกา และคริปโตแบบกรอกเอง พร้อมบันทึกเหตุผลการลงทุน กราฟผลตอบแทน และ AI สรุปพอร์ตภาษาไทย ไม่ต้องให้รหัสโบรกเกอร์" />
     <meta name="twitter:image" content="https://portdiary.com/og-image.png" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://portdiary.com/#organization",
+          "name": "PortDiary",
+          "url": "https://portdiary.com/",
+          "logo": "https://portdiary.com/logo-icon-512.png",
+          "email": "support@portdiary.com",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": "support@portdiary.com"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://portdiary.com/#website",
+          "name": "PortDiary",
+          "url": "https://portdiary.com/",
+          "inLanguage": "th",
+          "publisher": { "@id": "https://portdiary.com/#organization" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://portdiary.com/#app",
+          "name": "PortDiary",
+          "url": "https://portdiary.com/",
+          "description": "PortDiary คือเว็บบันทึกพอร์ตการลงทุนแบบกรอกเองสำหรับนักลงทุนไทย รองรับหุ้นไทย หุ้นอเมริกา ฮ่องกง จีน และคริปโตในบัญชีเดียว มีบันทึกเหตุผลการลงทุน กราฟผลตอบแทน และ AI ช่วยสรุปพอร์ตเป็นภาษาไทย โดยไม่ต้องเชื่อมหรือให้รหัสบัญชีโบรกเกอร์",
+          "applicationCategory": "FinanceApplication",
+          "operatingSystem": "Web",
+          "inLanguage": "th",
+          "image": "https://portdiary.com/og-image.png",
+          "publisher": { "@id": "https://portdiary.com/#organization" },
+          "offers": [
+            {
+              "@type": "Offer",
+              "name": "Free",
+              "price": "0",
+              "priceCurrency": "THB",
+              "url": "https://portdiary.com/pricing.html"
+            },
+            {
+              "@type": "Offer",
+              "name": "Pro",
+              "price": "99",
+              "priceCurrency": "THB",
+              "url": "https://portdiary.com/pricing.html",
+              "priceSpecification": {
+                "@type": "UnitPriceSpecification",
+                "price": "99",
+                "priceCurrency": "THB",
+                "billingDuration": "P1M",
+                "unitCode": "MON"
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Static text for crawlers that do not run JavaScript. React (createRoot in src/main.jsx) replaces it on first render. Keep in sync with /about.html. -->
+      <main style="max-width:720px;margin:0 auto;padding:32px 20px;font-family:system-ui,-apple-system,sans-serif;line-height:1.7">
+        <h1>PortDiary — บันทึกพอร์ตการลงทุน</h1>
+        <p>PortDiary คือเว็บบันทึกพอร์ตการลงทุนแบบกรอกเองสำหรับนักลงทุนไทย รองรับหุ้นไทย หุ้นอเมริกา ฮ่องกง จีน และคริปโตในบัญชีเดียว มีบันทึกเหตุผลการลงทุน กราฟผลตอบแทน และ AI ช่วยสรุปพอร์ตเป็นภาษาไทย โดยไม่ต้องเชื่อมหรือให้รหัสบัญชีโบรกเกอร์</p>
+        <p>เริ่มใช้แผน Free ได้ฟรี แผน Pro ราคา ฿99 ต่อเดือน ชำระด้วยบัตรเครดิต/เดบิตผ่าน Stripe</p>
+        <p>PortDiary ไม่ใช่บริษัทหลักทรัพย์ นายหน้า หรือที่ปรึกษาการลงทุน ข้อมูลและผลจาก AI ไม่ใช่คำแนะนำการลงทุน</p>
+        <p>
+          <a href="/about.html">PortDiary คืออะไร</a> ·
+          <a href="/faq.html">คำถามที่พบบ่อย</a> ·
+          <a href="/pricing.html">แพ็กเกจและราคา</a> ·
+          <a href="/refund.html">ยกเลิกและคืนเงิน</a> ·
+          <a href="/terms.html">ข้อกำหนดการใช้งาน</a> ·
+          <a href="/privacy.html">นโยบายความเป็นส่วนตัว</a> ·
+          <a href="/contact.html">ติดต่อเรา</a>
+        </p>
+        <p>ติดต่อ: <a href="mailto:support@portdiary.com">support@portdiary.com</a></p>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

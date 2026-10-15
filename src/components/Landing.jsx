@@ -201,6 +201,8 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
 
       <footer className="landing-footer">
         <div className="landing-footer-links">
+          <a href="/about.html">PortDiary คืออะไร</a>
+          <a href="/faq.html">คำถามที่พบบ่อย</a>
           <a href="/pricing.html">แพ็กเกจและราคา</a>
           <a href="/checkout.html">ตะกร้า / Checkout</a>
           <a href="/refund.html">ยกเลิกและคืนเงิน</a>

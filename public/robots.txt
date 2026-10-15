@@ -1,0 +1,9 @@
+# robots.txt for https://portdiary.com
+# All crawlers may read public pages, including search and AI-answer crawlers
+# (e.g. Googlebot, Bingbot, OAI-SearchBot, PerplexityBot, GPTBot).
+# No per-bot groups: a crawler that matches its own group ignores the "*" group.
+
+User-agent: *
+Disallow: /api/
+
+Sitemap: https://portdiary.com/sitemap.xml
