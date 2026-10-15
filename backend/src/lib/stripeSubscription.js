@@ -99,6 +99,35 @@ export async function getStripeSubscriptionFlags(stripe, subscriptionId) {
   }
 }
 
+const STRIPE_SUB_ENDED = new Set(['canceled', 'incomplete_expired'])
+
+// Account deletion path: cancel immediately (not at period end) and throw when the
+// subscription cannot be confirmed ended, so the account is not deleted while billing continues.
+export async function cancelStripeSubscriptionNow(pool, userId) {
+  const row = await pool.query('SELECT stripe_subscription_id FROM users WHERE id = $1', [userId])
+  const subscriptionId = row.rows[0]?.stripe_subscription_id
+  if (!subscriptionId) return { cancelled: false, reason: 'no_subscription' }
+  const stripe = getStripe()
+  if (!stripe) throw new Error('Stripe is not configured')
+  try {
+    await stripe.subscriptions.cancel(String(subscriptionId))
+  } catch (err) {
+    if (err?.code !== 'resource_missing') {
+      const sub = await stripe.subscriptions.retrieve(String(subscriptionId)).catch(() => null)
+      if (!STRIPE_SUB_ENDED.has(sub?.status)) throw err
+    }
+  }
+  await pool.query(
+    `UPDATE users
+     SET stripe_subscription_id = NULL,
+         plan_note = COALESCE(plan_note, '') || ' · subscription cancelled (account deletion)',
+         plan_updated_at = NOW()
+     WHERE id = $1`,
+    [userId]
+  )
+  return { cancelled: true }
+}
+
 async function wasWebhookProcessed(pool, eventId) {
   const r = await pool.query(
     'SELECT 1 FROM stripe_webhook_events WHERE event_id = $1',

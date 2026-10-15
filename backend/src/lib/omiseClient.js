@@ -25,7 +25,10 @@ async function parseOmiseResponse(res) {
 
   if (res.ok) return data
   const msg = data?.message || data?.object || `Omise API error (${res.status})`
-  throw new Error(msg)
+  const err = new Error(msg)
+  err.status = res.status
+  err.code = data?.code || null
+  throw err
 }
 
 async function request(path, method = 'GET', body) {

@@ -38,6 +38,7 @@ const router = express.Router()
 const OTP_LEGACY_MESSAGE = 'ลิงก์รีเซ็ตหมดอายุหรือไม่ถูกต้อง กรุณาขอรหัส OTP ใหม่จากหน้าลืมรหัสผ่าน'
 
 import { resolveEffectivePlan } from '../lib/aiPlan.js'
+import { BillingCancelError, deleteUserAccount } from '../lib/accountDeletion.js'
 
 const USER_PUBLIC_SELECT = 'id, email, name, role, plan, plan_expires_at'
 
@@ -580,9 +581,15 @@ router.delete('/account', authMiddleware, authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' })
     }
 
-    await pool.query('DELETE FROM users WHERE id = $1', [req.userId])
+    await deleteUserAccount(pool, req.userId)
     res.json({ message: 'ลบบัญชีและข้อมูลทั้งหมดสำเร็จ' })
   } catch (err) {
+    if (err instanceof BillingCancelError) {
+      console.error('Delete account blocked: billing cancel failed', req.userId, err.provider, err.cause?.message)
+      return res.status(502).json({
+        error: 'ยกเลิกการต่ออายุ Pro ไม่สำเร็จ จึงยังไม่ได้ลบบัญชี กรุณาลองใหม่อีกครั้ง หรือติดต่อ support',
+      })
+    }
     console.error('Delete account error:', err.message)
     res.status(500).json({ error: 'ลบบัญชีไม่สำเร็จ กรุณาลองใหม่' })
   }

@@ -330,6 +330,34 @@ export async function cancelOmiseCardSubscription(pool, userId) {
   return { cancelled: true }
 }
 
+const OMISE_SCHEDULE_ENDED = new Set(['terminated', 'expired', 'deleted'])
+
+// Account deletion path: unlike cancelOmiseCardSubscription, this throws when the
+// schedule cannot be confirmed cancelled, so the caller can keep the account (and
+// the schedule id) instead of leaving Omise charging a card with no user behind it.
+export async function cancelOmiseCardSubscriptionStrict(pool, userId) {
+  const row = await pool.query('SELECT omise_schedule_id FROM users WHERE id = $1', [userId])
+  const scheduleId = row.rows[0]?.omise_schedule_id
+  if (!scheduleId) return { cancelled: false, reason: 'no_schedule' }
+  try {
+    await cancelOmiseSchedule(scheduleId)
+  } catch (err) {
+    if (err?.status !== 404) {
+      const schedule = await getOmiseSchedule(scheduleId).catch(() => null)
+      if (!OMISE_SCHEDULE_ENDED.has(schedule?.status)) throw err
+    }
+  }
+  await pool.query(
+    `UPDATE users
+     SET omise_schedule_id = NULL,
+         plan_note = COALESCE(plan_note, '') || ' · omise schedule cancelled (account deletion)',
+         plan_updated_at = NOW()
+     WHERE id = $1`,
+    [userId]
+  )
+  return { cancelled: true }
+}
+
 export async function getOmiseCardFlags(pool, userId) {
   const row = await pool.query('SELECT omise_schedule_id FROM users WHERE id = $1', [userId])
   const scheduleId = row.rows[0]?.omise_schedule_id
