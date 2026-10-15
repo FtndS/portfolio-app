@@ -166,7 +166,7 @@ export default function Landing({ onLogin, onRegister, onChooseStock, onChooseTr
             </button>
           </div>
           <div className="landing-price-card landing-price-card--pro landing-reveal landing-reveal--3">
-            <span className="landing-price-badge">ยอดนิยม</span>
+            <span className="landing-price-badge">แนะนำ</span>
             <h3>Pro</h3>
             <p className="landing-price-amount">฿99<span>/เดือน</span></p>
             <ul>

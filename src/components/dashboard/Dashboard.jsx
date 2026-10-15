@@ -415,7 +415,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
       <div>
         <h3 className="dash-section-title">
           <span className="dash-section-bar" aria-hidden />
-          Real-Time News
+          Latest News
           <span className="dash-section-count">เฉพาะกลุ่ม Sector ที่ถือ</span>
         </h3>
         {!inSectorNews.length ? <p className="dash-text-faint" style={{ fontSize: '13px' }}>กำลังอัปเดตข่าวสารจากระบบ...</p>
@@ -622,7 +622,7 @@ export default function Dashboard({user,onLogout,onUserUpdate,onOpenAdmin,onGoHu
               [pnlKpiLabel, pnlKpiVal, pnlKpiSub, pnlKpiTone],
               dividends.length>0
                 ? ['ปันผลรับปีนี้', hideValues ? MASKED : fmt(dividendYtd), hideValues ? `สะสม ${MASKED}` : `สะสม ${fmt(dividendAll)}${hasDividends&&!hideValues?` · รวม ~${returnPct.toFixed(2)}% ของทุน`:divYieldPct>0?` · yield ปีนี้ ~${divYieldPct.toFixed(2)}%`:''}`, 'gain']
-                : ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'Real-time', hideValues ? '' : 'info'],
+                : ['USD/THB', hideValues ? MASKED : (loadingP ? 'กำลังโหลด...' : `$1 = ฿${fxRate.toFixed(2)}`), hideValues ? 'ซ่อนอยู่' : 'อัปเดตทุก ~5 นาที', hideValues ? '' : 'info'],
             ].map(([label,val,sub,tone],i)=>(
               <div key={i} className="dash-kpi-card">
                 <div className="dash-kpi-label">{label}</div>
