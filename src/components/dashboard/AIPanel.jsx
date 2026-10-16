@@ -11,9 +11,9 @@ function formatAiError(message) {
 
 const COPILOT_PRESETS = [
   { id: 'portfolio_summary', label: 'สรุปภาพรวมพอร์ต', icon: '📊' },
-  { id: 'sector_risk', label: 'Sector ไหนเสี่ยงเกิน', icon: '⚖️' },
+  { id: 'sector_risk', label: 'สัดส่วนตามหมวด', icon: '⚖️' },
   { id: 'trading_review', label: 'ทบทวนการซื้อขาย', icon: '🔄' },
-  { id: 'weekly_focus', label: 'โฟกัสสัปดาห์นี้', icon: '🎯' },
+  { id: 'weekly_focus', label: 'ทบทวนบันทึกสัปดาห์นี้', icon: '📝' },
 ]
 
 function formatQuotaHint(quota, key) {
@@ -258,18 +258,18 @@ export default function AIPanel({
             </p>
             {Array.isArray(copilotAnswer.newsUsed) && copilotAnswer.newsUsed.length > 0 && (
               <div style={{ marginTop: '12px' }}>
-                <div className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '6px' }}>หลักฐานข่าวที่ใช้</div>
+                <div className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '6px' }}>ข่าวที่อ้างถึง</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {copilotAnswer.newsUsed.slice(0, 5).map((n, i) => (
+                  {copilotAnswer.newsUsed.map((n, i) => (
                     <a
                       key={`${n.url}-${i}`}
-                      href={n.url}
+                      href={n.url || undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="dash-text-accent"
                       style={{ fontSize: '12px', textDecoration: 'underline' }}
                     >
-                      {i + 1}. {n.title} · {n.source || 'Unknown'}
+                      [{n.id ?? i + 1}] {n.title} · {n.source || 'Unknown'}
                     </a>
                   ))}
                 </div>

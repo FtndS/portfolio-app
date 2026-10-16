@@ -1,6 +1,7 @@
 import express from 'express'
 import { serverError } from '../lib/httpErrors.js'
 import { createLruCache } from '../lib/lruCache.js'
+import { decodeEntities } from '../lib/htmlEntities.js'
 import { validateTickerSymbol } from '../lib/validate.js'
 import { authMiddleware } from '../middleware/auth.js'
 import {
@@ -54,10 +55,10 @@ async function fetchRSS(url) {
     const itemMatches = text.matchAll(/<item>([\s\S]*?)<\/item>/g)
     for (const m of itemMatches) {
       const t = m[1]
-      const title = t.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1]?.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() || ''
-      const link = t.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() || ''
+      const title = decodeEntities(t.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1]?.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')).trim()
+      const link = decodeEntities(t.match(/<link>([\s\S]*?)<\/link>/)?.[1]).trim()
       const pubDate = t.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1]?.trim() || ''
-      const source = t.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1]?.trim() || 'Yahoo Finance'
+      const source = decodeEntities(t.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1]).trim() || 'Yahoo Finance'
       if (title && link) parser.items.push({ title, url: link, publishedAt: pubDate, source: { name: source } })
     }
     cache.set(url, { data: parser.items, ts: Date.now() })

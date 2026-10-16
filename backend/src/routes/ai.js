@@ -20,6 +20,12 @@ import {
   portfolioTickers,
   sanitizeNewsSummary,
 } from '../lib/aiNewsSummaryPrompt.js'
+import {
+  buildCopilotSystemPrompt,
+  buildCopilotUserMessage,
+  citedNews,
+  normalizeCopilotNews,
+} from '../lib/aiCopilotPrompt.js'
 import { buildCopilotContext, resolveCopilotQuestion } from '../lib/aiCopilotContext.js'
 import {
   applyAiTripPlan,
@@ -158,9 +164,7 @@ async function callClaudeMessages(systemPrompt, messages, maxTokens = 4096) {
   return data.content[0].text
 }
 
-const compactJson = (value) => JSON.stringify(value)
-
-// Copilot Lite — คำถามสั้นๆ จากข้อมูลพอร์ต (context กระชับ ไม่ใช่แชทยาว)
+// Copilot Lite — คำถามสั้นๆ จากข้อมูลพอร์ต: ข้อเท็จจริง + ข่าวที่อ้างถึง + คำถามทบทวน — ไม่ใช่คำแนะนำการลงทุน
 router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) => {
   try {
     const {
@@ -197,41 +201,15 @@ router.post('/copilot', requireAiQuota(AI_FEATURES.COPILOT), async (req, res) =>
       planConfig,
     })
 
-    const relevantNews = (Array.isArray(inSectorNews) ? inSectorNews : [])
-      .slice(0, planConfig.copilot.maxNews || 8)
-      .map((n) => ({
-        title: String(n?.title || '').trim(),
-        source: String(n?.source?.name || n?.source || 'Unknown'),
-        publishedAt: String(n?.publishedAt || ''),
-        url: String(n?.url || ''),
-      }))
-      .filter((n) => n.title)
-
-    const systemPrompt = `คุณคือ Copilot ผู้ช่วยนักลงทุนระยะยาวของ PortDiary
-ตอบเป็นภาษาไทย กระชับ อ่านง่าย ใช้ bullet ได้ถ้าเหมาะสม
-อ้างอิงเฉพาะข้อมูลพอร์ตและข่าวที่ให้ — ห้ามแต่งตัวเลข/ข่าว/เหตุการณ์
-ถ้าคำถามเกี่ยวกับ "ทำไมราคาขึ้น/ลง" ให้เน้นเหตุผลเชิงเหตุการณ์จากข่าวล่าสุดก่อนทฤษฎีทั่วไป
-ถ้ามีข่าวรองรับ ให้ยก headline สั้นๆ พร้อมแหล่งข่าว/เวลา
-ถ้าข่าวที่ให้ยังไม่พอหรือไม่เจอเหตุผลชัด ให้บอกตรงๆ ว่า "ยังไม่พบหลักฐานข่าวที่ยืนยัน"
-รูปแบบที่ต้องการ:
-1) เหตุผลที่เป็นไปได้ (เฉพาะที่มีหลักฐานข่าว)
-2) หลักฐานข่าว (bullet: หัวข้อ | แหล่งข่าว | เวลา)
-3) ระดับความมั่นใจ: สูง/กลาง/ต่ำ
-ไม่ใช่คำแนะนำซื้อขาย — ช่วยทบทวนและสรุปเท่านั้น
-ตอบ plain text ไม่ใช่ JSON ไม่เกิน ${Math.floor(planConfig.copilot.maxTokens / 3)} คำโดยประมาณ`
-
-    const userMessage = `${context}
-
-ข่าวล่าสุดที่เกี่ยวข้องจากอินเทอร์เน็ต:
-${compactJson(relevantNews)}
-
-คำถาม: ${resolved.question}`
+    const relevantNews = normalizeCopilotNews(inSectorNews, planConfig.copilot.maxNews || 8)
+    const systemPrompt = buildCopilotSystemPrompt({ maxWords: Math.floor(planConfig.copilot.maxTokens / 3) })
+    const userMessage = buildCopilotUserMessage({ context, news: relevantNews, question: resolved.question })
 
     const text = await callClaude(systemPrompt, userMessage, planConfig.copilot.maxTokens)
     res.json({
       answer: text.trim(),
       preset: resolved.preset,
-      newsUsed: relevantNews,
+      newsUsed: citedNews(text, relevantNews),
       dataScope: {
         ...dataScope,
         internetNewsIncluded: relevantNews.length,

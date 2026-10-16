@@ -7,6 +7,8 @@
  * prices, or tell the user to buy, sell, or hold.
  */
 
+import { decodeEntities } from './htmlEntities.js'
+
 export const MAX_NEWS = 8
 
 /** Fields the client may receive. Anything else Claude returns is dropped. */
@@ -16,8 +18,8 @@ export const NEWS_SUMMARY_RESPONSE_FIELDS = ['summary', 'newsItems', 'mentionedT
 export function normalizeNews(news) {
   return (Array.isArray(news) ? news : [])
     .map((n) => ({
-      title: String(n?.title || '').trim(),
-      source: String(n?.source?.name || n?.source || '').trim() || null,
+      title: decodeEntities(n?.title).trim(),
+      source: decodeEntities(n?.source?.name || n?.source).trim() || null,
       url: /^https?:\/\//i.test(String(n?.url || '')) ? String(n.url) : null,
       publishedAt: String(n?.publishedAt || '').trim() || null,
     }))
@@ -38,8 +40,10 @@ export function buildNewsSummarySystemPrompt() {
 ตอบเป็นภาษาไทย กระชับ อ่านง่าย ใช้เฉพาะหัวข้อข่าวที่ให้มา ห้ามแต่งเนื้อข่าว ตัวเลข หรือเหตุการณ์ที่ไม่มีในหัวข้อข่าว
 ข้อห้าม:
 - ห้ามบอกว่าข่าวดีหรือร้าย เป็นบวกหรือลบ ต่อพอร์ต หุ้น หรือการลงทุน
+- ห้ามใช้คำประเมิน เช่น "แง่บวก" "แง่ลบ" "ดี" "ร้าย" "แรงหนุน" "แรงกดดัน" ถ้าหัวข่าวมีความเห็น ให้ระบุว่าเป็นความเห็นของแหล่งข่าว เช่น "Barron's มองว่า..."
 - ห้ามคาดการณ์ราคาหรือทิศทางหุ้น
 - ห้ามบอกให้ซื้อ ขาย ถือ เพิ่ม หรือลดสัดส่วนหุ้นตัวใด
+- tickers ใส่เฉพาะหุ้นในพอร์ตที่หัวข่าวพูดถึงตรงๆ (ชื่อบริษัท ชื่อกองทุน หรือ ticker) ห้ามอนุมานว่า ETF ในพอร์ตถือหุ้นที่ข่าวพูดถึง
 - ประเด็นอ่านเพิ่มให้เขียนเป็นคำถามปลายเปิดเกี่ยวกับเนื้อข่าว เช่น "ข่าวนี้พูดถึงตัวเลขไตรมาสไหน" ไม่ใช่ "ควรระวังหุ้น X"
 ตอบด้วย valid JSON เท่านั้น ห้ามมี markdown หรือข้อความนอก JSON`
 }

@@ -27,6 +27,8 @@ describe('aiAnalyzePrompt', () => {
     expect(prompt).toContain('ไม่ใช่คำแนะนำการลงทุน')
     expect(prompt).toContain('ห้ามบอกให้ซื้อ ขาย ถือต่อ เพิ่ม หรือลดสัดส่วน')
     expect(prompt).toContain('ห้ามให้คะแนน')
+    expect(prompt).toContain('ห้ามใช้ชื่อฟิลด์ภายใน')
+    expect(prompt).toContain('วันที่ให้ยึดตามข้อมูล')
   })
 
   it('requested JSON shape has no score or rebalance fields', () => {

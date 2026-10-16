@@ -11,7 +11,7 @@ import {
 
 const holdings = [{ ticker: 'PTT.BK' }, { ticker: 'voo' }, { ticker: 'PTT.BK' }]
 const rawNews = [
-  { title: 'PTT reports Q3 results', source: { name: 'Yahoo' }, url: 'https://example.com/a', publishedAt: '2026-10-15' },
+  { title: 'PTT reports Q3 results &amp; outlook', source: { name: 'Yahoo' }, url: 'https://example.com/a', publishedAt: '2026-10-15' },
   { title: 'S&P 500 ETF flows', source: 'Google News', url: 'javascript:alert(1)' },
   { title: '   ' },
 ]
@@ -25,6 +25,8 @@ describe('aiNewsSummaryPrompt', () => {
     expect(prompt).toContain('ห้ามบอกว่าข่าวดีหรือร้าย')
     expect(prompt).toContain('ห้ามคาดการณ์ราคา')
     expect(prompt).toContain('ห้ามบอกให้ซื้อ ขาย ถือ')
+    expect(prompt).toContain('แง่บวก')
+    expect(prompt).toContain('ห้ามอนุมานว่า ETF')
   })
 
   it('requested JSON shape has no impact or watchOut fields', () => {
@@ -72,7 +74,7 @@ describe('aiNewsSummaryPrompt', () => {
     expect(out).not.toHaveProperty('watchOut')
     expect(out.summary).toBe('ข่าวพูดถึงผลประกอบการ')
     expect(out.newsItems).toHaveLength(2)
-    expect(out.newsItems[0]).toMatchObject({ id: 1, title: 'PTT reports Q3 results', url: 'https://example.com/a', tickers: ['PTT.BK'] })
+    expect(out.newsItems[0]).toMatchObject({ id: 1, title: 'PTT reports Q3 results & outlook', url: 'https://example.com/a', tickers: ['PTT.BK'] })
     expect(out.newsItems[1]).toMatchObject({ id: 2, tickers: [] })
     expect(out.mentionedTickers).toEqual(['PTT.BK'])
     expect(out.readMore).toEqual(['ไตรมาสไหน', 'b', 'c'])
