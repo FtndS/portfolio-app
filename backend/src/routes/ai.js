@@ -13,6 +13,13 @@ import {
 import { getPlanConfigForUser } from '../lib/aiPlan.js'
 import { buildAnalyzePayload } from '../lib/aiAnalyzeContext.js'
 import { buildAnalyzeSystemPrompt, buildAnalyzeUserMessage, sanitizeAnalysis } from '../lib/aiAnalyzePrompt.js'
+import {
+  buildNewsSummarySystemPrompt,
+  buildNewsSummaryUserMessage,
+  normalizeNews,
+  portfolioTickers,
+  sanitizeNewsSummary,
+} from '../lib/aiNewsSummaryPrompt.js'
 import { buildCopilotContext, resolveCopilotQuestion } from '../lib/aiCopilotContext.js'
 import {
   applyAiTripPlan,
@@ -295,37 +302,20 @@ router.post('/analyze', requireAiQuota(AI_FEATURES.ANALYZE), async (req, res) =>
   }
 })
 
-// สรุปข่าวกระทบพอร์ต
+// สรุปข่าว: ข่าวพูดถึงอะไร + หุ้นในพอร์ตที่ข่าวพูดถึง — ไม่ตัดสินว่าดีหรือร้าย ไม่ใช่คำแนะนำการลงทุน
 router.post('/news-summary', requireAiQuota(AI_FEATURES.NEWS_SUMMARY), async (req, res) => {
   try {
-    const { holdings, news } = req.body
-    if (!holdings?.length || !news?.length) {
-      return res.json({ summary: 'ไม่มีข้อมูลเพียงพอสำหรับวิเคราะห์' })
+    const tickers = portfolioTickers(req.body?.holdings)
+    const news = normalizeNews(req.body?.news)
+    if (!tickers.length || !news.length) {
+      return res.json({ summary: 'ไม่มีข้อมูลเพียงพอสำหรับสรุปข่าว', newsItems: [], mentionedTickers: [], readMore: [] })
     }
 
-    const tickers = holdings.map(h => h.ticker).join(', ')
-    const newsText = news.slice(0, 8).map((n, i) => `${i+1}. ${n.title}`).join('\n')
-
-    const systemPrompt = `คุณคือนักวิเคราะห์การลงทุนที่สรุปข่าวและผลกระทบต่อพอร์ต
-ตอบเป็นภาษาไทย กระชับ อ่านง่าย ตรงประเด็น
-จัดรูปแบบด้วย JSON เท่านั้น`
-
-    const userMessage = `พอร์ตของ user ประกอบด้วย: ${tickers}
-
-ข่าวล่าสุด:
-${newsText}
-
-ตอบด้วย JSON นี้เท่านั้น:
-{
-  "impact": "positive/negative/neutral",
-  "summary": "สรุปผลกระทบต่อพอร์ต 2-3 ประโยค",
-  "highlights": ["ประเด็นสำคัญ 1", "ประเด็นสำคัญ 2", "ประเด็นสำคัญ 3"],
-  "watchOut": "สิ่งที่ควรระวัง 1 ประโยค"
-}`
+    const systemPrompt = buildNewsSummarySystemPrompt()
+    const userMessage = buildNewsSummaryUserMessage({ tickers, news })
 
     const text = await callClaude(systemPrompt, userMessage, 2048)
-    const result = parseClaudeJson(text)
-    res.json(result)
+    res.json(sanitizeNewsSummary(parseClaudeJson(text), { news, tickers }))
   } catch (err) {
     console.error('News summary error:', err)
     serverError(res, err)

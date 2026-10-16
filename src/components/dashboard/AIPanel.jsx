@@ -158,8 +158,6 @@ export default function AIPanel({
   const txCount = transactions.length
   const journalCount = journal.length
 
-  const impactColor = (i) => (i === 'positive' ? 'var(--gain)' : i === 'negative' ? 'var(--loss)' : 'var(--warn)')
-  const impactLabel = (i) => (i === 'positive' ? '📈 บวก' : i === 'negative' ? '📉 ลบ' : '➡️ กลางๆ')
   const topicLabel = (t) => ({
     sector: 'หมวดธุรกิจ',
     concentration: 'การกระจุกตัว',
@@ -433,11 +431,12 @@ export default function AIPanel({
       <div className="dash-card" style={{ marginBottom: 0 }}>
         <div className="dash-ai-header">
           <div>
-            <h3 className="dash-card-title">📰 AI สรุปข่าวกระทบพอร์ต</h3>
-            <p className="dash-card-sub" style={{ marginBottom: newsHint ? '4px' : 0 }}>Claude วิเคราะห์ข่าวล่าสุดและผลกระทบต่อ holdings</p>
+            <h3 className="dash-card-title">📰 AI สรุปข่าวหุ้นในพอร์ต</h3>
+            <p className="dash-card-sub" style={{ marginBottom: '4px' }}>Claude สรุปว่าข่าวล่าสุดพูดถึงอะไร และเกี่ยวกับหุ้นตัวไหนในพอร์ต</p>
             {newsHint && (
-              <p className="dash-text-faint" style={{ fontSize: '11px', margin: 0 }}>{newsHint}</p>
+              <p className="dash-text-faint" style={{ fontSize: '11px', margin: '0 0 4px' }}>{newsHint}</p>
             )}
+            <p className="dash-text-faint" style={{ fontSize: '11px', margin: 0 }}>⚠️ ไม่ใช่คำแนะนำการลงทุน — สรุปเนื้อข่าวเท่านั้น ควรอ่านต้นข่าวประกอบ</p>
           </div>
           <button
             type="button"
@@ -451,27 +450,41 @@ export default function AIPanel({
         </div>
 
         {newsError && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{newsError}</p>}
-        {!newsSummary && !loadingNews && emptyState('📰', newsBlocked ? (newsHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'กด "สรุปข่าว" เพื่อให้ Claude วิเคราะห์ข่าวที่กระทบพอร์ต')}
-        {loadingNews && emptyState('⏳', 'Claude กำลังอ่านข่าวและวิเคราะห์ผลกระทบ...')}
+        {!newsSummary && !loadingNews && emptyState('📰', newsBlocked ? (newsHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'กด "สรุปข่าว" เพื่อให้ Claude สรุปข่าวที่พูดถึงหุ้นในพอร์ต')}
+        {loadingNews && emptyState('⏳', 'Claude กำลังอ่านและสรุปข่าว...')}
 
         {newsSummary && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: impactColor(newsSummary.impact) }}>{impactLabel(newsSummary.impact)}</span>
-              <span className="dash-text-muted" style={{ fontSize: '12px' }}>ผลกระทบต่อพอร์ต</span>
-            </div>
-            <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, marginBottom: '14px' }}>{newsSummary.summary}</p>
-            {newsSummary.highlights?.length > 0 && (
+            {newsSummary.summary && (
+              <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, marginBottom: '14px' }}>{newsSummary.summary}</p>
+            )}
+            {newsSummary.mentionedTickers?.length > 0 && (
+              <p className="dash-text-muted" style={{ fontSize: '12px', marginBottom: '12px' }}>
+                หุ้นในพอร์ตที่ข่าวพูดถึง: <strong>{newsSummary.mentionedTickers.join(', ')}</strong>
+              </p>
+            )}
+            {newsSummary.newsItems?.length > 0 && (
               <div style={{ marginBottom: '12px' }}>
-                {newsSummary.highlights.map((h, i) => (
-                  <div key={i} className="dash-text-secondary" style={{ fontSize: '13px', padding: '6px 0 6px 12px', borderLeft: '2px solid var(--accent-text)', marginBottom: '6px' }}>{h}</div>
+                {newsSummary.newsItems.map((n) => (
+                  <div key={n.id} style={{ padding: '6px 0 6px 12px', borderLeft: '2px solid var(--accent-text)', marginBottom: '8px' }}>
+                    {n.gist && <p className="dash-text-secondary" style={{ fontSize: '13px', margin: '0 0 3px' }}>{n.gist}</p>}
+                    <p className="dash-text-muted" style={{ fontSize: '11px', margin: 0 }}>
+                      {n.tickers?.length > 0 && <strong>{n.tickers.join(', ')} · </strong>}
+                      {n.url
+                        ? <a href={n.url} target="_blank" rel="noopener noreferrer" className="dash-text-accent">{n.title}</a>
+                        : n.title}
+                      {n.source && ` · ${n.source}`}
+                    </p>
+                  </div>
                 ))}
               </div>
             )}
-            {newsSummary.watchOut && (
-              <div className="dash-inset dash-inset--warn" style={{ padding: '12px' }}>
-                <span className="dash-text-loss" style={{ fontSize: '12px', fontWeight: 600 }}>⚠️ ควรระวัง: </span>
-                <span className="dash-text-secondary" style={{ fontSize: '13px' }}>{newsSummary.watchOut}</span>
+            {newsSummary.readMore?.length > 0 && (
+              <div className="dash-inset" style={{ padding: '12px' }}>
+                <div className="dash-text-muted" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>🔍 ประเด็นที่อาจอยากอ่านเพิ่ม</div>
+                {newsSummary.readMore.map((q, i) => (
+                  <div key={i} className="dash-text-secondary" style={{ fontSize: '13px', marginBottom: '4px' }}>• {q}</div>
+                ))}
               </div>
             )}
           </div>
