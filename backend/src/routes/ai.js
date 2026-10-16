@@ -12,6 +12,7 @@ import {
 } from '../lib/aiQuota.js'
 import { getPlanConfigForUser } from '../lib/aiPlan.js'
 import { buildAnalyzePayload } from '../lib/aiAnalyzeContext.js'
+import { buildAnalyzeSystemPrompt, buildAnalyzeUserMessage, sanitizeAnalysis } from '../lib/aiAnalyzePrompt.js'
 import { buildCopilotContext, resolveCopilotQuestion } from '../lib/aiCopilotContext.js'
 import {
   applyAiTripPlan,
@@ -238,7 +239,7 @@ ${compactJson(relevantNews)}
   }
 })
 
-// วิเคราะห์พอร์ตและแนะนำ rebalancing (รวม transaction + journal)
+// ทบทวนพอร์ต: สรุปข้อเท็จจริง + ประเด็นให้ user ทบทวน (รวม transaction + journal) — ไม่ใช่คำแนะนำการลงทุน
 router.post('/analyze', requireAiQuota(AI_FEATURES.ANALYZE), async (req, res) => {
   try {
     const { holdings, prices, displayCurrency, fxRate, transactions = [], journal = [] } = req.body
@@ -271,69 +272,19 @@ router.post('/analyze', requireAiQuota(AI_FEATURES.ANALYZE), async (req, res) =>
     const maxLen = planConfig.analyze.maxStringLen
     const maxTokens = planConfig.analyze.maxTokens
 
-    const systemPrompt = `คุณคือที่ปรึกษาการลงทุนผู้เชี่ยวชาญที่วิเคราะห์พอร์ตแบบ Value Investing และพฤติกรรมการซื้อขายจริงของนักลงทุน
-ตอบเป็นภาษาไทย ละเอียดพอสมควร ตรงประเด็น ใช้ข้อมูลที่ให้มาเท่านั้น
-ห้ามแนะนำให้ซื้อหรือขายหุ้นที่ไม่ได้อยู่ในพอร์ต
-ถ้ามี transaction บ่อยหรือซื้อขายวน ให้ช่วยชี้ว่าอาจทำให้หาจุดทำกำไรยาก และควรทบทวนอะไร
-ถ้ามี journal ให้เชื่อมโยงกับพฤติกรรมซื้อขายจริงว่าสอดคล้องกับ thesis หรือไม่
-ตอบด้วย valid JSON เท่านั้น ห้ามมี markdown หรือข้อความนอก JSON
-แต่ละ string ไม่เกิน ${maxLen} ตัวอักษร recommendations ไม่เกิน ${maxRec} รายการ actionPlan ไม่เกิน 4 ข้อ`
-
-    const userMessage = `วิเคราะห์พอร์ตนี้อย่างละเอียดและตอบด้วย JSON ตามรูปแบบที่กำหนด:
-
-พอร์ตการลงทุน (${displayCurrency}):
-${compactJson(portfolioWithPct)}
-
-การกระจาย Sector:
-${compactJson(sectorAlloc)}
-
-มูลค่ารวม: ${totalValue.toFixed(2)} ${displayCurrency}
-
-สถิติ Transaction (ซื้อ/ขาย):
-${compactJson(txSummary.stats)}
-
-สรุปรายหุ้นจาก Transaction:
-${compactJson(txSummary.byTicker)}
-
-Transaction ล่าสุด (${txSummary.recent.length} รายการ):
-${compactJson(txSummary.recent)}
-
-Journal (${journalSummary.entries.length} รายการล่าสุด จากทั้งหมด ${journalSummary.stats.total}):
-${compactJson(journalSummary.entries)}
-
-ขอบเขตข้อมูลที่ส่ง (แผน ${dataScope.plan}): ${compactJson(dataScope)}
-
-ตอบในรูปแบบ JSON นี้เท่านั้น:
-{
-  "summary": "สรุปภาพรวมพอร์ต 3-4 ประโยค",
-  "score": 7,
-  "scoreReason": "เหตุผลคะแนน 1-2 ประโยค",
-  "strengths": ["จุดแข็ง 1", "จุดแข็ง 2", "จุดแข็ง 3"],
-  "risks": ["ความเสี่ยง 1", "ความเสี่ยง 2", "ความเสี่ยง 3"],
-  "tradingPattern": {
-    "summary": "สรุปพฤติกรรมซื้อขายจาก transaction",
-    "profitabilityNote": "ช่วยชี้จุดทำกำไร/ขาดทุนที่เห็นจากประวัติ หรือว่าซื้อขายบ่อยจนติดตามยาก",
-    "frequencyWarning": "คำเตือนถ้าซื้อขายบ่อย หรือ null ถ้าไม่มี"
-  },
-  "journalInsights": {
-    "summary": "สรุปจาก journal ที่ให้มา",
-    "thesisAlignment": "thesis/ความคิดใน journal สอดคล้องกับการซื้อขายจริงหรือไม่",
-    "gaps": ["สิ่งที่ควรจดบันทึกหรือทบทวนเพิ่ม 1", "2"]
-  },
-  "recommendations": [
-    {
-      "type": "rebalance/hold/reduce/review",
-      "ticker": "TICKER",
-      "action": "คำแนะนำที่ทำได้จริง",
-      "reason": "เหตุผลจากข้อมูล holdings/transaction/journal"
-    }
-  ],
-  "rebalanceSuggestion": "คำแนะนำ rebalance ภาพรวม 2-4 ประโยค",
-  "actionPlan": ["ขั้นตอนทบทวนที่แนะนำ 1", "2", "3"]
-}`
+    const systemPrompt = buildAnalyzeSystemPrompt({ maxLen, maxRec })
+    const userMessage = buildAnalyzeUserMessage({
+      displayCurrency,
+      portfolioWithPct,
+      sectorAlloc,
+      totalValue,
+      txSummary,
+      journalSummary,
+      dataScope,
+    })
 
     const text = await callClaude(systemPrompt, userMessage, maxTokens)
-    const analysis = parseClaudeJson(text)
+    const analysis = sanitizeAnalysis(parseClaudeJson(text), { maxRec })
     res.json({ ...analysis, dataScope })
   } catch (err) {
     console.error('AI analyze error:', err)

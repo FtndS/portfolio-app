@@ -158,16 +158,15 @@ export default function AIPanel({
   const txCount = transactions.length
   const journalCount = journal.length
 
-  const scoreColor = (s) => (s >= 8 ? 'var(--gain)' : s >= 6 ? 'var(--warn)' : 'var(--loss)')
   const impactColor = (i) => (i === 'positive' ? 'var(--gain)' : i === 'negative' ? 'var(--loss)' : 'var(--warn)')
   const impactLabel = (i) => (i === 'positive' ? '📈 บวก' : i === 'negative' ? '📉 ลบ' : '➡️ กลางๆ')
-  const typeColor = (t) => (t === 'hold' ? 'var(--gain)' : t === 'reduce' ? 'var(--loss)' : t === 'review' ? 'var(--warn)' : 'var(--accent-text)')
-  const typeLabel = (t) => (
-    t === 'hold' ? '✋ Hold'
-      : t === 'reduce' ? '📉 Reduce'
-        : t === 'review' ? '🔍 ทบทวน'
-          : '⚖️ Rebalance'
-  )
+  const topicLabel = (t) => ({
+    sector: 'หมวดธุรกิจ',
+    concentration: 'การกระจุกตัว',
+    currency: 'สกุลเงิน/ตลาด',
+    trading: 'การซื้อขาย',
+    journal: 'บันทึก',
+  }[t] || 'ทั่วไป')
 
   const emptyState = (icon, text) => (
     <div className="dash-empty-state" style={{ padding: '24px' }}>
@@ -287,7 +286,7 @@ export default function AIPanel({
           <div>
             <h3 className="dash-card-title">🤖 AI วิเคราะห์พอร์ต</h3>
             <p className="dash-card-sub" style={{ marginBottom: '4px' }}>
-              วิเคราะห์ holdings, transaction ({txCount}), journal ({journalCount}) — ช่วยหาจุดทำกำไรและทบทวนพฤติกรรมซื้อขาย
+              สรุปข้อเท็จจริงจาก holdings, transaction ({txCount}), journal ({journalCount}) และตั้งประเด็นให้คุณทบทวนเอง
             </p>
             {analyzeHint && (
               <p className="dash-text-faint" style={{ fontSize: '11px', margin: '0 0 4px' }}>{analyzeHint}</p>
@@ -309,7 +308,7 @@ export default function AIPanel({
         </div>
 
         {error && <p className="dash-text-loss" style={{ fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
-        {!analysis && !loading && emptyState('🧠', analyzeBlocked ? (analyzeHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'กด "วิเคราะห์พอร์ต" เพื่อให้ Claude ช่วยวิเคราะห์พอร์ต + ประวัติซื้อขาย + journal')}
+        {!analysis && !loading && emptyState('🧠', analyzeBlocked ? (analyzeHint || 'ใช้ครบโควต้าสัปดาห์นี้แล้ว') : 'กด "วิเคราะห์พอร์ต" เพื่อให้ Claude สรุปพอร์ต + ประวัติซื้อขาย + journal และตั้งประเด็นให้ทบทวน')}
         {loading && emptyState('⏳', 'Claude กำลังอ่าน holdings, transactions และ journal...')}
 
         {analysis && (
@@ -321,26 +320,39 @@ export default function AIPanel({
               </p>
             )}
 
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              <div className="dash-inset" style={{ borderColor: scoreColor(analysis.score), padding: '14px 18px', flex: '0 0 auto' }}>
-                <div className="dash-text-muted" style={{ fontSize: '11px', marginBottom: '4px' }}>คะแนนพอร์ต</div>
-                <div style={{ fontSize: '28px', fontWeight: 700, color: scoreColor(analysis.score) }}>
-                  {analysis.score}<span className="dash-text-muted" style={{ fontSize: '14px' }}>/10</span>
-                </div>
-                <div className="dash-text-muted" style={{ fontSize: '11px', marginTop: '2px' }}>{analysis.scoreReason}</div>
-              </div>
-              <div className="dash-inset" style={{ padding: '14px 18px', flex: 1 }}>
-                <div className="dash-text-muted" style={{ fontSize: '11px', marginBottom: '6px' }}>สรุปภาพรวม</div>
-                <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{analysis.summary}</p>
-              </div>
+            <div className="dash-inset dash-inset--warn" style={{ padding: '10px 14px', marginBottom: '12px' }}>
+              <p className="dash-text-secondary" style={{ fontSize: '12px', margin: 0 }}>
+                ⚠️ ไม่ใช่คำแนะนำการลงทุน — เป็นการสรุปข้อมูลที่คุณบันทึกไว้และตั้งคำถามให้ทบทวนเอง การตัดสินใจซื้อขายเป็นของคุณ
+              </p>
             </div>
+
+            <div className="dash-inset" style={{ padding: '14px 18px', marginBottom: '12px' }}>
+              <div className="dash-text-muted" style={{ fontSize: '11px', marginBottom: '6px' }}>สรุปข้อเท็จจริงของพอร์ต</div>
+              <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{analysis.summary}</p>
+            </div>
+
+            {(analysis.composition?.sector || analysis.composition?.currency || analysis.composition?.concentration) && (
+              insightBlock('🧩 การกระจายของพอร์ต', 'accent', (
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  {[
+                    ['หมวดธุรกิจ', analysis.composition.sector],
+                    ['สกุลเงิน/ตลาด', analysis.composition.currency],
+                    ['การกระจุกตัว', analysis.composition.concentration],
+                  ].filter(([, v]) => v).map(([label, v]) => (
+                    <li key={label} className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, marginBottom: '4px' }}>
+                      <span className="dash-text-muted">{label}: </span>{v}
+                    </li>
+                  ))}
+                </ul>
+              ))
+            )}
 
             {analysis.tradingPattern && (
               insightBlock('📊 พฤติกรรมซื้อขาย', 'warn', (
                 <>
                   <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: '0 0 8px' }}>{analysis.tradingPattern.summary}</p>
-                  {analysis.tradingPattern.profitabilityNote && (
-                    <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: '0 0 8px' }}>{analysis.tradingPattern.profitabilityNote}</p>
+                  {analysis.tradingPattern.realizedNote && (
+                    <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: '0 0 8px' }}>{analysis.tradingPattern.realizedNote}</p>
                   )}
                   {analysis.tradingPattern.frequencyWarning && (
                     <p className="dash-text-loss" style={{ fontSize: '12px', margin: 0 }}>⚠️ {analysis.tradingPattern.frequencyWarning}</p>
@@ -367,34 +379,36 @@ export default function AIPanel({
               ))
             )}
 
-            <div className="dash-ai-grid">
-              <div className="dash-inset dash-inset--gain" style={{ padding: '14px' }}>
-                <div className="dash-text-gain" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>✅ จุดแข็ง</div>
-                {analysis.strengths?.map((s, i) => (
-                  <div key={i} className="dash-text-secondary" style={{ fontSize: '13px', marginBottom: '6px', paddingLeft: '8px', borderLeft: '2px solid var(--gain)' }}>{s}</div>
-                ))}
+            {(analysis.observations?.length > 0 || analysis.riskNotes?.length > 0) && (
+              <div className="dash-ai-grid">
+                <div className="dash-inset dash-inset--accent" style={{ padding: '14px' }}>
+                  <div className="dash-text-accent" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>🔎 ข้อสังเกตจากข้อมูล</div>
+                  {analysis.observations?.map((s, i) => (
+                    <div key={i} className="dash-text-secondary" style={{ fontSize: '13px', marginBottom: '6px', paddingLeft: '8px', borderLeft: '2px solid var(--accent-text)' }}>{s}</div>
+                  ))}
+                </div>
+                <div className="dash-inset dash-inset--warn" style={{ padding: '14px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px', color: 'var(--warn)' }}>⚠️ จุดที่พอร์ตอาจผันผวนตามปัจจัยเดียว</div>
+                  {analysis.riskNotes?.map((r, i) => (
+                    <div key={i} className="dash-text-secondary" style={{ fontSize: '13px', marginBottom: '6px', paddingLeft: '8px', borderLeft: '2px solid var(--warn)' }}>{r}</div>
+                  ))}
+                </div>
               </div>
-              <div className="dash-inset dash-inset--loss" style={{ padding: '14px' }}>
-                <div className="dash-text-loss" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>⚠️ ความเสี่ยง</div>
-                {analysis.risks?.map((r, i) => (
-                  <div key={i} className="dash-text-secondary" style={{ fontSize: '13px', marginBottom: '6px', paddingLeft: '8px', borderLeft: '2px solid var(--loss)' }}>{r}</div>
-                ))}
-              </div>
-            </div>
+            )}
 
-            {analysis.recommendations?.length > 0 && (
+            {analysis.reviewPoints?.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
-                <div className="dash-text-accent" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>💡 คำแนะนำรายหุ้น</div>
+                <div className="dash-text-accent" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>🤔 ประเด็นที่ควรทบทวน</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {analysis.recommendations.map((r, i) => (
+                  {analysis.reviewPoints.map((p, i) => (
                     <div key={i} className="dash-inset" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '12px' }}>
-                      <div style={{ flexShrink: 0 }}>
-                        <span style={{ fontWeight: 700, fontSize: '13px' }}>{r.ticker}</span>
-                        <span style={{ display: 'block', fontSize: '11px', color: typeColor(r.type), marginTop: '2px' }}>{typeLabel(r.type)}</span>
+                      <div style={{ flexShrink: 0, minWidth: '72px' }}>
+                        {p.ticker && <span style={{ display: 'block', fontWeight: 700, fontSize: '13px' }}>{p.ticker}</span>}
+                        <span className="dash-text-muted" style={{ display: 'block', fontSize: '11px', marginTop: p.ticker ? '2px' : 0 }}>{topicLabel(p.topic)}</span>
                       </div>
                       <div>
-                        <p style={{ fontSize: '13px', marginBottom: '3px' }}>{r.action}</p>
-                        <p className="dash-text-muted" style={{ fontSize: '12px', margin: 0 }}>{r.reason}</p>
+                        {p.observation && <p style={{ fontSize: '13px', marginBottom: '3px' }}>{p.observation}</p>}
+                        {p.question && <p className="dash-text-muted" style={{ fontSize: '12px', margin: 0 }}>→ {p.question}</p>}
                       </div>
                     </div>
                   ))}
@@ -402,18 +416,11 @@ export default function AIPanel({
               </div>
             )}
 
-            {analysis.rebalanceSuggestion && (
-              <div className="dash-inset dash-inset--accent" style={{ padding: '14px', marginBottom: '12px' }}>
-                <div className="dash-text-accent" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>🔄 แนะนำ Rebalance</div>
-                <p className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{analysis.rebalanceSuggestion}</p>
-              </div>
-            )}
-
-            {analysis.actionPlan?.length > 0 && (
+            {analysis.reviewSteps?.length > 0 && (
               <div className="dash-inset" style={{ padding: '14px' }}>
-                <div className="dash-text-muted" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>📋 แผนทบทวนที่แนะนำ</div>
+                <div className="dash-text-muted" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>📋 ขั้นตอนทบทวนบันทึกของคุณ</div>
                 <ol style={{ margin: 0, paddingLeft: '20px' }}>
-                  {analysis.actionPlan.map((step, i) => (
+                  {analysis.reviewSteps.map((step, i) => (
                     <li key={i} className="dash-text-secondary" style={{ fontSize: '13px', lineHeight: 1.65, marginBottom: '6px' }}>{step}</li>
                   ))}
                 </ol>
