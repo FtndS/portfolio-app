@@ -24,14 +24,18 @@ Google picked `https://www.portdiary.com/` because www returned 200 with the sam
 - `/index.html` → `301 /`. The SPA fallback runs inside the frontend container, so this can't loop.
 - `sitemap.xml` and internal links already used the apex only. No change needed.
 
-**After (curl):** _pending deploy_
+**After (curl, 2026-10-16, deploy of `655e320`):**
 
 | URL | Expected | Actual |
 |---|---|---|
-| https://www.portdiary.com/ | 301 → https://portdiary.com/ | |
-| http://www.portdiary.com/ | 301 → https://portdiary.com/ | |
-| https://portdiary.com/index.html | 301 → https://portdiary.com/ | |
-| https://portdiary.com/ | 200 | |
+| https://www.portdiary.com/ | 301 → https://portdiary.com/ | 301 → https://portdiary.com/ ✅ |
+| http://www.portdiary.com/ | 301 → https://portdiary.com/ | 301 → https://portdiary.com/ ✅ (one hop) |
+| https://portdiary.com/index.html | 301 → https://portdiary.com/ | 301 → https://portdiary.com/ ✅ |
+| https://portdiary.com/ | 200 | 200 ✅ (canonical `https://portdiary.com/`) |
+| http://portdiary.com/ | 301 → https://portdiary.com/ | 301 → https://portdiary.com/ ✅ |
+| https://www.portdiary.com/about.html?x=1 | 301, keeps path + query | 301 → https://portdiary.com/about.html?x=1 ✅ |
+
+`/about.html`, `/sitemap.xml` and `/api/health` on the apex still return 200.
 
 **Follow-up:**
 - Search Console: URL Inspection `https://portdiary.com/` → Test Live URL → Request Indexing. Re-check Google-selected canonical in 1–3 weeks.
